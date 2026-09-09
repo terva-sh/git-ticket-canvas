@@ -32,10 +32,18 @@ references:
     path: docs/preact-canvas.md
   - ref: design:canvas-organization
     path: docs/canvas-organization-design.md
+  - ref: evidence:conditional-board-reads
+    path: docs/conditional-board-reads.md
+  - ref: evidence:refresh-normal
+    path: docs/refresh-measurements-updated/refresh-normal.json
+  - ref: evidence:refresh-heavy
+    path: docs/refresh-measurements-updated/refresh-body-heavy.json
+  - ref: evidence:server-benchmark
+    path: docs/refresh-measurements-updated/server-benchmark.txt
 claim: null
 archive: null
 created_at: 2026-09-09T22:45:46Z
-updated_at: 2026-09-09T22:45:46Z
+updated_at: 2026-09-09T23:37:34Z
 created_by:
   id: agent:terva/mieli
   name: Mieli

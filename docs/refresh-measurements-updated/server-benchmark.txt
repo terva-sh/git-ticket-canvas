@@ -1,0 +1,35 @@
+Conditional-board-read server benchmark, 2026-09-09
+Parent implementation based on 423802c with the uncommitted conditional-read changes.
+Command: go test ./internal/api -run '^$' -bench '^BenchmarkBoardRead$' -benchmem -benchtime=1s -count=3
+Go 1.26.2; linux/amd64; AMD Ryzen 9 9950X3D; GOMAXPROCS=32.
+Recorded by terva 0.134.5-0.20260908184005-01e3a6719b46, commit 01e3a67, built 2026-09-08T18:49:46Z.
+Extensions: index 0.8.2, obsidian 0.2.0, web 0.3.1. Session 20260909-215300-f584a1be.
+
+legacy200 reproduces the old handler inside the benchmark and verifies identical response bytes.
+It is not a separately checked-out historical binary. Timings include filesystem reads,
+readiness, DTO construction, JSON encoding, and httptest response buffering, not network/TLS.
+The conditional implementation still does full store reads and representation construction.
+Normal fixture: 120 ready tickets, 32-byte descriptions, 120 saved placements.
+Body-heavy fixture: 120 ready tickets, 128 KiB per ticket across five body sections, 120 placements.
+These server fixtures differ from the browser fixture's 16 KiB descriptions and 39 dependencies.
+
+BenchmarkBoardRead/normal120/legacy200-32             172    7001704 ns/op       80837 payload-B/op    6169544 B/op    62000 allocs/op
+BenchmarkBoardRead/normal120/legacy200-32             172    6963704 ns/op       80837 payload-B/op    6169737 B/op    62000 allocs/op
+BenchmarkBoardRead/normal120/legacy200-32             171    6897819 ns/op       80837 payload-B/op    6171182 B/op    62000 allocs/op
+BenchmarkBoardRead/normal120/full200-32               169    7114402 ns/op       80837 payload-B/op    6279120 B/op    62216 allocs/op
+BenchmarkBoardRead/normal120/full200-32               168    7036978 ns/op       80837 payload-B/op    6279966 B/op    62216 allocs/op
+BenchmarkBoardRead/normal120/full200-32               170    7058005 ns/op       80837 payload-B/op    6280096 B/op    62216 allocs/op
+BenchmarkBoardRead/normal120/conditional304-32        171    7012474 ns/op           0 payload-B/op    6196385 B/op    62215 allocs/op
+BenchmarkBoardRead/normal120/conditional304-32        168    7078398 ns/op           0 payload-B/op    6198961 B/op    62216 allocs/op
+BenchmarkBoardRead/normal120/conditional304-32        171    6955202 ns/op           0 payload-B/op    6197153 B/op    62215 allocs/op
+BenchmarkBoardRead/bodyHeavy120/legacy200-32           32   36388209 ns/op    15810681 payload-B/op  120827486 B/op    66577 allocs/op
+BenchmarkBoardRead/bodyHeavy120/legacy200-32           32   36992029 ns/op    15810681 payload-B/op  120826466 B/op    66577 allocs/op
+BenchmarkBoardRead/bodyHeavy120/legacy200-32           32   38444984 ns/op    15810681 payload-B/op  120827492 B/op    66577 allocs/op
+BenchmarkBoardRead/bodyHeavy120/full200-32             27   41813548 ns/op    15810681 payload-B/op  139804919 B/op    66796 allocs/op
+BenchmarkBoardRead/bodyHeavy120/full200-32             26   41727531 ns/op    15810681 payload-B/op  138231310 B/op    66795 allocs/op
+BenchmarkBoardRead/bodyHeavy120/full200-32             25   40543426 ns/op    15810681 payload-B/op  135008511 B/op    66792 allocs/op
+BenchmarkBoardRead/bodyHeavy120/conditional304-32      24   43426103 ns/op           0 payload-B/op  117281539 B/op    66787 allocs/op
+BenchmarkBoardRead/bodyHeavy120/conditional304-32      26   43138440 ns/op           0 payload-B/op  119478878 B/op    66789 allocs/op
+BenchmarkBoardRead/bodyHeavy120/conditional304-32      24   42933102 ns/op           0 payload-B/op  120457458 B/op    66791 allocs/op
+PASS
+ok github.com/terva-sh/git-ticket-canvas/internal/api 34.170s

@@ -1,0 +1,348 @@
+{
+  "format": 1,
+  "environment": {
+    "recordedAt": "2026-09-09T23:17:22.443Z",
+    "head": "423802c0778f9a096ae90063c95cc1857341c27f",
+    "workingTree": "D .tickets/draft/TKT-01M245HJ7GBGQ8G8JGGY5RW2DY.md\n M internal/api/dto.go\n M internal/api/server.go\n D web/dist/assets/index-BeJDLQPA.js\n M web/dist/index.html\n M web/src/platform/tickets/client.test.ts\n M web/src/platform/tickets/client.ts\n M web/src/platform/tickets/store.test.ts\n M web/src/platform/tickets/store.ts\n M web/src/ui/App.tsx\n M web/src/ui/Canvas.tsx\n M web/src/ui/canvas/CardView.tsx\n?? .tickets/canvas/\n?? .tickets/tickets/\n?? docs/refresh-measurements-baseline/\n?? docs/refresh-measurements-updated/\n?? docs/refresh-measurements.md\n?? internal/api/board_bench_test.go\n?? internal/api/conditional_test.go\n?? tests/browser/refresh-measurements.spec.ts\n?? tests/browser/refresh-regressions.spec.ts\n?? tests/browser/refresh-support.ts\n?? web/dist/assets/index-Ium9NVoL.js\n?? web/src/platform/tickets/reconcile.ts\n?? web/src/ui/App.test.tsx",
+    "node": "v22.23.2",
+    "go": "go version go1.26.2 linux/amd64",
+    "playwright": "1.61.1",
+    "browser": "149.0.7827.55",
+    "chromiumExecutable": "Playwright managed",
+    "os": "linux 6.18.33.2-microsoft-standard-WSL2",
+    "cpu": "AMD Ryzen 9 9950X3D 16-Core Processor",
+    "logicalCPUs": 32,
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "workers": 1,
+    "conditionalExpected": true,
+    "productionPollingMs": 12000
+  },
+  "instrumentation": {
+    "instrumented": true,
+    "instrumentedBundleSHA256": "ab930ca877e4125f1307dfd8630ed9f24f1bdf7fe6550174b0cd2b5dc9bc9fcd",
+    "method": "In-memory Vite function-entry increments in App, CardView and autoPlace; existing Inspector data-render-count; MutationObserver."
+  },
+  "fixture": {
+    "variant": "body-heavy",
+    "cards": 120,
+    "dependencies": 39,
+    "pinnedCards": 120,
+    "descriptionBytesPerTicket": 16384,
+    "actualDescriptionBytes": 1966080,
+    "boardJSONBytesFromFixture": 2117071
+  },
+  "initial": [
+    {
+      "id": "1977619.4",
+      "startedMs": 33.92751199999475,
+      "url": "http://127.0.0.1:37303/api/board?board=default",
+      "method": "GET",
+      "ifNoneMatch": null,
+      "status": 200,
+      "etag": "\"882b988165a025fe09d219902de868f27d803c82b706a1b025e3375c0f14c054\"",
+      "decodedPayloadBytes": 2117072,
+      "encodedBodyBytes": 2117087,
+      "wireResponseBytes": 2117326,
+      "durationMs": 43.57738800000516,
+      "fromDiskCache": false,
+      "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+    }
+  ],
+  "phases": {
+    "idle": {
+      "requestedIntervalMs": 25000,
+      "elapsedMs": 25007.10299700001,
+      "reads": [
+        {
+          "id": "1977619.5",
+          "startedMs": 12033.942628999997,
+          "url": "http://127.0.0.1:37303/api/board?board=default",
+          "method": "GET",
+          "ifNoneMatch": "\"882b988165a025fe09d219902de868f27d803c82b706a1b025e3375c0f14c054\"",
+          "status": 304,
+          "etag": "\"882b988165a025fe09d219902de868f27d803c82b706a1b025e3375c0f14c054\"",
+          "decodedPayloadBytes": 0,
+          "encodedBodyBytes": 0,
+          "wireResponseBytes": 174,
+          "durationMs": 23.73523099999875,
+          "fromDiskCache": false,
+          "wireBytesSource": "CDP raw HTTP response headers; 304 has no body",
+          "completion": "bodyless 304 reported as ERR_ABORTED by CDP"
+        },
+        {
+          "id": "1977619.6",
+          "startedMs": 24033.807354999997,
+          "url": "http://127.0.0.1:37303/api/board?board=default",
+          "method": "GET",
+          "ifNoneMatch": "\"882b988165a025fe09d219902de868f27d803c82b706a1b025e3375c0f14c054\"",
+          "status": 304,
+          "etag": "\"882b988165a025fe09d219902de868f27d803c82b706a1b025e3375c0f14c054\"",
+          "decodedPayloadBytes": 0,
+          "encodedBodyBytes": 0,
+          "wireResponseBytes": 174,
+          "durationMs": 24.946647000004305,
+          "fromDiskCache": false,
+          "wireBytesSource": "CDP raw HTTP response headers; 304 has no body",
+          "completion": "bodyless 304 reported as ERR_ABORTED by CDP"
+        }
+      ],
+      "totals": {
+        "requests": 2,
+        "status": [
+          304,
+          304
+        ],
+        "payloadBytes": 0,
+        "wireResponseBytes": 348,
+        "conditionalRequests": 2
+      },
+      "counts": {
+        "appRenders": 0,
+        "cardRenders": 0,
+        "placementCalls": 0,
+        "inspectorRenders": 0,
+        "dom": {
+          "all": 0,
+          "content": 0,
+          "cards": 0,
+          "inspector": 0,
+          "diagnostics": 0
+        }
+      }
+    },
+    "apiEdit": {
+      "mutation": {
+        "status": 200,
+        "requestPayloadBytes": 145,
+        "responsePayloadBytes": 17563,
+        "elapsedMs": 35.04406899999594,
+        "wireResponseBytes": null,
+        "serverReconciliation": null
+      },
+      "writeStartToVisibleMs": 10808.664082999996,
+      "acceptedToVisibleMs": 10773.62116699999,
+      "reads": [
+        {
+          "id": "1977619.7",
+          "startedMs": 36033.715142,
+          "url": "http://127.0.0.1:37303/api/board?board=default",
+          "method": "GET",
+          "ifNoneMatch": "\"882b988165a025fe09d219902de868f27d803c82b706a1b025e3375c0f14c054\"",
+          "status": 200,
+          "etag": "\"5c3043ca7ddb511cd0b9c1bbafa0e6800527bcb12979112179d08db61260e301\"",
+          "decodedPayloadBytes": 2117069,
+          "encodedBodyBytes": 2117084,
+          "wireResponseBytes": 2117323,
+          "durationMs": 35.724545999997645,
+          "fromDiskCache": false,
+          "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+        }
+      ],
+      "totals": {
+        "requests": 1,
+        "status": [
+          200
+        ],
+        "payloadBytes": 2117069,
+        "wireResponseBytes": 2117323,
+        "conditionalRequests": 1
+      },
+      "counts": {
+        "appRenders": 1,
+        "cardRenders": 1,
+        "placementCalls": 1,
+        "inspectorRenders": 1,
+        "dom": {
+          "all": 5,
+          "content": 1,
+          "cards": 1,
+          "inspector": 0,
+          "diagnostics": 4
+        }
+      }
+    },
+    "externalEdit": {
+      "method": "Atomic rename of one Markdown file in isolated fixture store",
+      "writeStartToVisibleMs": 12004.53284,
+      "acceptedToVisibleMs": 12002.969478999992,
+      "reads": [
+        {
+          "id": "1977619.8",
+          "startedMs": 48034.087658000004,
+          "url": "http://127.0.0.1:37303/api/board?board=default",
+          "method": "GET",
+          "ifNoneMatch": "\"5c3043ca7ddb511cd0b9c1bbafa0e6800527bcb12979112179d08db61260e301\"",
+          "status": 200,
+          "etag": "\"38623292c00d00e19e6785f9bc14d092ee174d3682324c9a539825eb592f2122\"",
+          "decodedPayloadBytes": 2117082,
+          "encodedBodyBytes": 2117097,
+          "wireResponseBytes": 2117336,
+          "durationMs": 34.89234900000156,
+          "fromDiskCache": false,
+          "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+        }
+      ],
+      "totals": {
+        "requests": 1,
+        "status": [
+          200
+        ],
+        "payloadBytes": 2117082,
+        "wireResponseBytes": 2117336,
+        "conditionalRequests": 1
+      },
+      "counts": {
+        "appRenders": 1,
+        "cardRenders": 1,
+        "placementCalls": 2,
+        "inspectorRenders": 1,
+        "dom": {
+          "all": 6,
+          "content": 1,
+          "cards": 1,
+          "inspector": 0,
+          "diagnostics": 5
+        }
+      }
+    },
+    "burst": {
+      "edits": 10,
+      "method": "Ten sequential API patches to ten distinct tickets",
+      "mutations": [
+        {
+          "status": 200,
+          "requestPayloadBytes": 150,
+          "responsePayloadBytes": 17569,
+          "elapsedMs": 34.31097800000862,
+          "wireResponseBytes": null,
+          "serverReconciliation": null
+        },
+        {
+          "status": 200,
+          "requestPayloadBytes": 150,
+          "responsePayloadBytes": 17569,
+          "elapsedMs": 31.966774999993504,
+          "wireResponseBytes": null,
+          "serverReconciliation": null
+        },
+        {
+          "status": 200,
+          "requestPayloadBytes": 150,
+          "responsePayloadBytes": 17645,
+          "elapsedMs": 31.46791000000667,
+          "wireResponseBytes": null,
+          "serverReconciliation": null
+        },
+        {
+          "status": 200,
+          "requestPayloadBytes": 150,
+          "responsePayloadBytes": 17568,
+          "elapsedMs": 31.574735999995028,
+          "wireResponseBytes": null,
+          "serverReconciliation": null
+        },
+        {
+          "status": 200,
+          "requestPayloadBytes": 150,
+          "responsePayloadBytes": 17569,
+          "elapsedMs": 33.40620399999898,
+          "wireResponseBytes": null,
+          "serverReconciliation": null
+        },
+        {
+          "status": 200,
+          "requestPayloadBytes": 150,
+          "responsePayloadBytes": 17646,
+          "elapsedMs": 33.64391900000919,
+          "wireResponseBytes": null,
+          "serverReconciliation": null
+        },
+        {
+          "status": 200,
+          "requestPayloadBytes": 150,
+          "responsePayloadBytes": 17569,
+          "elapsedMs": 31.76524999999674,
+          "wireResponseBytes": null,
+          "serverReconciliation": null
+        },
+        {
+          "status": 200,
+          "requestPayloadBytes": 150,
+          "responsePayloadBytes": 17569,
+          "elapsedMs": 31.975124999997206,
+          "wireResponseBytes": null,
+          "serverReconciliation": null
+        },
+        {
+          "status": 200,
+          "requestPayloadBytes": 150,
+          "responsePayloadBytes": 17646,
+          "elapsedMs": 32.38380199999665,
+          "wireResponseBytes": null,
+          "serverReconciliation": null
+        },
+        {
+          "status": 200,
+          "requestPayloadBytes": 150,
+          "responsePayloadBytes": 17569,
+          "elapsedMs": 33.766525999992155,
+          "wireResponseBytes": null,
+          "serverReconciliation": null
+        }
+      ],
+      "mutationRequestPayloadBytes": 1500,
+      "mutationResponsePayloadBytes": 175919,
+      "writeStartToVisibleMs": 12012.467437,
+      "lastAcceptedToVisibleMs": 11686.173995999998,
+      "reads": [
+        {
+          "id": "1977619.9",
+          "startedMs": 60034.056115,
+          "url": "http://127.0.0.1:37303/api/board?board=default",
+          "method": "GET",
+          "ifNoneMatch": "\"38623292c00d00e19e6785f9bc14d092ee174d3682324c9a539825eb592f2122\"",
+          "status": 200,
+          "etag": "\"6ceeb7bc589dcbc3e69ab4f26b35164ad43e5eafc6bbb73a4a4b4ff90afacb1b\"",
+          "decodedPayloadBytes": 2117092,
+          "encodedBodyBytes": 2117107,
+          "wireResponseBytes": 2117346,
+          "durationMs": 34.901047000006656,
+          "fromDiskCache": false,
+          "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+        }
+      ],
+      "totals": {
+        "requests": 1,
+        "status": [
+          200
+        ],
+        "payloadBytes": 2117092,
+        "wireResponseBytes": 2117346,
+        "conditionalRequests": 1
+      },
+      "counts": {
+        "appRenders": 1,
+        "cardRenders": 10,
+        "placementCalls": 1,
+        "inspectorRenders": 1,
+        "dom": {
+          "all": 23,
+          "content": 10,
+          "cards": 10,
+          "inspector": 0,
+          "diagnostics": 13
+        }
+      }
+    }
+  },
+  "limitations": [
+    "CDP wireResponseBytes is loadingFinished.encodedDataLength, including HTTP response headers, not TCP/TLS overhead.",
+    "Network.dataReceived encodedBodyBytes may be zero when Chromium supplies no per-chunk encoded lengths; it is not a payload estimate.",
+    "APIRequestContext mutation payloads are decoded bytes. Mutation wire sizes and server reconciliation counts are unavailable.",
+    "Latency is accepted-write-to-DOM observation, including polling delay and up to two settling frames; not filesystem-event detection latency.",
+    "No throttling or accelerated timers. One tab with open inspector. Reconnect, multiple tabs and other correctness cases use separate regression tests."
+  ]
+}

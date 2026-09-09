@@ -26,6 +26,9 @@ interface CardViewProps {
 // Memoization keeps metadata out of the per-frame pan and link updates.
 export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, selected, dimmed, target, register }: CardViewProps) {
   const element = useRef<HTMLDivElement>(null)
+  // Refresh regression diagnostic; unlike DOM mutation counts this sees renders.
+  const renders = useRef(0)
+  renders.current++
   useLayoutEffect(() => {
     register(t.id, element.current)
     return () => register(t.id, null)
@@ -52,7 +55,7 @@ export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, sel
   const done = ac.filter(item => item.checked).length
   const classes = ['card', !pinned && 'unpinned', selected && 'selected', dimmed && 'dimmed',
     target && 'link-target', t.status === 'done' && 'done', t.status === 'archived' && 'archived'].filter(Boolean).join(' ')
-  return <div ref={element} class={classes} data-id={t.id}
+  return <div ref={element} class={classes} data-id={t.id} data-render-count={renders.current}
     style={{ transform: `translate(${x}px, ${y}px)`, zIndex: z, '--status': `var(--s-${t.status})` }}>
     <div class="card-head"><span class="card-id">{t.short || t.id}</span><span class="card-type">{t.type}</span></div>
     <div class="card-title">{t.title}</div>

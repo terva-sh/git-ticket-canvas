@@ -15,6 +15,7 @@ interface InterfaceState {
 export function App() {
   const [store] = useState(() => new TicketStore(new TicketClient()))
   const [snapshot, setSnapshot] = useState(store.state)
+  const published = useRef(store.state), publications = useRef(0)
   const [ui, setUI] = useState<InterfaceState>({ selected: null, selection: new Set(), query: '', filters: new Set(),
     composer: null, composerKey: 0, generation: 0 })
   const [feedback, setFeedback] = useState<Feedback | null>(null)
@@ -22,7 +23,9 @@ export function App() {
   const generation = useRef(0), feedbackId = useRef(0), busy = useRef(false), mounted = useRef(true)
   const deferredRead = useRef(false), canvas = useRef<CanvasHandle>(null), fitFrame = useRef(0)
   const publish = () => {
-    if (!mounted.current) return
+    if (!mounted.current || published.current === store.state) return
+    published.current = store.state
+    publications.current++
     setSnapshot(store.state)
     setUI(current => current.selected && !store.state.tickets.has(current.selected)
       ? { ...current, selected: null, selection: new Set() } : current)
@@ -35,8 +38,11 @@ export function App() {
 
   async function refresh(fit = false) {
     if (busy.current) { deferredRead.current = true; return }
-    if (await store.load()) {
-      if (busy.current) { deferredRead.current = true; return }
+    await store.load()
+    if (busy.current) { deferredRead.current = true; return }
+    // A response can be accepted while a drag delays publication. A later
+    // 304 must still publish that accepted state once the gesture ends.
+    if (published.current !== store.state) {
       publish()
       if (fit) {
         cancelAnimationFrame(fitFrame.current)
@@ -190,7 +196,7 @@ export function App() {
       ...ticket.labels, ...ticket.assignees, ticket.body.description].filter(Boolean).join(' ').toLowerCase().includes(query)
   }
   return <>
-    <div id="toolbarRoot"><Toolbar storePath={snapshot.storePath} readOnly={snapshot.readOnly}
+    <div id="toolbarRoot" data-store-publications={publications.current}><Toolbar storePath={snapshot.storePath} readOnly={snapshot.readOnly}
       boards={snapshot.boards} board={snapshot.board} config={snapshot.config} query={ui.query} filters={ui.filters}
       counts={`${[...snapshot.tickets.values()].filter(matches).length} of ${snapshot.tickets.size}`}
       onQuery={query => setUI(current => ({ ...current, query }))}

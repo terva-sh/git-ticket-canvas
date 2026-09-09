@@ -33,6 +33,28 @@ it('encodes board and delete queries and keeps the revision on forced deletion',
   expect(Object.fromEntries(url.searchParams)).toEqual({ board: 'A & B', ifRevision: 'sha256:a+b', force: 'true' })
   expect(result.dangling).toBeNull()
 })
+it('returns a conditional read result and leaves 304 bodies unread', async () => {
+  const response = new Response(null, { status: 304 })
+  const text = vi.spyOn(response, 'text')
+  const send = vi.fn<typeof fetch>().mockResolvedValue(response)
+  expect(await new TicketClient(send).board('A & B', '"snapshot"')).toEqual({ status: 304 })
+  expect(text).not.toHaveBeenCalled()
+  expect(send).toHaveBeenCalledWith('/api/board?board=A%20%26%20B', {
+    method: 'GET', cache: 'no-store', headers: { 'If-None-Match': '"snapshot"' },
+  })
+})
+it.each(['"snapshot"', null])('returns a complete board with validator %s', async etag => {
+  const response = new Response('{"layout":{"board":"default"}}', { headers: etag ? { ETag: etag } : {} })
+  const send = vi.fn<typeof fetch>().mockResolvedValue(response)
+  expect(await new TicketClient(send).board('default')).toEqual({
+    status: 200, data: { layout: { board: 'default' } }, etag,
+  })
+  expect(send.mock.calls[0][1]).toEqual({ method: 'GET', cache: 'no-store', headers: undefined })
+})
+it('keeps structured errors on conditional board reads', async () => {
+  const send = vi.fn<typeof fetch>().mockResolvedValue(new Response('{"code":"invalid_board","message":"bad board"}', { status: 400 }))
+  await expect(new TicketClient(send).board('bad', '"old"')).rejects.toMatchObject({ status: 400, body: { code: 'invalid_board' } })
+})
 it('preserves server actor casing, null transitions and server-owned vocabulary', async () => {
   const data = { actor: { ID: 'agent:test', Name: 'Test' }, actors: null, transitions: { archived: null }, statuses: ['future-status'] }
   const client = new TicketClient(vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(data))))

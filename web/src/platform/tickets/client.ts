@@ -7,6 +7,11 @@ export class ApiError extends Error {
   get code() { return this.body.code }
 }
 
+/** HTTP read outcome, distinct from the board's wire representation. */
+export type BoardRead =
+  | { status: 200; data: BoardResponse; etag: string | null }
+  | { status: 304 }
+
 export class TicketClient {
   // Calling native fetch as a class property binds the wrong receiver in browsers.
   constructor(private readonly send: typeof fetch = (input, init) => fetch(input, init)) {}
@@ -17,6 +22,10 @@ export class TicketClient {
       headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     })
+    return this.decode<T>(response)
+  }
+
+  private async decode<T>(response: Response): Promise<T> {
     const text = await response.text()
     let data: unknown
     try { data = text ? JSON.parse(text) : null } catch {
@@ -34,7 +43,16 @@ export class TicketClient {
     return data as T
   }
 
-  board(name: string) { return this.request<BoardResponse>('GET', `/api/board?board=${encodeURIComponent(name)}`) }
+  async board(name: string, etag?: string): Promise<BoardRead> {
+    // The store owns validators. Do not let the browser merge a cached body
+    // into a 304 or reuse a response after a local mutation or board switch.
+    const response = await this.send(`/api/board?board=${encodeURIComponent(name)}`, {
+      method: 'GET', cache: 'no-store',
+      headers: etag ? { 'If-None-Match': etag } : undefined,
+    })
+    if (response.status === 304) return { status: 304 }
+    return { status: 200, data: await this.decode<BoardResponse>(response), etag: response.headers.get('ETag') }
+  }
   schema() { return this.request<Schema>('GET', '/api/schema') }
   create(body: CreateRequest) { return this.request<TicketResponse>('POST', '/api/tickets', body) }
   patch(id: string, body: PatchRequest) { return this.request<TicketResponse>('PATCH', `/api/tickets/${encodeURIComponent(id)}`, body) }

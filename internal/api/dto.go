@@ -1,6 +1,8 @@
 package api
 
 import (
+	"time"
+
 	"github.com/terva-sh/git-ticket/ticket"
 )
 
@@ -134,7 +136,7 @@ func nonNil(s []string) []string {
 // toDTO projects one parsed ticket. now is the instant claim expiry is judged
 // against, passed in rather than read here so a whole board answers with one
 // clock.
-func toDTO(t *ticket.Ticket, short string, r ticket.Readiness, now nowFunc) Ticket {
+func toDTO(t *ticket.Ticket, short string, r ticket.Readiness, now time.Time) Ticket {
 	d := Ticket{
 		ID:           t.ID,
 		Short:        short,
@@ -186,7 +188,7 @@ func toDTO(t *ticket.Ticket, short string, r ticket.Readiness, now nowFunc) Tick
 			Worktree: deref(c.Worktree),
 			Commit:   deref(c.Commit),
 			Session:  deref(c.Session),
-			Expired:  c.Expired(now()),
+			Expired:  c.Expired(now),
 		}
 		if c.ClaimedAt != nil {
 			d.Claim.ClaimedAt = c.ClaimedAt.String()

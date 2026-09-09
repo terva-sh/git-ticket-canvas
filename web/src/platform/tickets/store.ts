@@ -1,19 +1,22 @@
 import { ApiError, TicketClient } from './client'
+import { reconcileRecord, reconcileTickets, reuse } from './reconcile'
 import type { CardChanges, Cards, CreateRequest, Op, Schema, Ticket } from './types'
 
 export interface PersistedState {
   board: string; tickets: Map<string, Ticket>; cards: Cards; boards: string[]
-  config: Schema | null; storePath: string; readOnly: boolean
+  config: Schema | null; storePath: string; readOnly: boolean; layoutSchema: number | null
 }
 export class TicketStore {
   state: PersistedState = {
-    board: 'default', tickets: new Map(), cards: {}, boards: [], config: null, storePath: '', readOnly: false,
+    board: 'default', tickets: new Map(), cards: {}, boards: [], config: null, storePath: '', readOnly: false, layoutSchema: null,
   }
   private generation = 0
   private read = 0
   private epoch = 0
   private writes = 0
   private tail: Promise<unknown> = Promise.resolve()
+  // Valid only for the current accepted board, never for an optimistic edit.
+  private validator: string | undefined
 
   constructor(private readonly client: TicketClient) {}
 
@@ -21,19 +24,39 @@ export class TicketStore {
     if (board === this.state.board) return
     this.generation++
     this.read++
-    this.state = { ...this.state, board, cards: {} }
+    this.validator = undefined
+    this.state = { ...this.state, board, cards: {}, layoutSchema: null }
   }
 
   async load(): Promise<boolean> {
     const read = ++this.read, epoch = this.epoch, generation = this.generation
-    const board = this.state.board
+    const board = this.state.board, validator = this.validator
+    const current = () => read === this.read && epoch === this.epoch && generation === this.generation && !this.writes
     try {
-      const response = await this.client.board(board)
-      if (read !== this.read || epoch !== this.epoch || generation !== this.generation || this.writes) return false
-      this.state = {
-        board, tickets: new Map(response.tickets.map(t => [t.id, t])), cards: response.layout.cards,
-        boards: response.boards, config: response.config, storePath: response.storePath, readOnly: response.readOnly,
+      let result = await this.client.board(board, validator)
+      if (!current()) return false
+      if (result.status === 304) {
+        if (validator) return false
+        // A proxy or inconsistent server may send 304 without a usable cache.
+        // Retry once unconditionally; never loop or accept an empty board.
+        result = await this.client.board(board)
+        if (!current()) return false
+        if (result.status === 304) throw new ApiError(304, { code: 'invalid_response', message: 'Server returned 304 without a cached board' })
       }
+      const response = result.data
+      if (response.layout.board !== board) throw new ApiError(200, { code: 'invalid_response', message: 'Server returned another board' })
+      const previous = this.state
+      const next: PersistedState = {
+        board, tickets: reconcileTickets(previous.tickets, response.tickets),
+        cards: reconcileRecord(previous.cards, response.layout.cards),
+        boards: reuse(previous.boards, response.boards), config: reuse(previous.config, response.config),
+        storePath: response.storePath, readOnly: response.readOnly, layoutSchema: response.layout.schema,
+      }
+      this.validator = result.etag || undefined
+      if (next.tickets === previous.tickets && next.cards === previous.cards && next.boards === previous.boards
+        && next.config === previous.config && next.storePath === previous.storePath
+        && next.readOnly === previous.readOnly && next.layoutSchema === previous.layoutSchema) return false
+      this.state = next
       return true
     } catch (error) {
       if (read !== this.read || epoch !== this.epoch || generation !== this.generation) return false
@@ -45,10 +68,11 @@ export class TicketStore {
   // Invalidate reads on both sides, including reads started during a write.
   private write<T>(run: () => Promise<T>): Promise<T> {
     this.epoch++
+    this.validator = undefined
     this.writes++
     const result = this.tail.then(run)
     this.tail = result.catch(() => {})
-    return result.finally(() => { this.epoch++; this.writes-- })
+    return result.finally(() => { this.epoch++; this.writes--; this.validator = undefined })
   }
 
   async patch(id: string, ops: Op[], revision: string) {
@@ -57,9 +81,12 @@ export class TicketStore {
       return await this.write(async () => {
         const response = await this.client.patch(id, { ifRevision: revision, ops })
         if (generation === this.generation) {
-          const tickets = new Map(this.state.tickets)
-          tickets.set(response.ticket.id, response.ticket)
-          this.state = { ...this.state, tickets }
+          const accepted = reuse(this.state.tickets.get(response.ticket.id), response.ticket)!
+          if (accepted !== this.state.tickets.get(response.ticket.id)) {
+            const tickets = new Map(this.state.tickets)
+            tickets.set(response.ticket.id, accepted)
+            this.state = { ...this.state, tickets }
+          }
         }
         return response.ticket
       })
@@ -80,7 +107,9 @@ export class TicketStore {
       if (generation === this.generation && body.board === this.state.board) {
         const tickets = new Map(this.state.tickets)
         tickets.set(response.ticket.id, response.ticket)
-        this.state = { ...this.state, tickets, cards: response.layout?.cards || this.state.cards }
+        this.state = { ...this.state, tickets,
+          cards: response.layout ? reconcileRecord(this.state.cards, response.layout.cards) : this.state.cards,
+          layoutSchema: response.layout?.schema ?? this.state.layoutSchema }
       }
       return response
     })
@@ -92,7 +121,10 @@ export class TicketStore {
     return this.write(async () => {
       const response = await this.client.layout(body)
       if (generation === this.generation && board === this.state.board) {
-        this.state = { ...this.state, cards: response.cards }
+        const cards = reconcileRecord(this.state.cards, response.cards)
+        if (cards !== this.state.cards || response.schema !== this.state.layoutSchema) {
+          this.state = { ...this.state, cards, layoutSchema: response.schema }
+        }
       }
       return response
     })

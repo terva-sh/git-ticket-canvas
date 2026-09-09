@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -51,16 +52,39 @@ func New(st *ticket.Store, opts Options) *Server {
 // Handler returns the router.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/board", s.handleBoard)
-	mux.HandleFunc("GET /api/schema", s.handleSchema)
-	mux.HandleFunc("POST /api/tickets", s.handleCreate)
-	mux.HandleFunc("PATCH /api/tickets/{id}", s.handlePatch)
-	mux.HandleFunc("DELETE /api/tickets/{id}", s.handleDelete)
-	mux.HandleFunc("PUT /api/layout", s.handleLayout)
+	mux.HandleFunc("GET /api/board", s.withStore((*Server).handleBoard))
+	mux.HandleFunc("GET /api/schema", s.withStore((*Server).handleSchema))
+	mux.HandleFunc("POST /api/tickets", s.withStore((*Server).handleCreate))
+	mux.HandleFunc("PATCH /api/tickets/{id}", s.withStore((*Server).handlePatch))
+	mux.HandleFunc("DELETE /api/tickets/{id}", s.withStore((*Server).handleDelete))
+	mux.HandleFunc("PUT /api/layout", s.withStore((*Server).handleLayout))
 	if s.assets != nil {
 		mux.Handle("/", http.FileServerFS(s.assets))
 	}
 	return mux
+}
+
+// withStore gives every API request current configuration and one clock value.
+// The library retains both on Store, so refreshing only board reads would
+// advertise configuration that schema and mutations still reject. Clone the
+// server per request; keep the shared layout writer and operator identity.
+func (s *Server) withStore(next func(*Server, http.ResponseWriter, *http.Request)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "private, no-cache")
+		if r.Method != http.MethodGet && r.Method != http.MethodHead && s.refuseWrite(w) {
+			return
+		}
+		now := s.now()
+		st, err := ticket.OpenWith(s.store.Path(), ticket.OpenOptions{Now: func() time.Time { return now }})
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		request := *s
+		request.store = st
+		request.now = func() time.Time { return now }
+		next(&request, w, r)
+	}
 }
 
 // --- responses ---------------------------------------------------------
@@ -152,15 +176,20 @@ func (s *Server) handleBoard(w http.ResponseWriter, r *http.Request) {
 		name = layout.DefaultBoard
 	}
 
+	// withStore shares this instant with readiness and reloads configuration.
+	// This remains a full store read, not a shared snapshot cache.
+	now := s.now()
+	st := s.store
+
 	// All: true, because the canvas is the place you look at finished work
 	// beside live work. The client decides what to dim; the server does not
 	// get to decide what exists.
-	tickets, err := s.store.List(ctx, ticket.Filter{All: true})
+	tickets, err := st.List(ctx, ticket.Filter{All: true})
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	ready, err := s.store.Readiness(ctx)
+	ready, err := st.Readiness(ctx)
 	if err != nil {
 		fail(w, err)
 		return
@@ -173,7 +202,7 @@ func (s *Server) handleBoard(w http.ResponseWriter, r *http.Request) {
 
 	out := make([]Ticket, 0, len(tickets))
 	for _, t := range tickets {
-		out = append(out, toDTO(t, short[t.ID], ready[t.ID], s.now))
+		out = append(out, toDTO(t, short[t.ID], ready[t.ID], now))
 	}
 
 	b, err := s.layout.Load(name)
@@ -187,14 +216,68 @@ func (s *Server) handleBoard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, boardResponse{
+	data, err := json.Marshal(boardResponse{
 		Board:     b,
 		Boards:    boards,
 		Tickets:   out,
-		Config:    s.schema(),
+		Config:    s.schemaFor(st.Config()),
 		StorePath: s.store.Path(),
 		ReadOnly:  s.readOnly,
 	})
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	// Preserve the JSON encoder's trailing newline and hash exactly the bytes
+	// sent on 200. encoding/json sorts map keys; store lists are sorted too.
+	data = append(data, '\n')
+	etag := fmt.Sprintf(`"%x"`, sha256.Sum256(data))
+	w.Header().Set("ETag", etag)
+	if matchesIfNoneMatch(r.Header.Values("If-None-Match"), etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+// matchesIfNoneMatch uses weak comparison for GET/HEAD. Parse the complete
+// list before accepting a match: malformed conditions fall back to a full read.
+// Commas inside opaque tags are legal and must not split the list.
+func matchesIfNoneMatch(values []string, etag string) bool {
+	value := strings.Trim(strings.Join(values, ","), " \t")
+	if value == "*" {
+		return true
+	}
+	matched := false
+	for value != "" {
+		value = strings.TrimLeft(value, " \t,")
+		if value == "" {
+			break
+		}
+		value = strings.TrimPrefix(value, "W/")
+		if len(value) == 0 || value[0] != '"' {
+			return false
+		}
+		i := 1
+		for i < len(value) && value[i] != '"' {
+			// etagc = %x21 / %x23-7E / obs-text (RFC 9110).
+			if value[i] < 0x21 || value[i] == 0x7f {
+				return false
+			}
+			i++
+		}
+		if i == len(value) {
+			return false
+		}
+		matched = matched || value[:i+1] == etag
+		value = strings.TrimLeft(value[i+1:], " \t")
+		if value != "" && value[0] != ',' {
+			return false
+		}
+	}
+	return matched
 }
 
 // --- schema ------------------------------------------------------------
@@ -219,7 +302,10 @@ type schemaBody struct {
 }
 
 func (s *Server) schema() schemaBody {
-	cfg := s.store.Config()
+	return s.schemaFor(s.store.Config())
+}
+
+func (s *Server) schemaFor(cfg ticket.Config) schemaBody {
 	transitions := map[string][]string{}
 	required := map[string][]string{}
 	for _, from := range ticket.Statuses {
@@ -496,5 +582,5 @@ func (s *Server) one(ctx context.Context, t *ticket.Ticket) Ticket {
 			short = s
 		}
 	}
-	return toDTO(t, short, r, s.now)
+	return toDTO(t, short, r, s.now())
 }

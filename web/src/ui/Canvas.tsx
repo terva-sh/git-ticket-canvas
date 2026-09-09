@@ -75,8 +75,10 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   const [, setRevision] = useState(0)
   const redraw = () => setRevision(n => n + 1)
   const measurements = useMeasurements(stage)
+  const placementCalculations = useRef(0)
 
   function positions(): Map<string, Placement> {
+    placementCalculations.current++
     const p = latest.current
     const pinned = { ...p.cards, ...Object.fromEntries(local.previews) }
     const automatic = autoPlace(p.tickets.values(), pinned, p.statuses)
@@ -364,6 +366,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   const gesture = local.gesture
   const ghost = gesture?.kind === 'link' ? { from: gesture.from, point: gesture.point } : null
   return <div id="stage" ref={stage} data-canvas-frame={local.frameCount}
+    data-placement-calculations={placementCalculations.current}
     class={gesture?.kind === 'pan' ? 'panning' : gesture?.kind === 'link' ? 'linking' : ''}
     style={{ touchAction: 'none' }}
     onDblClick={event => {
