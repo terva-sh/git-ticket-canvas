@@ -1,17 +1,76 @@
-# tkcanvas
+# git-ticket-canvas
 
 An infinite canvas over a [git-ticket](https://github.com/terva-sh/git-ticket) store.
-Single Go binary, embedded vanilla-JS frontend, no build step, no database.
+One Go binary serves the Preact frontend and HTTP API. The frontend uses
+TypeScript and Vite; its built assets are committed in `web/dist` and embedded
+in the binary. No Node process or database is required at runtime.
+
+## Build and run
+
+From a source checkout, build with Go using the committed frontend assets.
+No JavaScript toolchain is needed for this build:
 
 ```sh
-go build -o tkcanvas .
-./tkcanvas -store /path/to/repo     # http://127.0.0.1:7777
+go build -o git-ticket-canvas .
+./git-ticket-canvas -store /path/to/repo -read-only
 ```
 
-Flags: `-store` (directory to discover `.tickets` from), `-addr`, `-actor`,
-`-read-only`.
+Open http://127.0.0.1:7777. The repository must already contain a `.tickets`
+store; initialize one with `git ticket init` if needed. To permit edits, remove
+`-read-only` and set `-actor human:your-id`. The application writes ticket and
+layout files but never commits or pushes them.
 
----
+Flags include `-store`, `-addr`, `-actor`, and `-read-only`. Use `-h` for help,
+`--version` for build provenance, or `--version --json` for machine-readable
+output. Keep the server on loopback; it has no authentication.
+
+With Go, Node.js 22.12 or newer, npm, and just installed, rebuild and install
+from source:
+
+```sh
+just web-setup
+just install
+# Once git-ticket-canvas is on PATH:
+git ticket-canvas -store /path/to/repo -read-only
+```
+
+`just install` rebuilds the frontend and installs into the first writable
+`~/.local/bin` or `~/bin`. Use `just install /path/to/bin` for an explicit
+destination. See [local installation](docs/local-install.md) for details.
+Git discovers the executable as `git ticket-canvas`, not `git ticket canvas`.
+
+See [release usage](README-release.md) for archive installation and container
+serving, and the [release runbook](docs/releasing.md) for publication checks.
+
+## Frontend development
+
+```sh
+just web-setup          # Install locked dependencies with npm ci.
+just build              # Typecheck, build web/dist with Vite, then build Go.
+just web-typecheck
+just web-test           # Platform, component, and import-boundary tests.
+```
+
+For live frontend development, run these in separate terminals:
+
+```sh
+just api-dev -store /path/to/repo -read-only
+just web-dev
+```
+
+Open http://127.0.0.1:5173. Vite serves the Preact source and proxies `/api` to
+Go on port 7777. The Go port serves the last built `web/dist`, not Vite's source.
+Set `GIT_TICKET_CANVAS_API_URL` to a loopback HTTP origin if the API uses another
+port.
+
+Commit frontend source, lockfile changes, and regenerated `web/dist` together.
+Raw `go build` does not rebuild the frontend. Before release, `just parity-check`
+verifies the committed bundle before any rebuild, runs frontend and Go checks,
+tests embedded browser behavior, and builds a clean checkout without Node.
+Browser checks require Playwright Chromium; install it with `just browser-setup`.
+See [the parity gate](docs/development-preact.md#development-checks-and-the-release-gate)
+for full validation prerequisites and
+[the Preact migration](docs/preact-migration.md) for verification evidence.
 
 ## What this is for
 
@@ -74,15 +133,23 @@ the layout file and claim a placement nobody chose.
 main.go              flags, embed, store discovery, actor resolution
 internal/layout      the board file: read, write, canonical render
 internal/api         JSON API over the ticket library + DTOs + op dispatch
-web/                 index.html + app.js, served from go:embed
+web/src/main.ts      Preact entry point
+web/src/ui           App, Canvas, inspector, composer, toolbar, feedback
+web/src/platform     typed HTTP client, ticket state, write queues, geometry
+web/dist             committed Vite output, served from go:embed
 ```
 
-The library is used directly (`ticket.Store`), not shelled out to. Every edit
-goes through the typed `Mutation` set under the store lock with the same
-revision preconditions the CLI uses. Nothing is applied optimistically in the
-browser: a round trip per edit buys the property that what you see is what is
-on disk, and a refused write stays refused instead of lingering as local state
-the next reload silently drops.
+Preact owns the browser UI. `App` owns accepted store snapshots, selection,
+and forms; `Canvas` owns viewport state, gestures, animation frames, and
+pending layout previews. The platform modules contain no Preact or DOM imports.
+See [component ownership and save policies](docs/preact-canvas.md).
+
+The Go server uses the library directly (`ticket.Store`), not through shell
+commands. Every ticket edit goes through the typed `Mutation` set under the
+store lock with the same revision preconditions the CLI uses. The browser
+accepts ticket changes only after the server confirms them. Card movement uses
+local previews while layout saves are pending; failed saves do not become
+accepted layout state.
 
 ### API
 
@@ -143,7 +210,7 @@ next step and changes nothing on the client.
 - The board payload sends every ticket with full body. Fine at a few hundred;
   the seam for splitting card-level fields from detail is the `/api/board` DTO.
 - Polling, not watching (above).
-- No auth. It binds to loopback; put it behind your reverse proxy if it moves.
+- No authentication. Keep the server and any container port mapping on loopback.
 - `z` and `w` are in the layout schema but nothing sets them yet.
 - Cross-branch reads (`Filter.CrossBranch`) are not surfaced; the canvas shows
   the working tree.
