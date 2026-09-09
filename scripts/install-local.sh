@@ -54,11 +54,11 @@ printf 'installed %s/git-ticket-canvas\n' "$dest"
 
 case ":$PATH:" in
     *":$dest:"*) ;;
-    *) printf 'warning: %s is not on PATH, so `git ticket-canvas` will not resolve there\n' "$dest" >&2 ;;
+    *) printf 'warning: %s is not on PATH, so git ticket-canvas will not resolve there\n' "$dest" >&2 ;;
 esac
 first="$(command -v git-ticket-canvas || true)"
 if [ -n "$first" ] && [ "$first" != "$dest/git-ticket-canvas" ]; then
-    printf 'warning: %s comes first on PATH, so `git ticket-canvas` still means that one\n' "$first" >&2
+    printf 'warning: %s comes first on PATH, so git ticket-canvas still means that one\n' "$first" >&2
     printf 'Remove it yourself, or install there instead: just install "%s"\n' "$(dirname "$first")" >&2
 fi
 if [ "${#buildflags[@]}" -gt 0 ]; then

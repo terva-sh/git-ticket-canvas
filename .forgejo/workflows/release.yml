@@ -1,0 +1,40 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: docker
+    container:
+      image: container.local.sothr.com/library/golang:1.25-alpine
+    env:
+      PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/chromium-browser
+    steps:
+      - name: Install dependencies
+        run: apk add --no-cache git bash gcc musl-dev nodejs npm python3 just chromium font-noto
+      - name: Checkout full tag history
+        uses: Actions-Mirrors/forgejo-actions-checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install ledger checker
+        run: GOBIN=/usr/local/bin go install github.com/terva-sh/git-ticket/cmd/git-ticket@v0.14.3
+      - name: Verify embedded parity before packaging
+        run: just parity-check
+      - name: Build without publishing
+        uses: Actions-Mirrors/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: release --clean --skip=publish
+      - name: Verify archives before upload
+        env:
+          TAG: ${{ github.ref_name }}
+        run: python3 scripts/verify-release.py --tag "$TAG"
+      - name: Publish complete verified release
+        env:
+          TOKEN: ${{ secrets.BOT_TOKEN }}
+          SERVER: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: python3 scripts/publish-forgejo.py

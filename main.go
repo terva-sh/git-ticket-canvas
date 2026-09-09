@@ -42,8 +42,17 @@ func run() error {
 		addr     = flag.String("addr", "127.0.0.1:7777", "address to listen on")
 		actorID  = flag.String("actor", "", "actor to record writes as; defaults to the store's configured actor")
 		readOnly = flag.Bool("read-only", false, "refuse every write, including card placement")
+		version  = flag.Bool("version", false, "print build version and exit")
+		asJSON   = flag.Bool("json", false, "print --version as JSON")
 	)
 	flag.Parse()
+
+	if *version {
+		return writeVersion(os.Stdout, *asJSON)
+	}
+	if *asJSON {
+		return errors.New("--json requires --version")
+	}
 
 	st, err := ticket.Discover(*dir)
 	if err != nil {

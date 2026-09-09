@@ -1,4 +1,4 @@
-# Current project name and developer setup: README-git-ticket-canvas.md
+# Release usage: README-release.md. Development details: README-git-ticket-canvas.md
 set positional-arguments
 
 # List available recipes.
@@ -104,3 +104,20 @@ api-dev *args="":
 
 # Rebuild assets before validating Go, frontend syntax, and the ticket store.
 check: web-build web-test tooling-test fmt-check vet test tickets-check
+
+# Validate packaging without tagging or publishing.
+release-check:
+    goreleaser check
+
+# Build and inspect snapshot archives locally; allows development provenance.
+release-snapshot: dist-verify release-check
+    goreleaser release --snapshot --clean --skip=publish --parallelism=2
+    python3 scripts/verify-release.py
+
+# Verify clean tagged HEAD artifacts in a disposable clone, never push.
+release-rehearse:
+    python3 scripts/rehearse-release.py
+
+# Test a locally built image against temporary repository mounts.
+image-check IMAGE ENGINE="podman":
+    python3 scripts/verify-image.py "$@"

@@ -1,0 +1,103 @@
+name: public-release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  windows:
+    if: github.server_url == 'https://github.com'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test ./...
+  release:
+    if: github.server_url == 'https://github.com'
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    env:
+      TAG: ${{ github.ref_name }}
+      IMAGE: ghcr.io/${{ github.repository }}
+    steps:
+      - name: Checkout full tag history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install check dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y just
+          go install github.com/terva-sh/git-ticket/cmd/git-ticket@v0.14.3
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Verify embedded parity before packaging
+        run: just parity-check
+      - name: Build without publishing
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: release --clean --skip=publish
+      - name: Verify archives before upload
+        run: python3 scripts/verify-release.py --tag "$TAG"
+      - name: Assemble the image from the verified archive
+        run: |
+          mkdir image-context
+          tar -xzf "dist/git-ticket-canvas_${TAG#v}_linux_amd64.tar.gz" -C image-context
+          docker build -f Dockerfile -t "$IMAGE:${TAG#v}" image-context
+          docker run --rm "$IMAGE:${TAG#v}" --version --json > image-context/version.json
+          python3 -c 'import json,os; v=json.load(open("image-context/version.json")); assert v["version"] == os.environ["TAG"] and v["commit"] == os.environ["GITHUB_SHA"] and v["modified"] is False'
+          python3 scripts/verify-image.py "$IMAGE:${TAG#v}"
+      - name: Publish the complete GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          args=()
+          case "$TAG" in *-*) args+=(--prerelease);; esac
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --draft \
+            --title "$TAG" --notes-file dist/CHANGELOG.md "${args[@]}" \
+            dist/*.tar.gz dist/*.zip dist/checksums.txt
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+      - name: Confirm published archive matches the image input
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "git-ticket-canvas_${TAG#v}_linux_amd64.tar.gz" --dir image-context
+          cmp "dist/git-ticket-canvas_${TAG#v}_linux_amd64.tar.gz" "image-context/git-ticket-canvas_${TAG#v}_linux_amd64.tar.gz"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish verified image tags
+        run: |
+          version="${TAG#v}"
+          docker push "$IMAGE:$version"
+          case "$version" in
+            *-*) ;;
+            *)
+              docker tag "$IMAGE:$version" "$IMAGE:${version%.*}"
+              docker tag "$IMAGE:$version" "$IMAGE:latest"
+              docker push "$IMAGE:${version%.*}"
+              docker push "$IMAGE:latest"
+              ;;
+          esac
+      - name: Verify registry image provenance
+        run: |
+          docker pull "$IMAGE:${TAG#v}"
+          docker run --rm "$IMAGE:${TAG#v}" --version --json > image-context/published-version.json
+          cmp image-context/version.json image-context/published-version.json

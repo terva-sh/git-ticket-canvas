@@ -1,0 +1,31 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  parity:
+    name: Embedded frontend and Go parity
+    runs-on: docker
+    container:
+      image: container.local.sothr.com/library/golang:1.25-alpine
+    env:
+      PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/chromium-browser
+    steps:
+      - name: Install dependencies
+        run: apk add --no-cache git bash gcc musl-dev nodejs npm python3 just chromium font-noto
+      - name: Checkout
+        uses: Actions-Mirrors/forgejo-actions-checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install ledger checker
+        run: GOBIN=/usr/local/bin go install github.com/terva-sh/git-ticket/cmd/git-ticket@v0.14.3
+      - name: Verify embedded parity
+        run: just parity-check
+      - name: Validate release configuration
+        uses: Actions-Mirrors/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: check
