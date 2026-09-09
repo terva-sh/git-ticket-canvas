@@ -17,14 +17,14 @@ blocks_on: none
 references:
   - ref: test:browser-baseline
     path: tests/browser/baseline.spec.ts
-  - ref: source:inspector
-    path: web/app.js
   - ref: validation:browser-passed
     path: docs/browser-baseline-passed.md
+  - ref: git:42cc798:web/app.js
+    path: null
 claim: null
 archive: null
 created_at: 2026-09-09T17:07:06Z
-updated_at: 2026-09-09T17:19:13Z
+updated_at: 2026-09-09T18:41:53Z
 created_by:
   id: agent:terva/mieli
   name: Mieli

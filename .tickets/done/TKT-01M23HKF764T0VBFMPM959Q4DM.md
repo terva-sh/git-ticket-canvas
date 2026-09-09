@@ -16,8 +16,6 @@ dependencies:
   - TKT-01M23J6D5NE0FE1Z1QAMXMMA5C
 blocks_on: none
 references:
-  - ref: source:frontend
-    path: web/app.js
   - ref: tooling:just
     path: justfile
   - ref: test:browser-baseline
@@ -28,10 +26,12 @@ references:
     path: playwright.config.ts
   - ref: validation:browser-passed
     path: docs/browser-baseline-passed.md
+  - ref: git:42cc798:web/app.js
+    path: null
 claim: null
 archive: null
 created_at: 2026-09-09T16:56:46Z
-updated_at: 2026-09-09T17:20:24Z
+updated_at: 2026-09-09T18:41:53Z
 created_by:
   id: agent:terva/mieli
   name: Mieli

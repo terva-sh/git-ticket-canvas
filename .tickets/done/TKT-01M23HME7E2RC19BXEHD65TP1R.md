@@ -20,18 +20,18 @@ references:
     path: web/src/platform/tickets/store.ts
   - ref: code:canvas-geometry
     path: web/src/platform/canvas/geometry.ts
-  - ref: code:legacy-adapter
-    path: web/app.js
   - ref: doc:platform-modules
     path: docs/platform-modules.md
   - ref: test:platform-boundaries
     path: tests/platform/boundaries.test.ts
   - ref: test:layout-refusal
     path: tests/browser/platform.spec.ts
+  - ref: git:5e35465:web/app.js
+    path: null
 claim: null
 archive: null
 created_at: 2026-09-09T16:57:17Z
-updated_at: 2026-09-09T18:00:03Z
+updated_at: 2026-09-09T18:41:53Z
 created_by:
   id: agent:terva/mieli
   name: Mieli

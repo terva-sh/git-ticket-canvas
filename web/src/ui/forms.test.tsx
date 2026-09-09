@@ -4,7 +4,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { Composer } from './Composer'
 import { Toolbar, type ToolbarProps } from './Toolbar'
-import { FeedbackMessage } from './mount'
+import { FeedbackMessage } from './Feedback'
 import { Inspector } from './Inspector'
 import type { Schema, Ticket } from '../platform/tickets/types'
 

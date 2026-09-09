@@ -33,10 +33,6 @@ fmt-check:
 vet:
     go vet ./...
 
-# Check syntax of the legacy JavaScript during the incremental migration.
-js-check:
-    node --check web/app.js
-
 # Validate the ticket store and detect pending repairs without writing.
 tickets-check:
     git ticket check --fix --dry-run --strict
@@ -76,4 +72,4 @@ api-dev *args="":
     exec ./tkcanvas "$@"
 
 # Rebuild assets before validating Go, frontend syntax, and the ticket store.
-check: web-build web-test fmt-check vet js-check test tickets-check
+check: web-build web-test fmt-check vet test tickets-check

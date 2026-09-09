@@ -1,3 +1,4 @@
-// The legacy canvas adapter mounts Preact forms into separate DOM roots.
-// Platform modules stay independent of both renderers.
-import '../app.js'
+import { render, h } from 'preact'
+import { App } from './ui/App'
+
+render(h(App, {}), document.getElementById('app')!)

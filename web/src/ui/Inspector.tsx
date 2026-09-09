@@ -294,10 +294,13 @@ function InspectorBody({ ticket: t, config, tickets, readOnly, onPatch, onNaviga
 }
 
 export function Inspector({ ticket, config, tickets, readOnly, onPatch, onClose, onNavigate, onDelete }: InspectorProps) {
+  // A cheap diagnostic used by the browser responsiveness regression.
+  const renders = useRef(0)
+  renders.current++
   const commit = (op: Op) => {
     if (ticket && !readOnly) void onPatch(ticket, [op]).catch(() => {})
   }
-  return <aside id="inspector" class={ticket ? 'open' : ''} aria-hidden={!ticket}
+  return <aside id="inspector" data-render-count={renders.current} class={ticket ? 'open' : ''} aria-hidden={!ticket}
     onKeyDown={event => {
       if (event.key === 'Escape') {
         event.stopPropagation()

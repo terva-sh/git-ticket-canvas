@@ -12,8 +12,6 @@
     "skipLibCheck": true,
     "noEmit": true,
     "verbatimModuleSyntax": true,
-    "allowJs": true,
-    "checkJs": false,
     "types": ["vite/client", "node"]
   },
   "include": ["web/src", "vite.config.ts", "vitest.config.ts", "tests/tooling", "tests/platform"]

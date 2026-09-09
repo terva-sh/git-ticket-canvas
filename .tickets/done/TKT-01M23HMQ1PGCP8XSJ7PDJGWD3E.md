@@ -16,22 +16,22 @@ dependencies:
   - TKT-01M23HME7E2RC19BXEHD65TP1R
 blocks_on: none
 references:
-  - ref: code:preact-forms
-    path: web/src/ui/mount.tsx
   - ref: code:inspector
     path: web/src/ui/Inspector.tsx
-  - ref: code:canvas-adapter
-    path: web/app.js
   - ref: test:forms-components
     path: web/src/ui/forms.test.tsx
   - ref: test:forms-browser
     path: tests/browser/forms.spec.ts
   - ref: doc:preact-forms
     path: docs/preact-forms.md
+  - ref: git:8b66ce0:web/app.js
+    path: null
+  - ref: git:8b66ce0:web/src/ui/mount.tsx
+    path: null
 claim: null
 archive: null
 created_at: 2026-09-09T16:57:26Z
-updated_at: 2026-09-09T18:17:20Z
+updated_at: 2026-09-09T18:41:53Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
