@@ -21,6 +21,40 @@ type workflow struct {
 	} `yaml:"jobs"`
 }
 
+// These action majors declare runs.using: node24 upstream. Keep this offline
+// allowlist in sync when reviewing action upgrades; it does not query GitHub.
+func TestGitHubActionVersions(t *testing.T) {
+	versions := map[string]string{
+		"actions/checkout":             "v7",
+		"actions/setup-go":             "v7",
+		"actions/setup-node":           "v7",
+		"goreleaser/goreleaser-action": "v7",
+		"docker/login-action":          "v4",
+	}
+	for _, path := range []string{".github/workflows/ci.yml", ".github/workflows/release.yml"} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var w workflow
+		if err := yaml.Unmarshal(data, &w); err != nil {
+			t.Fatal(err)
+		}
+		for name, job := range w.Jobs {
+			for _, step := range job.Steps {
+				if step.Uses == "" {
+					continue
+				}
+				action, version, ok := strings.Cut(step.Uses, "@")
+				want, reviewed := versions[action]
+				if !ok || !reviewed || version != want {
+					t.Errorf("%s job %s: action %q needs Node.js 24 runtime review", path, name, step.Uses)
+				}
+			}
+		}
+	}
+}
+
 func TestReleaseWorkflowsGatePublication(t *testing.T) {
 	for _, path := range []string{".forgejo/workflows/release.yml", ".github/workflows/release.yml"} {
 		data, err := os.ReadFile(path)

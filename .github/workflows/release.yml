@@ -9,8 +9,8 @@ jobs:
     if: github.server_url == 'https://github.com'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - run: go build ./...
@@ -28,13 +28,13 @@ jobs:
       IMAGE: ghcr.io/${{ github.repository }}
     steps:
       - name: Checkout full tag history
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Install check dependencies
@@ -47,7 +47,7 @@ jobs:
       - name: Verify embedded parity before packaging
         run: just parity-check
       - name: Build without publishing
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           version: '~> v2'
           args: release --clean --skip=publish
@@ -78,7 +78,7 @@ jobs:
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
             --pattern "git-ticket-canvas_${TAG#v}_linux_amd64.tar.gz" --dir image-context
           cmp "dist/git-ticket-canvas_${TAG#v}_linux_amd64.tar.gz" "image-context/git-ticket-canvas_${TAG#v}_linux_amd64.tar.gz"
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
