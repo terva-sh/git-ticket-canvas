@@ -118,5 +118,53 @@ class VerifierTests(unittest.TestCase):
             self.verify()
 
 
+class PublishedVerifierTests(VerifierTests):
+    def setUp(self):
+        super().setUp()
+        (self.root / "metadata.json").unlink()
+
+    def verify(self, tag="v1.2.3", commit="a" * 40):
+        with patch.object(v.subprocess, "check_output", side_effect=self.commands), patch.object(v, "smoke") as smoke:
+            v.verify(self.root, tag, published=True, expected_commit=commit)
+            smoke.assert_called_once()
+
+    def test_wrong_version_fails(self):
+        with self.assertRaisesRegex(RuntimeError, "manifest must name exactly"):
+            self.verify(tag="v9.9.9")
+
+    def test_requires_explicit_identity(self):
+        for tag, commit in [(None, "a" * 40), ("v1.2.3", None)]:
+            with self.subTest(tag=tag, commit=commit), self.assertRaisesRegex(RuntimeError, "requires --tag and --commit"):
+                self.verify(tag, commit)
+
+    def test_wrong_expected_commit_fails(self):
+        with self.assertRaisesRegex(RuntimeError, "checkout differs"):
+            self.verify(commit="b" * 40)
+
+    def test_short_commit_fails(self):
+        with self.assertRaisesRegex(RuntimeError, "full SHA-1"):
+            self.verify(commit="abcdef0")
+
+    def test_tag_must_match_checkout(self):
+        original = self.commands
+        self.commands = lambda args, **kwargs: "b" * 40 if args[-1] == "v1.2.3^{commit}" else original(args, **kwargs)
+        with self.assertRaisesRegex(RuntimeError, "tag does not point"):
+            self.verify()
+
+    def test_wrong_binary_version_fails(self):
+        original = self.commands
+        self.commands = lambda *args, **kwargs: original(*args, **kwargs).replace("v1.2.3", "v9.9.9")
+        with self.assertRaisesRegex(RuntimeError, "wrong build version"):
+            self.verify()
+
+    def test_build_mode_still_requires_metadata(self):
+        with self.assertRaises(FileNotFoundError):
+            v.verify(self.root, "v1.2.3")
+
+    def test_commit_rejected_in_build_mode(self):
+        with self.assertRaisesRegex(RuntimeError, "--commit requires --published"):
+            v.verify(self.root, "v1.2.3", expected_commit="a" * 40)
+
+
 if __name__ == "__main__":
     unittest.main()

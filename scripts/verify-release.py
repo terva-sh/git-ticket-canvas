@@ -89,13 +89,23 @@ def smoke(binary, root):
         process.stderr.close()
 
 
-def verify(directory, tag=None):
+def verify(directory, tag=None, *, published=False, expected_commit=None):
     directory = Path(directory)
-    metadata = json.loads((directory / "metadata.json").read_text())
-    version = metadata["version"]
-    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    if published:
+        check(tag is not None and expected_commit is not None,
+              "published verification requires --tag and --commit")
+        check(re.fullmatch(r"[0-9a-f]{40}", expected_commit), "expected commit must be a full SHA-1")
+    else:
+        check(expected_commit is None, "--commit requires --published")
     if tag:
         check(re.fullmatch(r"v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?", tag), "invalid release tag")
+    # Published releases contain only archives and checksums, not build metadata.
+    # Never infer the expected identity from the downloaded artifacts themselves.
+    version = tag[1:] if published else json.loads((directory / "metadata.json").read_text())["version"]
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    if published:
+        check(commit == expected_commit, "checkout differs from expected commit")
+    if tag:
         check(version == tag[1:], "archive version differs from tag")
         check(subprocess.check_output(["git", "rev-parse", f"{tag}^{{commit}}"], text=True).strip() == commit,
               "tag does not point to HEAD")
@@ -141,5 +151,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dist", default="dist")
     parser.add_argument("--tag", help="Require exact clean release provenance; omit only for snapshots")
+    parser.add_argument("--published", action="store_true",
+                        help="Verify downloaded assets without build metadata; run from the tagged checkout")
+    parser.add_argument("--commit", help="Expected full commit SHA; required with --published")
     args = parser.parse_args()
-    verify(args.dist, args.tag)
+    verify(args.dist, args.tag, published=args.published, expected_commit=args.commit)
