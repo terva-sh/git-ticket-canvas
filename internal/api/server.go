@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/terva-sh/git-ticket-canvas/internal/layout"
 	"github.com/terva-sh/git-ticket/ticket"
-	"github.com/terva-sh/tkcanvas/internal/layout"
 )
 
 type nowFunc func() time.Time

@@ -1,4 +1,4 @@
-// Command tkcanvas serves a git-ticket store as an infinite canvas.
+// Command git-ticket-canvas serves a git-ticket store as an infinite canvas.
 //
 // The store on disk stays the source of truth: every edit made here goes
 // through the library's typed mutations, under its lock, with the same
@@ -22,8 +22,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/terva-sh/git-ticket-canvas/internal/api"
 	"github.com/terva-sh/git-ticket/ticket"
-	"github.com/terva-sh/tkcanvas/internal/api"
 )
 
 //go:embed all:web/dist
@@ -31,7 +31,7 @@ var webFS embed.FS
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, "tkcanvas:", err)
+		fmt.Fprintln(os.Stderr, "git-ticket-canvas:", err)
 		os.Exit(1)
 	}
 }

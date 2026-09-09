@@ -50,7 +50,7 @@ function rebuild(root, scratch) {
 export function verify(root, build = rebuild) {
   const expected = committed(root)
   compare(expected, tree(join(root, 'web/dist')), 'working dist versus HEAD')
-  const scratch = mkdtempSync(join(tmpdir(), 'tkcanvas-dist-'))
+  const scratch = mkdtempSync(join(tmpdir(), 'git-ticket-canvas-dist-'))
   try {
     build(root, scratch)
     compare(expected, tree(join(scratch, 'web/dist')), 'locked rebuild versus HEAD')

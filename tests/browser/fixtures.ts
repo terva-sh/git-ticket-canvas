@@ -2,7 +2,7 @@ import { test as base, expect } from '@playwright/test'
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, relative } from 'node:path'
+import { delimiter, join, relative } from 'node:path'
 
 async function stop(child: ChildProcess) {
   if (!child.pid || child.exitCode !== null || child.signalCode !== null) return
@@ -13,11 +13,17 @@ async function stop(child: ChildProcess) {
   })
 }
 
-async function start(root: string, readOnly: boolean) {
-  const child = spawn(join(process.env.TKCANVAS_BROWSER_BIN!, 'tkcanvas'), [
+export function commandEnvironment() {
+  return { ...process.env, PATH: process.env.GIT_TICKET_CANVAS_BROWSER_BIN + delimiter + process.env.PATH,
+    GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' }
+}
+
+async function start(root: string, readOnly: boolean, viaGit = false) {
+  const child = spawn(viaGit ? 'git' : join(process.env.GIT_TICKET_CANVAS_BROWSER_BIN!, 'git-ticket-canvas'), [
+    ...(viaGit ? ['ticket-canvas'] : []),
     '-store', root, '-addr', '127.0.0.1:0', '-actor', 'agent:playwright/baseline',
     ...(readOnly ? ['-read-only'] : []),
-  ], { stdio: ['ignore', 'ignore', 'pipe'] })
+  ], { stdio: ['ignore', 'ignore', 'pipe'], env: commandEnvironment(), cwd: root })
   try {
     const url = await new Promise<string>((resolve, reject) => {
       let log = ''
@@ -68,7 +74,7 @@ interface App {
   board(): Promise<Board>
   create(title: string, card?: { x: number; y: number }): Promise<Ticket>
   patch(ticket: Ticket, ops: object[]): Promise<Ticket>
-  readOnlyURL(): Promise<string>
+  readOnlyURL(viaGit?: boolean): Promise<string>
   snapshot(): Promise<Record<string, string>>
 }
 
@@ -85,10 +91,10 @@ async function snapshot(root: string, dir = root): Promise<Record<string, string
 
 export const test = base.extend<{ app: App }>({
   app: async ({ request }, use) => {
-    const root = await mkdtemp(join(tmpdir(), 'tkcanvas-browser-store-'))
+    const root = await mkdtemp(join(tmpdir(), 'git-ticket-canvas-browser-store-'))
     const servers: ChildProcess[] = []
     try {
-      execFileSync(join(process.env.TKCANVAS_BROWSER_BIN!, 'init-store'), [root])
+      execFileSync(join(process.env.GIT_TICKET_CANVAS_BROWSER_BIN!, 'init-store'), [root])
       const server = await start(root, false)
       servers.push(server.child)
       await use({
@@ -110,8 +116,8 @@ export const test = base.extend<{ app: App }>({
           expect(response.status()).toBe(200)
           return (await response.json()).ticket
         },
-        async readOnlyURL() {
-          const readonly = await start(root, true)
+        async readOnlyURL(viaGit = false) {
+          const readonly = await start(root, true, viaGit)
           servers.push(readonly.child)
           return readonly.url
         },

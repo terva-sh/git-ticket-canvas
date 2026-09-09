@@ -1,4 +1,4 @@
-module github.com/terva-sh/tkcanvas
+module github.com/terva-sh/git-ticket-canvas
 
 go 1.25.0
 

@@ -14,7 +14,7 @@ def main():
         raise RuntimeError("Go must be installed")
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     archive = subprocess.check_output(["git", "archive", "--format=tar", "HEAD"])
-    with tempfile.TemporaryDirectory(prefix="tkcanvas-go-only-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="git-ticket-canvas-go-only-") as temporary:
         root = Path(temporary)
         source, tools, binaries = (root / name for name in ("source", "tools", "bin"))
         for path in (source, tools, binaries):
@@ -29,7 +29,7 @@ def main():
                 raise RuntimeError(f"{name} must not be on the build PATH")
         for args in (["build", "-o", str(binaries / "built"), "."], ["install", "."]):
             subprocess.run([str(tools / "go"), *args], cwd=source, env=env, check=True, timeout=120)
-        for name in ("built", "tkcanvas"):
+        for name in ("built", "git-ticket-canvas"):
             if not (binaries / name).is_file():
                 raise RuntimeError(f"missing binary: {name}")
         print(f"Go-only build and install passed for clean HEAD {revision}; Node/npm absent from PATH.")

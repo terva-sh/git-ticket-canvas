@@ -4,14 +4,15 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 export default async function setup() {
-  const bin = await mkdtemp(join(tmpdir(), 'tkcanvas-browser-bin-'))
+  const bin = await mkdtemp(join(tmpdir(), 'git-ticket-canvas-browser-bin-'))
   try {
-    for (const [name, source] of [['tkcanvas', '.'], ['init-store', './tests/browser/init-store']]) {
-      execFileSync('go', ['build', '-o', join(bin, name), source], {
-        cwd: resolve('.'), stdio: 'inherit', timeout: 120_000,
-      })
-    }
-    process.env.TKCANVAS_BROWSER_BIN = bin
+    execFileSync('go', ['install', '.'], {
+      cwd: resolve('.'), env: { ...process.env, GOBIN: bin }, stdio: 'inherit', timeout: 120_000,
+    })
+    execFileSync('go', ['build', '-o', join(bin, 'init-store'), './tests/browser/init-store'], {
+      cwd: resolve('.'), stdio: 'inherit', timeout: 120_000,
+    })
+    process.env.GIT_TICKET_CANVAS_BROWSER_BIN = bin
   } catch (error) {
     await rm(bin, { recursive: true, force: true })
     throw error

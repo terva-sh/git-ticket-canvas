@@ -1,21 +1,21 @@
-# Current developer setup: docs/development-preact.md
+# Current project name and developer setup: README-git-ticket-canvas.md
 set positional-arguments
 
 # List available recipes.
 default:
     @just --list
 
-# Rebuild frontend assets, then build ./tkcanvas. Raw go build uses committed dist.
+# Rebuild frontend assets, then build ./git-ticket-canvas. Raw go build uses committed dist.
 build: web-build
-    go build -o tkcanvas .
+    go build -o git-ticket-canvas .
 
 # Rebuild frontend assets, then install to GOBIN or GOPATH/bin.
 install: web-build
     go install .
 
-# Rebuild and run; forward arguments unchanged to tkcanvas.
+# Rebuild and run; forward arguments unchanged to git-ticket-canvas.
 run *args="": build
-    exec ./tkcanvas "$@"
+    exec ./git-ticket-canvas "$@"
 
 # Run all Go tests with the race detector and coverage; accepts Go test flags.
 test *args="":
@@ -92,14 +92,14 @@ parity-check:
 web-typecheck:
     npm run typecheck
 
-# Start Vite on loopback; /api proxies to TKCANVAS_API_URL or localhost:7777.
+# Start Vite on loopback; /api proxies to GIT_TICKET_CANVAS_API_URL or localhost:7777.
 web-dev *args="":
     npm run dev -- "$@"
 
 # Start the Go API for Vite, using committed assets; accepts application flags.
 api-dev *args="":
-    go build -o tkcanvas .
-    exec ./tkcanvas "$@"
+    go build -o git-ticket-canvas .
+    exec ./git-ticket-canvas "$@"
 
 # Rebuild assets before validating Go, frontend syntax, and the ticket store.
 check: web-build web-test tooling-test fmt-check vet test tickets-check

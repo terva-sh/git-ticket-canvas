@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/terva-sh/git-ticket-canvas/internal/layout"
 	"github.com/terva-sh/git-ticket/ticket"
-	"github.com/terva-sh/tkcanvas/internal/layout"
 )
 
 var testActor = ticket.Actor{ID: "agent:terva/api-test", Name: "API test"}

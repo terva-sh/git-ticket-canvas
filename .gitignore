@@ -1,4 +1,6 @@
-tkcanvas
+# Ignore both the current binary and old local builds.
+/git-ticket-canvas
+/tkcanvas
 node_modules/
 test-results/
 playwright-report/
