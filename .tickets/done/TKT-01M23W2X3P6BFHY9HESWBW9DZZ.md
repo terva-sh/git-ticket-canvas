@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M23W2X3P6BFHY9HESWBW9DZZ
 title: Verify the first hosted release and public installation
 type: task
-status: blocked
-status_reason: Forgejo published v0.1.0, but downloaded-asset verification requires unpublished metadata.json. Repair TKT-01M2418WY6RTYPYCNYH517EE36 and verify the existing artifacts before pushing the unchanged tag to GitHub.
+status: done
+status_reason: null
 priority: normal
 due_on: null
 labels: []
@@ -16,11 +16,15 @@ dependencies:
   - TKT-01M23TNTW2086TMX4MS28ZC60W
   - TKT-01M2418WY6RTYPYCNYH517EE36
 blocks_on: none
-references: []
+references:
+  - ref: report:release-v0.1.0
+    path: docs/release-v0.1.0.md
+  - ref: docs:published-assets
+    path: docs/published-asset-verification.md
 claim: null
 archive: null
 created_at: 2026-09-09T19:59:57Z
-updated_at: 2026-09-09T21:31:36Z
+updated_at: 2026-09-09T21:45:50Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -37,10 +41,10 @@ Publication-time gate after local release preparation. This remains draft until 
 ## Acceptance criteria
 
 - [x] With approval, push identical main history to origin and github; primary parity and GitHub Windows CI actually pass.
-- [ ] A person selects the version and approves tag publication; both forges publish exactly five archives and checksums with correct clean tag/commit provenance.
-- [ ] The real public installer succeeds in a temporary prefix and its executable matches the released archive; tagged Go-only install and Go proxy metadata are verified.
-- [ ] GHCR exact/minor/latest visibility and provenance are verified anonymously as appropriate for stable or prerelease tags; the published image serves a mounted local repository safely.
-- [ ] Record live workflow URLs, tag, commit, hashes, install/image results and any remaining limitations in a release report.
+- [x] A person selects the version and approves tag publication; both forges publish exactly five archives and checksums with correct clean tag/commit provenance.
+- [x] The real public installer succeeds in a temporary prefix and its executable matches the released archive; tagged Go-only install and Go proxy metadata are verified.
+- [x] GHCR exact/minor/latest visibility and provenance are verified anonymously as appropriate for stable or prerelease tags; the published image serves a mounted local repository safely.
+- [x] Record live workflow URLs, tag, commit, hashes, install/image results and any remaining limitations in a release report.
 
 ## Implementation plan
 
@@ -84,3 +88,7 @@ Harness: terva 0.134.5-0.20260908184005-01e3a6719b46, commit 01e3a67, built 2026
 **agent:terva/mieli** at 2026-09-09T21:31:30Z
 
 in-progress to blocked: Forgejo published v0.1.0, but downloaded-asset verification requires unpublished metadata.json. Repair TKT-01M2418WY6RTYPYCNYH517EE36 and verify the existing artifacts before pushing the unchanged tag to GitHub.
+
+## Summary
+
+Published v0.1.0 at a1ee5a5 on both forges using identical annotated tag object 54c4aa6208f67abb239ba9518af04dcc6d9fffea. Repaired downloaded verification in 2602996 before continuing from Forgejo to GitHub. Both six-asset downloads passed full verification. Latest public installer matched GitHub archive; public Go proxy and temporary tagged Go install passed. Anonymous GHCR 0.1.0/0.1/latest pulls share digest c6ad15172b25b20cd4f67f03b22d94f19fb61a507d4926ddea271d44fde44b81 and correct provenance; published image passed repository-serving/write-policy tests. docs/release-v0.1.0.md records URLs, hashes and limitations. Go module installs report commit unknown; archives/images report full commit. Package admin API lacks local read:packages scope, but anonymous registry access proves public distribution. No tag was moved; user canvas data untouched.
