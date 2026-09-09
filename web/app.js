@@ -61,11 +61,10 @@ async function call(method, path, body) {
 // wrote the ticket since this page read it. Reloading the board is the honest
 // response: the edit did not happen, and showing it as though it had is how a
 // canvas starts lying about a repository.
-async function patch(id, ops) {
-  const t = S.tickets.get(id);
+async function patch(id, ops, revision = S.tickets.get(id)?.revision || '') {
   try {
     const res = await call('PATCH', `/api/tickets/${encodeURIComponent(id)}`,
-      { ifRevision: t ? t.revision : '', ops });
+      { ifRevision: revision, ops });
     S.tickets.set(res.ticket.id, res.ticket);
     render();
     if (S.selected === res.ticket.id) renderInspector();
@@ -93,7 +92,7 @@ async function load() {
   chrome();
   render();
   if (S.selected && !S.tickets.has(S.selected)) closeInspector();
-  else if (S.selected) renderInspector();
+  else if (S.selected) renderInspector(true);
 }
 
 // saveCards persists placements. Positions are the one thing this app owns, so
@@ -393,6 +392,13 @@ function select(id, additive) {
   id ? openInspector() : closeInspector();
 }
 
+// Inspector controls edit the snapshot they display, not a newer poll result.
+function commitTicket(t, ops) {
+  return patch(t.id, ops, t.revision).catch(() => {}); // patch reports refusals
+}
+
+let inspectorTicket = null, replacingInspector = false;
+
 function openInspector() { $('inspector').classList.add('open'); renderInspector(); }
 function closeInspector() {
   $('inspector').classList.remove('open');
@@ -427,21 +433,31 @@ function textControl(value, onCommit, multiline) {
   // Commit on blur rather than on each keystroke: every write is a file write
   // and a revision bump, and a per-character PATCH would turn one sentence
   // into forty entries of churn in git log.
-  el.onblur = () => { if (el.value !== (value || '')) onCommit(el.value); };
+  el.onblur = () => {
+    if (!replacingInspector && el.value !== (value || '')) onCommit(el.value);
+  };
   if (!multiline) el.onkeydown = (e) => { if (e.key === 'Enter') el.blur(); };
   return el;
 }
 
-function renderInspector() {
+function renderInspector(preserveFocus = false) {
   const t = S.tickets.get(S.selected);
   if (!t) return;
+  // Refresh the board, but leave the active editor and its revision alone.
+  // Removing a focused textarea fires blur and would submit unfinished text.
+  const active = document.activeElement;
+  if (preserveFocus && inspectorTicket === t.id && $('inspector').contains(active) &&
+      active.matches('input:not([type="checkbox"]), textarea')) return;
+  inspectorTicket = t.id;
   const body = $('inspBody');
+  replacingInspector = true;
   body.textContent = '';
+  replacingInspector = false;
 
   const title = $('fTitle');
   if (document.activeElement !== title) title.value = t.title;
   title.disabled = S.readOnly;
-  title.onblur = () => { if (title.value !== t.title) patch(t.id, [{ op: 'setTitle', title: title.value }]); };
+  title.onblur = () => { if (title.value !== t.title) commitTicket(t, [{ op: 'setTitle', title: title.value }]); };
 
   $('fMeta').textContent =
     `${t.id}  ·  updated ${t.updatedAt.slice(0, 16).replace('T', ' ')}` +
@@ -458,7 +474,7 @@ function renderInspector() {
       reason = prompt(`Moving ${t.short} to ${v} needs a reason:`) || '';
       if (!reason.trim()) { renderInspector(); return; }
     }
-    patch(t.id, [{ op: 'setStatus', status: v, reason }]);
+    commitTicket(t, [{ op: 'setStatus', status: v, reason }]);
   }));
   body.appendChild(field('Status', statusRow));
   if (t.statusReason) {
@@ -469,16 +485,16 @@ function renderInspector() {
   }
 
   body.appendChild(field('Type', selectControl(t.type, S.config.types,
-    (v) => patch(t.id, [{ op: 'setType', type: v }]))));
+    (v) => commitTicket(t, [{ op: 'setType', type: v }]))));
   body.appendChild(field('Priority', selectControl(t.priority, S.config.priorities,
-    (v) => patch(t.id, [{ op: 'setPriority', priority: v }]))));
+    (v) => commitTicket(t, [{ op: 'setPriority', priority: v }]))));
 
   body.appendChild(field('Due on', textControl(t.dueOn, (v) =>
-    patch(t.id, [{ op: 'setDueOn', dueOn: v.trim() ? v.trim() : null }]))));
+    commitTicket(t, [{ op: 'setDueOn', dueOn: v.trim() ? v.trim() : null }]))));
 
   if (S.config.milestones.length) {
     body.appendChild(field('Milestone', selectControl(t.milestone, S.config.milestones,
-      (v) => patch(t.id, [{ op: 'setMilestone', milestone: v || null }]), '— none —')));
+      (v) => commitTicket(t, [{ op: 'setMilestone', milestone: v || null }]), '— none —')));
   }
 
   // --- labels
@@ -488,7 +504,7 @@ function renderInspector() {
     const b = document.createElement('button');
     b.className = 'chip'; b.style.color = 'var(--ink-dim)';
     b.textContent = l + ' ×';
-    b.onclick = () => patch(t.id, [{ op: 'removeLabel', label: l }]);
+    b.onclick = () => commitTicket(t, [{ op: 'removeLabel', label: l }]);
     labels.appendChild(b);
   }
   const addLabel = document.createElement('input');
@@ -497,7 +513,7 @@ function renderInspector() {
   addLabel.setAttribute('list', 'labelList');
   addLabel.onkeydown = (e) => {
     if (e.key === 'Enter' && addLabel.value.trim()) {
-      patch(t.id, [{ op: 'addLabel', label: addLabel.value.trim() }]);
+      commitTicket(t, [{ op: 'addLabel', label: addLabel.value.trim() }]);
     }
   };
   labels.appendChild(addLabel);
@@ -514,7 +530,7 @@ function renderInspector() {
     const b = document.createElement('button');
     b.className = 'chip'; b.style.color = 'var(--ink-dim)';
     b.textContent = a + ' ×';
-    b.onclick = () => patch(t.id, [{ op: 'unassign', actor: a }]);
+    b.onclick = () => commitTicket(t, [{ op: 'unassign', actor: a }]);
     who.appendChild(b);
   }
   const addWho = document.createElement('input');
@@ -522,7 +538,7 @@ function renderInspector() {
   addWho.disabled = S.readOnly;
   addWho.onkeydown = (e) => {
     if (e.key === 'Enter' && addWho.value.trim()) {
-      patch(t.id, [{ op: 'assign', actor: addWho.value.trim() }]);
+      commitTicket(t, [{ op: 'assign', actor: addWho.value.trim() }]);
     }
   };
   who.appendChild(addWho);
@@ -550,7 +566,7 @@ function renderInspector() {
     return d;
   };
 
-  if (t.parent) rel.appendChild(line('parent', t.parent, () => patch(t.id, [{ op: 'setParent', parent: null }])));
+  if (t.parent) rel.appendChild(line('parent', t.parent, () => commitTicket(t, [{ op: 'setParent', parent: null }])));
   else {
     const p = document.createElement('div');
     p.className = 'muted'; p.textContent = 'no parent';
@@ -560,7 +576,7 @@ function renderInspector() {
 
   const deps = document.createElement('div');
   for (const d of t.dependencies) {
-    deps.appendChild(line('dependency', d, () => patch(t.id, [{ op: 'removeDependency', id: d }])));
+    deps.appendChild(line('dependency', d, () => commitTicket(t, [{ op: 'removeDependency', id: d }])));
   }
   if (!t.dependencies.length) {
     const p = document.createElement('div');
@@ -580,40 +596,40 @@ function renderInspector() {
 
   if (t.type === 'epic' || t.blocksOn === 'children') {
     body.appendChild(field('Blocks on', selectControl(t.blocksOn, S.config.blocksOn,
-      (v) => patch(t.id, [{ op: 'setBlocksOn', blocksOn: v }]))));
+      (v) => commitTicket(t, [{ op: 'setBlocksOn', blocksOn: v }]))));
   }
 
   // --- prose
   body.appendChild(field('Description', textControl(t.body.description,
-    (v) => patch(t.id, [{ op: 'setDescription', text: v }]), true)));
+    (v) => commitTicket(t, [{ op: 'setDescription', text: v }]), true)));
   body.appendChild(field('Implementation plan', textControl(t.body.plan,
-    (v) => patch(t.id, [{ op: 'setPlan', text: v }]), true)));
+    (v) => commitTicket(t, [{ op: 'setPlan', text: v }]), true)));
 
   body.appendChild(checklist('Acceptance criteria', 'ac', t, t.body.acceptanceCriteria));
   body.appendChild(checklist('Definition of done', 'dod', t, t.body.definitionOfDone));
 
   body.appendChild(logSection('Notes', t.body.notes, (text) =>
-    patch(t.id, [{ op: 'appendNote', text }])));
+    commitTicket(t, [{ op: 'appendNote', text }])));
   body.appendChild(logSection('Comments', t.body.comments, (text) =>
-    patch(t.id, [{ op: 'appendComment', text }])));
+    commitTicket(t, [{ op: 'appendComment', text }])));
 
   if (t.body.summary) {
     body.appendChild(field('Summary', textControl(t.body.summary,
-      (v) => patch(t.id, [{ op: 'setSummary', text: v }]), true)));
+      (v) => commitTicket(t, [{ op: 'setSummary', text: v }]), true)));
   }
 
   const claimBtn = $('btnClaim');
   claimBtn.textContent = t.claim ? 'Release' : 'Claim';
   claimBtn.disabled = S.readOnly;
-  claimBtn.onclick = () => patch(t.id, [t.claim ? { op: 'release' } : { op: 'claim' }]);
+  claimBtn.onclick = () => commitTicket(t, [t.claim ? { op: 'release' } : { op: 'claim' }]);
 
   const arch = $('btnArchive');
   arch.textContent = t.archived ? 'Unarchive' : 'Archive';
   arch.disabled = S.readOnly;
   arch.onclick = () => {
-    if (t.archived) return patch(t.id, [{ op: 'unarchive' }]);
+    if (t.archived) return commitTicket(t, [{ op: 'unarchive' }]);
     const reason = prompt('Archiving is recorded with a reason:') || '';
-    patch(t.id, [{ op: 'archive', reason }]);
+    commitTicket(t, [{ op: 'archive', reason }]);
   };
   $('btnDelete').disabled = S.readOnly;
   $('btnDelete').onclick = () => removeTicket(t.id);
@@ -626,12 +642,12 @@ function checklist(label, section, t, items) {
     row.className = 'checkitem' + (it.checked ? ' done' : '');
     const cb = document.createElement('input');
     cb.type = 'checkbox'; cb.checked = it.checked; cb.disabled = S.readOnly;
-    cb.onchange = () => patch(t.id, [{ op: 'setChecklistItem', section, index: it.index, checked: cb.checked }]);
+    cb.onchange = () => commitTicket(t, [{ op: 'setChecklistItem', section, index: it.index, checked: cb.checked }]);
     const s = document.createElement('span');
     s.textContent = it.text;
     const x = document.createElement('button');
     x.textContent = '×';
-    x.onclick = () => patch(t.id, [{ op: 'removeChecklistItem', section, index: it.index }]);
+    x.onclick = () => commitTicket(t, [{ op: 'removeChecklistItem', section, index: it.index }]);
     row.append(cb, s);
     if (!S.readOnly) row.appendChild(x);
     wrap.appendChild(row);
@@ -642,7 +658,7 @@ function checklist(label, section, t, items) {
   add.disabled = S.readOnly;
   add.onkeydown = (e) => {
     if (e.key === 'Enter' && add.value.trim()) {
-      patch(t.id, [{ op: 'addChecklistItem', section, text: add.value.trim() }]);
+      commitTicket(t, [{ op: 'addChecklistItem', section, text: add.value.trim() }]);
     }
   };
   wrap.appendChild(add);

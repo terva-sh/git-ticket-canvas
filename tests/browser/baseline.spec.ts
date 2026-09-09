@@ -182,5 +182,59 @@ test('visibility refresh preserves an unfinished description draft', async ({ pa
   await app.patch(ticket, [{ op: 'setPriority', priority: 'high' }])
   await visibleRefresh(page)
   await expect(description).toHaveValue('Unsubmitted description')
+  await expect(description).toBeFocused()
   expect((await app.board()).tickets[0].body.description).toBe('')
+})
+
+for (const field of ['description', 'title']) {
+  test(`refresh cannot give a stale ${field} draft a newer revision`, async ({ page, app }) => {
+    const ticket = await app.create('Original title')
+    await page.goto(app.url)
+    await card(page, ticket.id).click()
+    const input = field === 'title' ? page.locator('#fTitle') : prose(page, 'Description')
+    await input.fill('Local draft')
+    await app.patch(ticket, [field === 'title'
+      ? { op: 'setTitle', title: 'External value' }
+      : { op: 'setDescription', text: 'External value' }])
+    await visibleRefresh(page)
+    await expect(input).toHaveValue('Local draft')
+    await expect(input).toBeFocused()
+    const refused = page.waitForResponse(r => r.request().method() === 'PATCH' && r.status() === 409)
+    await input.press('Escape') // intentional blur commits the original snapshot
+    await refused
+    await expect(page.locator('#toast')).toContainText('changed on disk')
+    await expect(input).toHaveValue('External value')
+    const stored = (await app.board()).tickets[0]
+    expect(field === 'title' ? stored.title : stored.body.description).toBe('External value')
+  })
+}
+
+test('periodic polling preserves prose focus and sends no mutation', async ({ page, app }) => {
+  const ticket = await app.create('Before focused poll')
+  await page.goto(app.url)
+  await card(page, ticket.id).click()
+  const description = prose(page, 'Description')
+  await description.fill('Still drafting')
+  const mutations: string[] = []
+  page.on('request', request => { if (request.method() === 'PATCH') mutations.push(request.url()) })
+  await app.patch(ticket, [{ op: 'setTitle', title: 'After focused poll' }])
+  await expect(card(page, ticket.id)).toContainText('After focused poll', { timeout: 16_000 })
+  await expect(description).toHaveValue('Still drafting')
+  await expect(description).toBeFocused()
+  expect(mutations).toEqual([])
+  expect((await app.board()).tickets[0].body.description).toBe('')
+})
+
+test('explicit prose blur still saves after a refresh without external edits', async ({ page, app }) => {
+  const ticket = await app.create('Explicit prose commit')
+  await page.goto(app.url)
+  await card(page, ticket.id).click()
+  const description = prose(page, 'Description')
+  await description.fill('Save deliberately')
+  await visibleRefresh(page)
+  await expect(description).toBeFocused()
+  const saved = page.waitForResponse(r => r.request().method() === 'PATCH' && r.status() === 200)
+  await description.press('Escape')
+  await saved
+  await expect.poll(async () => (await app.board()).tickets[0].body.description).toBe('Save deliberately')
 })

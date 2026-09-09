@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M23J6D5NE0FE1Z1QAMXMMA5C
 title: Prevent refresh from submitting unfinished inspector text
 type: bug
-status: draft
+status: done
 status_reason: null
 priority: high
 due_on: null
@@ -19,10 +19,12 @@ references:
     path: tests/browser/baseline.spec.ts
   - ref: source:inspector
     path: web/app.js
+  - ref: validation:browser-passed
+    path: docs/browser-baseline-passed.md
 claim: null
 archive: null
 created_at: 2026-09-09T17:07:06Z
-updated_at: 2026-09-09T17:07:06Z
+updated_at: 2026-09-09T17:19:13Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -50,7 +52,15 @@ Fix draft preservation and unsolicited writes in the current vanilla frontend be
 
 ## Acceptance criteria
 
-- [ ] Polling and visible-document refresh retain unfinished inspector prose without sending a mutation or moving focus unexpectedly.
-- [ ] A concurrent edit to the same field is not silently overwritten with a refreshed revision when local work is later committed.
-- [ ] Explicit user commits still work, and stale-revision feedback remains accurate.
-- [ ] The unfinished-description regression and full browser baseline pass repeatedly against the unconverted frontend.
+- [x] Polling and visible-document refresh retain unfinished inspector prose without sending a mutation or moving focus unexpectedly.
+- [x] A concurrent edit to the same field is not silently overwritten with a refreshed revision when local work is later committed.
+- [x] Explicit user commits still work, and stale-revision feedback remains accurate.
+- [x] The unfinished-description regression and full browser baseline pass repeatedly against the unconverted frontend.
+
+## Implementation plan
+
+Defer rebuilding the same inspector while a text control is focused, suppress blur mutations during programmatic replacement, and bind inspector mutations to the rendered ticket revision instead of refreshed global state. Keep board refresh active. Test visibility and actual timer refresh, focus/draft preservation, explicit prose commits, and concurrent same-field edits for description and title. Run the entire Chromium baseline three times plus just check; record a successor validation note without rewriting historical reports.
+
+## Summary
+
+Fixed background refresh by retaining focused inspector controls and suppressing blur during programmatic replacement. Inspector mutations carry the displayed snapshot revision; concurrent description/title edits now refuse with 409 instead of silently overwriting. Added four browser cases and strengthened focus assertions. just browser-test --repeat-each=3 passed 42/42; just check passed. Evidence and limitations are in docs/browser-baseline-passed.md.

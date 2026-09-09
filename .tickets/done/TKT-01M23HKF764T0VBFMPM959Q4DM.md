@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M23HKF764T0VBFMPM959Q4DM
 title: Capture MVP browser behavior before the Preact migration
 type: task
-status: blocked
-status_reason: Browser baseline reproduces refresh submitting unfinished description text. Waiting for TKT-01M23J6D5NE0FE1Z1QAMXMMA5C (Prevent refresh from submitting unfinished inspector text); full suite is not green and conversion must remain gated.
+status: done
+status_reason: null
 priority: normal
 due_on: null
 labels: []
@@ -26,10 +26,12 @@ references:
     path: docs/browser-testing.md
   - ref: tooling:playwright
     path: playwright.config.ts
+  - ref: validation:browser-passed
+    path: docs/browser-baseline-passed.md
 claim: null
 archive: null
 created_at: 2026-09-09T16:56:46Z
-updated_at: 2026-09-09T17:10:01Z
+updated_at: 2026-09-09T17:20:24Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -49,9 +51,9 @@ Capture intended behavior and report reproducible defects separately rather than
 
 - [x] Browser tests cover draft creation, inspector editing, revision-conflict feedback after an external write, and read-only refusal without disk changes.
 - [x] Browser tests cover pan/zoom, multi-selection dragging, pinning, dependency direction, keyboard shortcuts, and layout persistence after reload.
-- [ ] Polling or focus refresh observes external ticket changes without silently losing unfinished form edits; observed baseline defects are recorded separately.
+- [x] Polling or focus refresh observes external ticket changes without silently losing unfinished form edits; observed baseline defects are recorded separately.
 - [x] Tests start and stop their servers, clean up temporary stores, and run through a documented just recipe.
-- [ ] The baseline suite passes against the unconverted frontend and its scope is documented.
+- [x] The baseline suite passes against the unconverted frontend and its scope is documented.
 
 ## Implementation plan
 
@@ -75,6 +77,18 @@ Task worklog for this ticket, from the session task board.
 - [x] task-19 Tests start and stop their servers, clean up temporary stores, and run through a documented just recipe. — Added locked Playwright workspace, just browser-setup/browser-test, temporary binary/store fixtures and teardown, and docs/browser-testing.md. Repeated tests completed without retained servers or stores.
 - [ ] task-20 (blocked) The baseline suite passes against the unconverted frontend and its scope is documented. — docs/browser-testing.md records scope and limitations. Full repeated suite has 27 passes and 3 failures of the same unfinished-description regression; no skip or expected-failure annotation. Frontend unchanged. just check and locked browser setup pass.
 
+**agent:terva/mieli** at 2026-09-09T17:20:10Z
+
+Task worklog for this ticket, from the session task board.
+
+### Tasks
+
+- [x] task-16 Browser tests cover draft creation, inspector editing, revision-conflict feedback after an external write, and read-only refusal without disk changes. — Creation/edit, stale conflict reload, and read-only controls/drag/file-snapshot assertions passed in all three full Chromium runs.
+- [x] task-17 Browser tests cover pan/zoom, multi-selection dragging, pinning, dependency direction, keyboard shortcuts, and layout persistence after reload. — Gesture, persistence, multi-select, dependency direction, and keyboard cases passed all three full runs. Strengthened numeric cursor-anchor zoom assertions passed three further focused runs.
+- [x] task-18 Polling or focus refresh observes external ticket changes without silently losing unfinished form edits; observed baseline defects are recorded separately. — Refresh defect is fixed. Actual periodic polling and visibility refresh preserve focused drafts; concurrent same-field edits return 409 on commit. All 42 repeated Chromium cases passed.
+- [x] task-19 Tests start and stop their servers, clean up temporary stores, and run through a documented just recipe. — Added locked Playwright workspace, just browser-setup/browser-test, temporary binary/store fixtures and teardown, and docs/browser-testing.md. Repeated tests completed without retained servers or stores.
+- [x] task-20 The baseline suite passes against the unconverted frontend and its scope is documented. — Full 14-case suite passed three times, 42/42 with no skips. docs/browser-baseline-passed.md supersedes the previous blocked result; just check passes.
+
 ## Summary
 
-Implemented ten Chromium browser tests using the actual embedded Go binary, isolated stores, explicit actors, and temporary-process teardown. Added locked npm workspace and just browser-setup/browser-test. Three full runs produced 27 passes and three failures of the unfinished-description refresh test; strengthened cursor-anchor zoom assertions passed three additional focused runs. No frontend code changed. just check and locked browser setup pass. The regression remains active, not skipped or expected-failure. TKT-01M23J6D5NE0FE1Z1QAMXMMA5C (Prevent refresh from submitting unfinished inspector text) must be addressed before this baseline and the dependent conversion can complete.
+Baseline completed after fixing the separate inspector refresh defect. The expanded 14-case Chromium suite passes three consecutive runs, 42/42, with no skipped or expected-failure tests. just check also passes. docs/browser-baseline-passed.md supersedes the earlier blocked result while preserving the historical report. The frontend is still vanilla; dependent TypeScript/Vite work remains draft.
