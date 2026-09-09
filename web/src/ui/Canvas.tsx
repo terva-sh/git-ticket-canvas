@@ -113,7 +113,11 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   }
 
   function cancel() {
-    if (release() && local.mounted) redraw()
+    const pendingFrame = local.frame !== null
+    const gesture = release()
+    // Wheel deltas update the view before their RAF; keep DOM and view in sync
+    // even when Escape or a toolbar action cancels that scheduled render.
+    if ((gesture || pendingFrame) && local.mounted) redraw()
   }
 
   function fit() {

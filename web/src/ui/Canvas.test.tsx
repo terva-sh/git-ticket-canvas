@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { render } from 'preact'
+import { createRef, render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
-import { Canvas, type CanvasProps } from './Canvas'
+import { Canvas, type CanvasHandle, type CanvasProps } from './Canvas'
 
 vi.mock('./canvas/grid', () => ({ drawGrid: vi.fn() }))
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
@@ -19,8 +19,16 @@ it('unmount cancels queued frames, capture, resize observers and pointer listene
   const props: CanvasProps = { board: 'default', tickets: new Map(), cards: {}, statuses: [], selection: new Set(),
     query: '', filters: new Set(), readOnly: false, onSelect: vi.fn(), onLayout: save, onLink: vi.fn(),
     onCompose: vi.fn(), onError: vi.fn(), onBusy: busy }
-  act(() => render(<Canvas {...props} />, root))
+  const handle = createRef<CanvasHandle>()
+  act(() => render(<Canvas {...props} ref={handle} />, root))
   const stage = root.querySelector<HTMLDivElement>('#stage')!
+  const scene = root.querySelector<HTMLDivElement>('#scene')!
+  const beforeZoom = scene.style.transform
+  act(() => {
+    stage.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: -200, clientX: 60, clientY: 40 }))
+    handle.current!.cancel()
+  })
+  expect(scene.style.transform).not.toBe(beforeZoom)
   let captured = false
   stage.setPointerCapture = () => { captured = true }
   stage.hasPointerCapture = () => captured
