@@ -9,9 +9,10 @@ default:
 build: web-build
     go build -o git-ticket-canvas .
 
-# Rebuild frontend assets, then install to GOBIN or GOPATH/bin.
-install: web-build
-    go install .
+# Rebuild and install like git-ticket: DIR or ~/.local/bin then ~/bin. No sudo.
+# Current installation guide: docs/local-install.md
+install DIR="": web-build
+    bash scripts/install-local.sh "$@"
 
 # Rebuild and run; forward arguments unchanged to git-ticket-canvas.
 run *args="": build
