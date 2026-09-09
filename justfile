@@ -1,4 +1,4 @@
-# Current developer setup: docs/development-vite.md
+# Current developer setup: docs/development-preact.md
 set positional-arguments
 
 # List available recipes.
@@ -54,9 +54,39 @@ web-setup:
 web-build:
     npm run build
 
-# Run platform unit and import-boundary tests in Node.
+# Run platform, component, and import-boundary tests.
 web-test *args="":
     npm run test:unit -- "$@"
+
+# Test the dist verifier's rejection and cleanup paths.
+tooling-test:
+    node --test tests/tooling/*.test.mjs
+
+# Locked isolated rebuild versus HEAD and working dist; never overwrite web/dist.
+dist-verify:
+    node scripts/verify-dist.mjs
+
+# Test existing embedded assets without npm's rebuild prehook.
+browser-test-embedded *args="":
+    npm exec -- playwright test "$@"
+
+# Build/install clean HEAD with only Go on PATH. Requires Python 3.12+ and Git.
+go-only-check:
+    python3 scripts/verify-go-only.py
+
+# Release gate: verify before any command can overwrite committed assets.
+parity-check:
+    just dist-verify
+    just web-setup
+    just web-typecheck
+    just web-test
+    just tooling-test
+    just fmt-check
+    just vet
+    just test
+    just tickets-check
+    just browser-test-embedded
+    just go-only-check
 
 # Check strict TypeScript without emitting assets.
 web-typecheck:
@@ -72,4 +102,4 @@ api-dev *args="":
     exec ./tkcanvas "$@"
 
 # Rebuild assets before validating Go, frontend syntax, and the ticket store.
-check: web-build web-test fmt-check vet test tickets-check
+check: web-build web-test tooling-test fmt-check vet test tickets-check
