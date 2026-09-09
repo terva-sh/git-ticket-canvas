@@ -1,3 +1,3 @@
-// Keep the vanilla UI intact while introducing the typed build boundary.
-// The ticket-state extraction and Preact components follow in separate tickets.
+// The legacy canvas adapter mounts Preact forms into separate DOM roots.
+// Platform modules stay independent of both renderers.
 import '../app.js'

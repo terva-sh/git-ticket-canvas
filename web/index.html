@@ -209,19 +209,7 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
 </head>
 <body>
 <div id="app">
-  <div id="toolbar">
-    <div class="brand">git-ticket <span id="storePath"></span></div>
-    <select id="boardSelect" class="tool" title="Board"></select>
-    <button id="newBoard" class="tool" title="New board">+</button>
-    <input id="search" class="tool" type="search" placeholder="Filter  /" autocomplete="off">
-    <div class="chip-row" id="statusFilters"></div>
-    <div class="spacer"></div>
-    <span class="badge" id="counts"></span>
-    <span class="badge warn" id="roBadge" hidden>read-only</span>
-    <button id="btnArrange" class="tool" title="Lay unplaced cards out in status lanes">Arrange</button>
-    <button id="btnFit" class="tool" title="Fit all cards in view">Fit</button>
-    <button id="btnNew" class="tool primary" title="New ticket (double-click the canvas)">New ticket</button>
-  </div>
+  <div id="toolbarRoot"></div>
 
   <div id="stage">
     <canvas id="grid"></canvas>
@@ -229,29 +217,8 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
       <svg id="edges"><g id="edgeLayer"></g></svg>
       <div id="cards"></div>
     </div>
-    <div id="composer" hidden>
-      <input id="composerInput" placeholder="Title, then Enter" autocomplete="off">
-      <span class="muted">Enter to file as draft &middot; Esc to cancel</span>
-    </div>
     <div id="hint">drag canvas to pan &middot; scroll to zoom &middot; double-click to file a ticket &middot; drag the right handle to link</div>
-    <div id="toast"></div>
-
-    <aside id="inspector">
-      <div class="insp-head">
-        <div style="flex:1;min-width:0">
-          <input id="fTitle" class="insp-title" placeholder="Title">
-          <div class="muted" id="fMeta"></div>
-        </div>
-        <button id="inspClose" class="tool" title="Close (Esc)">&times;</button>
-      </div>
-      <div class="insp-body" id="inspBody"></div>
-      <div class="insp-foot">
-        <button id="btnClaim" class="tool">Claim</button>
-        <button id="btnArchive" class="tool">Archive</button>
-        <div class="spacer"></div>
-        <button id="btnDelete" class="tool danger">Delete</button>
-      </div>
-    </aside>
+    <div id="formsRoot"></div>
   </div>
 </div>
 <script type="module" src="/src/main.ts"></script>

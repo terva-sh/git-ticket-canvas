@@ -1,0 +1,57 @@
+import type { Page } from '@playwright/test'
+import { test, expect } from './fixtures'
+
+function field(page: Page, label: string) {
+  return page.locator('#inspBody .field').filter({ has: page.locator('label', { hasText: new RegExp(`^${label}$`) }) })
+}
+async function mutation(page: Page, run: () => Promise<unknown>) {
+  const response = page.waitForResponse(r => r.request().method() === 'PATCH')
+  await run(); expect((await response).status()).toBe(200)
+}
+test('Preact inspector retains metadata, checklist, log and lifecycle operations', async ({ page, app }) => {
+  const ticket = await app.create('Forms operations')
+  await page.goto(app.url)
+  await page.locator(`.card[data-id="${ticket.id}"]`).click()
+  await mutation(page, () => field(page, 'Priority').locator('select').selectOption('high'))
+  await mutation(page, () => field(page, 'Status').locator('select').selectOption('ready'))
+  await mutation(page, async () => { await field(page, 'Labels').locator('input').fill('ui'); await field(page, 'Labels').locator('input').press('Enter') })
+  await expect(field(page, 'Labels')).toContainText('ui ×')
+  await mutation(page, async () => { await field(page, 'Assignees').locator('input').fill('agent:playwright/baseline'); await field(page, 'Assignees').locator('input').press('Enter') })
+  await mutation(page, async () => { await field(page, 'Acceptance criteria').locator('input.control').fill('Exercise components'); await field(page, 'Acceptance criteria').locator('input.control').press('Enter') })
+  await mutation(page, () => field(page, 'Acceptance criteria').locator('input[type=checkbox]').click())
+  await expect(field(page, 'Acceptance criteria').locator('input[type=checkbox]')).toBeChecked()
+  await mutation(page, async () => { await field(page, 'Notes').locator('textarea').fill('Component note'); await field(page, 'Notes').locator('textarea').press('Control+Enter') })
+  await expect(field(page, 'Notes')).toContainText('Component note')
+  await mutation(page, async () => { await field(page, 'Comments').locator('textarea').fill('Component comment'); await field(page, 'Comments').locator('textarea').press('Control+Enter') })
+  await mutation(page, () => page.locator('#btnClaim').click())
+  await expect(page.locator('#btnClaim')).toHaveText('Release')
+  await mutation(page, () => page.locator('#btnClaim').click())
+  await expect(page.locator('#btnClaim')).toHaveText('Claim')
+  page.once('dialog', dialog => dialog.accept('Browser component test'))
+  await mutation(page, () => page.locator('#btnArchive').click())
+  await expect(page.locator('#btnArchive')).toHaveText('Unarchive')
+  await mutation(page, () => page.locator('#btnArchive').click())
+  await expect(page.locator('#btnArchive')).toHaveText('Archive')
+})
+test('Preact delete action removes the ticket and closes its inspector', async ({ page, app }) => {
+  const ticket = await app.create('Delete from component')
+  await page.goto(app.url)
+  await page.locator(`.card[data-id="${ticket.id}"]`).click()
+  page.once('dialog', dialog => dialog.accept())
+  await page.locator('#btnDelete').click()
+  await expect(page.locator(`.card[data-id="${ticket.id}"]`)).toHaveCount(0)
+  await expect(page.locator('#inspector')).not.toHaveClass('open')
+  expect((await app.board()).tickets).toHaveLength(0)
+})
+test('form roots stay separate from canvas and text shortcuts do not open other controls', async ({ page, app }) => {
+  const ticket = await app.create('Ownership')
+  await page.goto(app.url)
+  await expect(page.locator('#toolbarRoot > #toolbar')).toBeVisible()
+  await page.locator(`.card[data-id="${ticket.id}"]`).click()
+  await expect(page.locator('#formsRoot > #inspector')).toHaveClass('open')
+  await expect(page.locator('#formsRoot .card, #scene input, #scene textarea')).toHaveCount(0)
+  const description = field(page, 'Description').locator('textarea')
+  await description.fill('n/f')
+  await description.press('n'); await description.press('f'); await description.press('/')
+  await expect(description).toBeFocused(); await expect(page.locator('#composer')).toBeHidden()
+})

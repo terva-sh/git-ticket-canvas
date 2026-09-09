@@ -1,3 +1,4 @@
+import { mountForms } from './src/ui/mount.tsx';
 import { TicketClient } from './src/platform/tickets/client.ts';
 import { TicketStore, LayoutWriter } from './src/platform/tickets/store.ts';
 import { createCanvasState } from './src/platform/canvas/state.ts';
@@ -17,6 +18,7 @@ import { autoPlace as place, toScene as scenePoint, zoomAt, fitView } from './sr
 const store = new TicketStore(new TicketClient());
 const layoutWriter = new LayoutWriter((board, cards) => store.saveLayout(board, cards));
 let placementVersion = 0;
+let composer = null, composerKey = 0, feedback = null, feedbackId = 0;
 const S = {
   ...createCanvasState(),
   get tickets() { return store.state.tickets; },
@@ -26,6 +28,7 @@ const S = {
   set board(name) {
     store.selectBoard(name);
     S.previews = {};
+    composer = null;
     placementVersion++;
   },
   get config() { return store.state.config; },
@@ -39,6 +42,30 @@ const CARD_W = 248;
 const $ = (id) => document.getElementById(id);
 const stage = $('stage'), scene = $('scene'), cardsEl = $('cards'),
       edgeLayer = $('edgeLayer'), grid = $('grid');
+
+const updateForms = mountForms($('toolbarRoot'), $('formsRoot'), {
+  patch: (ticket, ops) => patch(ticket.id, ops, ticket.revision),
+  closeInspector,
+  navigate: (id) => { select(id); focusOn(id); },
+  remove: (ticket) => removeTicket(ticket.id, ticket),
+  create: createTicket,
+  closeComposer,
+});
+function syncForms(counts = `${[...S.tickets.values()].filter(matches).length} of ${S.tickets.size}`) {
+  updateForms({
+    toolbar: {
+      storePath: S.storePath, readOnly: S.readOnly, boards: S.boards, board: S.board,
+      query: S.query, filters: S.statusFilter, config: S.config, counts,
+      onQuery: (value) => { S.query = value; render(); },
+      onFilter: (value) => { S.statusFilter.has(value) ? S.statusFilter.delete(value) : S.statusFilter.add(value); render(); },
+      onBoard: (name) => changeBoard(name).catch(e => toast(e.message, true)),
+      onNewBoard: () => newBoard().catch(e => toast(e.message, true)),
+      onArrange: arrange, onFit: fit, onNew: newTicketCentre,
+    },
+    ticket: S.tickets.get(S.selected) || null, tickets: S.tickets,
+    composer, composerKey, feedback,
+  });
+}
 
 // ---------------------------------------------------------------- server
 
@@ -187,7 +214,7 @@ function render() {
   }
   drawEdges();
   const shown = [...S.tickets.values()].filter(matches).length;
-  $('counts').textContent = `${shown} of ${S.tickets.size}`;
+  syncForms(`${shown} of ${S.tickets.size}`);
 }
 
 function cardEl(id) {
@@ -304,356 +331,22 @@ function curve(a, b, color, opacity, dashed, width) {
 
 // ---------------------------------------------------------------- chrome
 
-function chrome() {
-  $('storePath').textContent = S.storePath;
-  $('roBadge').hidden = !S.readOnly;
-  for (const b of ['btnNew', 'btnArrange']) $(b).disabled = S.readOnly;
-
-  const sel = $('boardSelect');
-  sel.textContent = '';
-  for (const b of S.boards) {
-    const o = document.createElement('option');
-    o.value = b; o.textContent = b; o.selected = b === S.board;
-    sel.appendChild(o);
-  }
-
-  const row = $('statusFilters');
-  if (row.childElementCount) return;
-  for (const st of S.config.statuses) {
-    const b = document.createElement('button');
-    b.className = 'chip';
-    b.style.color = `var(--s-${st})`;
-    b.setAttribute('aria-pressed', 'false');
-    b.innerHTML = `<i class="dot"></i>${st}`;
-    b.onclick = () => {
-      S.statusFilter.has(st) ? S.statusFilter.delete(st) : S.statusFilter.add(st);
-      b.setAttribute('aria-pressed', String(S.statusFilter.has(st)));
-      render();
-    };
-    row.appendChild(b);
-  }
+function chrome() { syncForms(); }
+function renderInspector() { syncForms(); }
+function toast(message, error = false) {
+  feedback = { id: ++feedbackId, message, error };
+  syncForms();
 }
-
-let toastTimer;
-function toast(msg, isErr) {
-  const t = $('toast');
-  t.textContent = msg;
-  t.className = 'show' + (isErr ? ' err' : '');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.className = ''; }, isErr ? 5200 : 2600);
-}
-
-// ------------------------------------------------------------ inspector
 
 function select(id, additive) {
   if (!additive) S.selection.clear();
   if (id) S.selection.add(id);
   S.selected = id;
   render();
-  id ? openInspector() : closeInspector();
 }
-
-// Inspector controls edit the snapshot they display, not a newer poll result.
-function commitTicket(t, ops) {
-  return patch(t.id, ops, t.revision).catch(() => {}); // patch reports refusals
-}
-
-let inspectorTicket = null, replacingInspector = false;
-
-function openInspector() { $('inspector').classList.add('open'); renderInspector(); }
+function openInspector() { syncForms(); }
 function closeInspector() {
-  $('inspector').classList.remove('open');
   S.selected = null; S.selection.clear(); render();
-}
-
-function field(label, control) {
-  const d = document.createElement('div');
-  d.className = 'field';
-  const l = document.createElement('label');
-  l.textContent = label;
-  d.append(l, control);
-  return d;
-}
-
-function selectControl(value, options, onChange, blank) {
-  const s = document.createElement('select');
-  s.className = 'control';
-  if (blank) s.appendChild(new Option(blank, ''));
-  for (const o of options) s.appendChild(new Option(o, o, false, o === value));
-  s.value = value || '';
-  s.onchange = () => onChange(s.value);
-  s.disabled = S.readOnly;
-  return s;
-}
-
-function textControl(value, onCommit, multiline) {
-  const el = document.createElement(multiline ? 'textarea' : 'input');
-  el.className = 'control';
-  el.value = value || '';
-  el.disabled = S.readOnly;
-  // Commit on blur rather than on each keystroke: every write is a file write
-  // and a revision bump, and a per-character PATCH would turn one sentence
-  // into forty entries of churn in git log.
-  el.onblur = () => {
-    if (!replacingInspector && el.value !== (value || '')) onCommit(el.value);
-  };
-  if (!multiline) el.onkeydown = (e) => { if (e.key === 'Enter') el.blur(); };
-  return el;
-}
-
-function renderInspector(preserveFocus = false) {
-  const t = S.tickets.get(S.selected);
-  if (!t) return;
-  // Refresh the board, but leave the active editor and its revision alone.
-  // Removing a focused textarea fires blur and would submit unfinished text.
-  const active = document.activeElement;
-  if (preserveFocus && inspectorTicket === t.id && $('inspector').contains(active) &&
-      active.matches('input:not([type="checkbox"]), textarea')) return;
-  inspectorTicket = t.id;
-  const body = $('inspBody');
-  replacingInspector = true;
-  body.textContent = '';
-  replacingInspector = false;
-
-  const title = $('fTitle');
-  if (document.activeElement !== title) title.value = t.title;
-  title.disabled = S.readOnly;
-  title.onblur = () => { if (title.value !== t.title) commitTicket(t, [{ op: 'setTitle', title: title.value }]); };
-
-  $('fMeta').textContent =
-    `${t.id}  ·  updated ${t.updatedAt.slice(0, 16).replace('T', ' ')}` +
-    (t.updatedBy ? ` by ${t.updatedBy}` : '');
-
-  // --- status, with the reason the format requires where it requires one
-  const statusRow = document.createElement('div');
-  statusRow.className = 'row';
-  const allowed = [t.status, ...(S.config.transitions[t.status] || [])];
-  statusRow.appendChild(selectControl(t.status, allowed, async (v) => {
-    if (v === t.status) return;
-    let reason = '';
-    if ((S.config.reasonRequired[t.status] || []).includes(v)) {
-      reason = prompt(`Moving ${t.short} to ${v} needs a reason:`) || '';
-      if (!reason.trim()) { renderInspector(); return; }
-    }
-    commitTicket(t, [{ op: 'setStatus', status: v, reason }]);
-  }));
-  body.appendChild(field('Status', statusRow));
-  if (t.statusReason) {
-    const p = document.createElement('div');
-    p.className = 'muted';
-    p.textContent = t.statusReason;
-    body.lastChild.appendChild(p);
-  }
-
-  body.appendChild(field('Type', selectControl(t.type, S.config.types,
-    (v) => commitTicket(t, [{ op: 'setType', type: v }]))));
-  body.appendChild(field('Priority', selectControl(t.priority, S.config.priorities,
-    (v) => commitTicket(t, [{ op: 'setPriority', priority: v }]))));
-
-  body.appendChild(field('Due on', textControl(t.dueOn, (v) =>
-    commitTicket(t, [{ op: 'setDueOn', dueOn: v.trim() ? v.trim() : null }]))));
-
-  if (S.config.milestones.length) {
-    body.appendChild(field('Milestone', selectControl(t.milestone, S.config.milestones,
-      (v) => commitTicket(t, [{ op: 'setMilestone', milestone: v || null }]), '— none —')));
-  }
-
-  // --- labels
-  const labels = document.createElement('div');
-  labels.className = 'row';
-  for (const l of t.labels) {
-    const b = document.createElement('button');
-    b.className = 'chip'; b.style.color = 'var(--ink-dim)';
-    b.textContent = l + ' ×';
-    b.onclick = () => commitTicket(t, [{ op: 'removeLabel', label: l }]);
-    labels.appendChild(b);
-  }
-  const addLabel = document.createElement('input');
-  addLabel.className = 'control'; addLabel.placeholder = 'add label…';
-  addLabel.disabled = S.readOnly;
-  addLabel.setAttribute('list', 'labelList');
-  addLabel.onkeydown = (e) => {
-    if (e.key === 'Enter' && addLabel.value.trim()) {
-      commitTicket(t, [{ op: 'addLabel', label: addLabel.value.trim() }]);
-    }
-  };
-  labels.appendChild(addLabel);
-  const dl = document.createElement('datalist');
-  dl.id = 'labelList';
-  for (const l of S.config.labels) dl.appendChild(new Option(l, l));
-  labels.appendChild(dl);
-  body.appendChild(field('Labels', labels));
-
-  // --- assignees
-  const who = document.createElement('div');
-  who.className = 'row';
-  for (const a of t.assignees) {
-    const b = document.createElement('button');
-    b.className = 'chip'; b.style.color = 'var(--ink-dim)';
-    b.textContent = a + ' ×';
-    b.onclick = () => commitTicket(t, [{ op: 'unassign', actor: a }]);
-    who.appendChild(b);
-  }
-  const addWho = document.createElement('input');
-  addWho.className = 'control'; addWho.placeholder = 'assign…';
-  addWho.disabled = S.readOnly;
-  addWho.onkeydown = (e) => {
-    if (e.key === 'Enter' && addWho.value.trim()) {
-      commitTicket(t, [{ op: 'assign', actor: addWho.value.trim() }]);
-    }
-  };
-  who.appendChild(addWho);
-  body.appendChild(field('Assignees', who));
-
-  // --- relations
-  const rel = document.createElement('div');
-  const line = (label, id, onRemove) => {
-    const d = document.createElement('div');
-    d.className = 'linkline';
-    const other = S.tickets.get(id);
-    const a = document.createElement('a');
-    a.textContent = other ? (other.short || id) : id;
-    a.title = id;
-    a.onclick = () => { if (other) { select(id); focusOn(id); } };
-    const t2 = document.createElement('span');
-    t2.className = 't';
-    t2.textContent = other ? other.title : '(not in this store)';
-    d.append(a, t2);
-    if (onRemove && !S.readOnly) {
-      const x = document.createElement('button');
-      x.textContent = '×'; x.title = `remove ${label}`; x.onclick = onRemove;
-      d.appendChild(x);
-    }
-    return d;
-  };
-
-  if (t.parent) rel.appendChild(line('parent', t.parent, () => commitTicket(t, [{ op: 'setParent', parent: null }])));
-  else {
-    const p = document.createElement('div');
-    p.className = 'muted'; p.textContent = 'no parent';
-    rel.appendChild(p);
-  }
-  body.appendChild(field('Parent', rel));
-
-  const deps = document.createElement('div');
-  for (const d of t.dependencies) {
-    deps.appendChild(line('dependency', d, () => commitTicket(t, [{ op: 'removeDependency', id: d }])));
-  }
-  if (!t.dependencies.length) {
-    const p = document.createElement('div');
-    p.className = 'muted';
-    p.textContent = 'none — drag a card’s right handle onto another to add one';
-    deps.appendChild(p);
-  }
-  const r = t.readiness || {};
-  if (r.missing && r.missing.length) {
-    const p = document.createElement('div');
-    p.className = 'muted';
-    p.style.color = 'var(--danger)';
-    p.textContent = 'missing: ' + r.missing.join(', ');
-    deps.appendChild(p);
-  }
-  body.appendChild(field('Depends on', deps));
-
-  if (t.type === 'epic' || t.blocksOn === 'children') {
-    body.appendChild(field('Blocks on', selectControl(t.blocksOn, S.config.blocksOn,
-      (v) => commitTicket(t, [{ op: 'setBlocksOn', blocksOn: v }]))));
-  }
-
-  // --- prose
-  body.appendChild(field('Description', textControl(t.body.description,
-    (v) => commitTicket(t, [{ op: 'setDescription', text: v }]), true)));
-  body.appendChild(field('Implementation plan', textControl(t.body.plan,
-    (v) => commitTicket(t, [{ op: 'setPlan', text: v }]), true)));
-
-  body.appendChild(checklist('Acceptance criteria', 'ac', t, t.body.acceptanceCriteria));
-  body.appendChild(checklist('Definition of done', 'dod', t, t.body.definitionOfDone));
-
-  body.appendChild(logSection('Notes', t.body.notes, (text) =>
-    commitTicket(t, [{ op: 'appendNote', text }])));
-  body.appendChild(logSection('Comments', t.body.comments, (text) =>
-    commitTicket(t, [{ op: 'appendComment', text }])));
-
-  if (t.body.summary) {
-    body.appendChild(field('Summary', textControl(t.body.summary,
-      (v) => commitTicket(t, [{ op: 'setSummary', text: v }]), true)));
-  }
-
-  const claimBtn = $('btnClaim');
-  claimBtn.textContent = t.claim ? 'Release' : 'Claim';
-  claimBtn.disabled = S.readOnly;
-  claimBtn.onclick = () => commitTicket(t, [t.claim ? { op: 'release' } : { op: 'claim' }]);
-
-  const arch = $('btnArchive');
-  arch.textContent = t.archived ? 'Unarchive' : 'Archive';
-  arch.disabled = S.readOnly;
-  arch.onclick = () => {
-    if (t.archived) return commitTicket(t, [{ op: 'unarchive' }]);
-    const reason = prompt('Archiving is recorded with a reason:') || '';
-    commitTicket(t, [{ op: 'archive', reason }]);
-  };
-  $('btnDelete').disabled = S.readOnly;
-  $('btnDelete').onclick = () => removeTicket(t.id);
-}
-
-function checklist(label, section, t, items) {
-  const wrap = document.createElement('div');
-  items.forEach((it) => {
-    const row = document.createElement('div');
-    row.className = 'checkitem' + (it.checked ? ' done' : '');
-    const cb = document.createElement('input');
-    cb.type = 'checkbox'; cb.checked = it.checked; cb.disabled = S.readOnly;
-    cb.onchange = () => commitTicket(t, [{ op: 'setChecklistItem', section, index: it.index, checked: cb.checked }]);
-    const s = document.createElement('span');
-    s.textContent = it.text;
-    const x = document.createElement('button');
-    x.textContent = '×';
-    x.onclick = () => commitTicket(t, [{ op: 'removeChecklistItem', section, index: it.index }]);
-    row.append(cb, s);
-    if (!S.readOnly) row.appendChild(x);
-    wrap.appendChild(row);
-  });
-  const add = document.createElement('input');
-  add.className = 'control';
-  add.placeholder = 'add item…';
-  add.disabled = S.readOnly;
-  add.onkeydown = (e) => {
-    if (e.key === 'Enter' && add.value.trim()) {
-      commitTicket(t, [{ op: 'addChecklistItem', section, text: add.value.trim() }]);
-    }
-  };
-  wrap.appendChild(add);
-  return field(label, wrap);
-}
-
-function logSection(label, entries, onAdd) {
-  const wrap = document.createElement('div');
-  for (const e of entries) {
-    const d = document.createElement('div');
-    d.className = 'entry';
-    const who = document.createElement('div');
-    who.className = 'who';
-    who.textContent = [e.actor, e.at && e.at.slice(0, 16).replace('T', ' ')].filter(Boolean).join(' · ');
-    const what = document.createElement('div');
-    what.className = 'what';
-    what.textContent = e.text;
-    if (who.textContent) d.appendChild(who);
-    d.appendChild(what);
-    wrap.appendChild(d);
-  }
-  const add = document.createElement('textarea');
-  add.className = 'control';
-  add.placeholder = 'add…  (⌘/Ctrl+Enter)';
-  add.style.minHeight = '46px';
-  add.disabled = S.readOnly;
-  add.onkeydown = (e) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && add.value.trim()) {
-      onAdd(add.value.trim());
-      add.value = '';
-    }
-  };
-  wrap.appendChild(add);
-  return field(label, wrap);
 }
 
 function focusOn(id) {
@@ -663,8 +356,9 @@ function focusOn(id) {
   applyView();
 }
 
-async function removeTicket(id) {
-  const t = S.tickets.get(id), version = placementVersion;
+async function removeTicket(id, t = S.tickets.get(id)) {
+  if (S.readOnly) { toast('read-only', true); return; }
+  const version = placementVersion;
   if (!confirm(`Delete ${t.short} "${t.title}"? The file is removed from disk.`)) return;
   let response;
   try {
@@ -808,47 +502,35 @@ stage.addEventListener('dblclick', (e) => {
 
 // ------------------------------------------------------------- composer
 
-let composeAt = null;
 function openComposer(clientX, clientY) {
   if (S.readOnly) { toast('read-only', true); return; }
-  const r = stage.getBoundingClientRect();
-  composeAt = toScene(clientX, clientY);
-  const c = $('composer');
-  c.hidden = false;
-  c.style.left = (clientX - r.left) + 'px';
-  c.style.top = (clientY - r.top) + 'px';
-  const input = $('composerInput');
-  input.value = '';
-  input.focus();
+  const r = stage.getBoundingClientRect(), at = toScene(clientX, clientY);
+  composer = { x: clientX - r.left, y: clientY - r.top, sceneX: at.x, sceneY: at.y,
+    board: S.board, generation: placementVersion };
+  composerKey++;
+  syncForms();
 }
-function closeComposer() { $('composer').hidden = true; composeAt = null; }
-
-$('composerInput').onkeydown = async (e) => {
-  if (e.key === 'Escape') return closeComposer();
-  if (e.key !== 'Enter') return;
-  const title = e.target.value.trim();
-  if (!title) return closeComposer();
-  const at = composeAt;
-  closeComposer();
+function closeComposer(position = composer) {
+  if (position !== composer) return;
+  composer = null; syncForms();
+}
+async function createTicket(title, at) {
   try {
-    const version = placementVersion;
-    const res = await store.create({
-      title,
-      board: S.board,
-      card: { x: Math.round(at.x), y: Math.round(at.y) },
-    });
-    if (version === placementVersion) { autoPlace(); render(); select(res.ticket.id); }
-    toast(res.layoutError ? `Ticket filed; placement failed: ${res.layoutError}` :
-      `Filed ${res.ticket.short || res.ticket.id} as draft.`, !!res.layoutError);
-  } catch (e) { toast(e.message, true); }
-};
+    const res = await store.create({ title, board: at.board,
+      card: { x: Math.round(at.sceneX), y: Math.round(at.sceneY) } });
+    if (at.generation === placementVersion) { autoPlace(); render(); select(res.ticket.id); }
+    toast(res.layoutError ? 'Ticket filed; placement failed: ' + res.layoutError :
+      'Filed ' + (res.ticket.short || res.ticket.id) + ' as draft.', !!res.layoutError);
+    return res;
+  } catch (error) { toast(error.message, true); throw error; }
+}
 
 // ------------------------------------------------------------- keyboard
 
 document.addEventListener('keydown', (e) => {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
   if (e.key === 'Escape') {
-    if (!$('composer').hidden) return closeComposer();
+    if (composer) return closeComposer();
     if (typing) return e.target.blur();
     return closeInspector();
   }
@@ -868,15 +550,12 @@ function newTicketCentre() {
 
 // --------------------------------------------------------------- wiring
 
-$('search').oninput = (e) => { S.query = e.target.value; render(); };
-$('btnFit').onclick = fit;
-$('btnNew').onclick = newTicketCentre;
-$('inspClose').onclick = closeInspector;
 
 // Arrange writes the auto-layout down as real placements, which is the one
 // place a guess becomes a decision without a drag. It is a button rather than
 // a startup behaviour because it overwrites arrangements somebody made.
-$('btnArrange').onclick = () => {
+function arrange() {
+  if (S.readOnly) return;
   if (!confirm('Lay every card out in status lanes? This replaces the positions on this board.')) return;
   const cards = {};
   for (const [id, position] of place(S.tickets.values(), {}, S.config.statuses)) {
@@ -889,13 +568,14 @@ $('btnArrange').onclick = () => {
   fit();
 };
 
-$('boardSelect').onchange = async (e) => {
-  S.board = e.target.value;
+async function changeBoard(name) {
+  S.board = name;
   await load();
   fit();
 };
 
-$('newBoard').onclick = async () => {
+async function newBoard() {
+  if (S.readOnly) return;
   const name = (prompt('New board name (letters, digits, - and _):') || '').trim();
   if (!name) return;
   S.board = name;
@@ -915,4 +595,5 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden) load().catch(() => {});
 });
 
+syncForms();
 load().then(fit).catch((e) => toast('Could not load the store: ' + e.message, true));
