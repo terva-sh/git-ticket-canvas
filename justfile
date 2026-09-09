@@ -41,5 +41,14 @@ js-check:
 tickets-check:
     git ticket check --fix --dry-run --strict
 
+# Install locked browser-test dependencies and Chromium (host libraries may need OS setup).
+browser-setup:
+    npm ci
+    npx playwright install chromium
+
+# Test the unconverted frontend against isolated Go servers; accepts Playwright flags.
+browser-test *args="":
+    npm run test:browser -- "$@"
+
 # Run formatting, static analysis, syntax, tests, and ticket validation.
 check: fmt-check vet js-check test tickets-check
