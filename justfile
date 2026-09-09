@@ -58,6 +58,10 @@ web-setup:
 web-build:
     npm run build
 
+# Run platform unit and import-boundary tests in Node.
+web-test *args="":
+    npm run test:unit -- "$@"
+
 # Check strict TypeScript without emitting assets.
 web-typecheck:
     npm run typecheck
@@ -72,4 +76,4 @@ api-dev *args="":
     exec ./tkcanvas "$@"
 
 # Rebuild assets before validating Go, frontend syntax, and the ticket store.
-check: web-build fmt-check vet js-check test tickets-check
+check: web-build web-test fmt-check vet js-check test tickets-check

@@ -1,0 +1,161 @@
+import { describe, expect, it } from 'vitest';
+import { autoPlace, fitView, isPinned, posOf, toClient, toScene, zoomAt } from './geometry';
+
+describe('autoPlace', () => {
+  it('sorts IDs and stacks each configured status lane independently', () => {
+    const items = Object.freeze([
+      { id: 'd', status: 'ready' },
+      { id: 'c', status: 'done' },
+      { id: 'b', status: 'draft' },
+      { id: 'a', status: 'ready' },
+    ]);
+    expect([...autoPlace(items, {}, ['draft', 'ready', 'done'])]).toEqual([
+      ['a', { x: 322, y: 0 }],
+      ['b', { x: 0, y: 0 }],
+      ['c', { x: 644, y: 0 }],
+      ['d', { x: 322, y: 132 }],
+    ]);
+    expect(items.map(({ id }) => id)).toEqual(['d', 'c', 'b', 'a']);
+  });
+
+  it('skips pinned cards without consuming rows or changing saved positions', () => {
+    const pinned = Object.freeze({ a: Object.freeze({ x: 0, y: 0 }) });
+    const items = [{ id: 'a', status: 'ready' }, { id: 'b', status: 'ready' }];
+    expect([...autoPlace(items, pinned, ['ready'])]).toEqual([
+      ['b', { x: 0, y: 0 }],
+    ]);
+    expect(pinned).toEqual({ a: { x: 0, y: 0 } });
+    expect([...autoPlace(items, {}, ['ready'])]).toEqual([
+      ['a', { x: 0, y: 0 }],
+      ['b', { x: 0, y: 132 }],
+    ]);
+  });
+
+  it('puts unknown statuses in lane zero alongside the first configured status', () => {
+    const items = [{ id: 'b', status: 'draft' }, { id: 'a', status: 'custom' }];
+    expect([...autoPlace(items, {}, ['draft', 'ready']).values()]).toEqual([
+      { x: 0, y: 0 }, { x: 0, y: 132 },
+    ]);
+  });
+
+  it('uses a single lane without configured statuses and accepts iterators', () => {
+    const items = new Map([
+      ['b', { id: 'b', status: 'ready' }],
+      ['a', { id: 'a', status: 'draft' }],
+    ]);
+    expect([...autoPlace(items.values(), {}, [])]).toEqual([
+      ['a', { x: 0, y: 0 }], ['b', { x: 0, y: 132 }],
+    ]);
+  });
+
+  it('returns a fresh empty map for an empty board', () => {
+    const first = autoPlace([], {}, []);
+    expect(first.size).toBe(0);
+    expect(autoPlace([], {}, []) === first).toBe(false);
+  });
+});
+
+describe('position lookup', () => {
+  it('prefers pinned placement, including the origin, then automatic, then zero', () => {
+    const pinned = { saved: { x: 0, y: 0 }, missing: undefined };
+    const automatic = new Map([
+      ['saved', { x: 322, y: 132 }], ['auto', { x: -40, y: 132 }],
+    ]);
+    expect(isPinned('saved', pinned)).toBe(true);
+    expect(isPinned('auto', pinned)).toBe(false);
+    expect(isPinned('missing', pinned)).toBe(false);
+    expect(posOf('saved', pinned, automatic)).toEqual({ x: 0, y: 0 });
+    expect(posOf('auto', pinned, automatic)).toEqual({ x: -40, y: 132 });
+    expect(posOf('missing', pinned, automatic)).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('coordinate conversion', () => {
+  const origin = Object.freeze({ left: 50, top: 30 });
+
+  it('subtracts the stage origin and view translation before scaling', () => {
+    expect(toScene({ x: 230, y: 100 }, { x: 120, y: 90, k: 2 }, origin))
+      .toEqual({ x: 30, y: -10 });
+  });
+
+  it.each([0.1, 0.75, 1, 2.5])('round-trips client and scene points at scale %s', (k) => {
+    const view = Object.freeze({ x: -120, y: 90, k });
+    const scene = Object.freeze({ x: -45, y: 123 });
+    const client = toClient(scene, view, origin);
+    expect(client).toEqual({ x: scene.x * k - 70, y: scene.y * k + 120 });
+    const result = toScene(client, view, origin);
+    expect(result.x).toBeCloseTo(scene.x);
+    expect(result.y).toBeCloseTo(scene.y);
+  });
+});
+
+describe('zoomAt', () => {
+  const view = Object.freeze({ x: -120, y: 90, k: 0.8 });
+  const client = Object.freeze({ x: 427, y: 315 });
+  const origin = Object.freeze({ left: 37, top: 55 });
+
+  it.each([-120, 120, -1e6, 1e6])('anchors the cursor for deltaY %s, including clamps', (deltaY) => {
+    const before = toScene(client, view, origin);
+    const zoomed = zoomAt(view, client, origin, deltaY);
+    const after = toScene(client, zoomed, origin);
+    expect(after.x).toBeCloseTo(before.x);
+    expect(after.y).toBeCloseTo(before.y);
+    expect(zoomed.k).toBeCloseTo(Math.min(2.5, Math.max(0.1, 0.8 * Math.exp(-deltaY * 0.0015))));
+    expect(view).toEqual({ x: -120, y: 90, k: 0.8 });
+  });
+
+  it('leaves the view unchanged for zero wheel delta', () => {
+    expect(zoomAt(view, client, origin, 0)).toEqual(view);
+  });
+
+  it.each([{ k: 0.1, deltaY: 100 }, { k: 2.5, deltaY: -100 }])(
+    'does not pan when already at scale $k and zooming past the limit', ({ k, deltaY }) => {
+      const atLimit = { x: 10, y: -20, k };
+      expect(zoomAt(atLimit, client, origin, deltaY)).toEqual(atLimit);
+    },
+  );
+});
+
+describe('fitView', () => {
+  it('returns null for an empty board', () => {
+    expect(fitView([], { width: 1000, height: 800 })).toBeNull();
+  });
+
+  it('uses fixed card width, fallback height, inspector allowance, and padding', () => {
+    // Available area 368x240 equals the padded bounds at scale 1.
+    expect(fitView([{ x: 0, y: 0 }], { width: 748, height: 280 }))
+      .toEqual({ x: 80, y: 80, k: 1 });
+  });
+
+  it('unions negative positions and measured heights without mutating inputs', () => {
+    const cards = Object.freeze([
+      Object.freeze({ x: -100, y: -50, height: 200 }),
+      Object.freeze({ x: 200, y: 250, height: 300 }),
+    ]);
+    // Bounds [-100, -50]..[448, 550], padded size 668x720.
+    expect(fitView(cards.values(), Object.freeze({ width: 1048, height: 760 })))
+      .toEqual({ x: 180, y: 130, k: 1 });
+  });
+
+  it('uses the tighter height constraint and preserves a measured zero height', () => {
+    expect(fitView([{ x: 0, y: 0, height: 0 }], { width: 1380, height: 160 }))
+      .toEqual({ x: 396, y: 80, k: 1 });
+  });
+
+  it('caps fit zoom at 2 rather than the wheel limit of 2.5', () => {
+    expect(fitView([{ x: 0, y: 0 }], { width: 2380, height: 2040 }))
+      .toEqual({ x: 772, y: 900, k: 2 });
+  });
+
+  it('clamps oversized bounds to the legacy minimum scale', () => {
+    const result = fitView([{ x: 0, y: 0, height: 10000 }], { width: 1000, height: 800 });
+    expect(result?.k).toBe(0.15);
+    expect(result?.x).toBeCloseTo(311.4);
+    expect(result?.y).toBe(-350);
+  });
+
+  it('retains finite legacy fit math when the stage is smaller than its allowances', () => {
+    expect(fitView([{ x: 0, y: 0 }], { width: 100, height: 20 }))
+      .toEqual({ x: -138.6, y: 1, k: 0.15 });
+  });
+});

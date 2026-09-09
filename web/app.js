@@ -1,4 +1,7 @@
-'use strict';
+import { TicketClient } from './src/platform/tickets/client.ts';
+import { TicketStore, LayoutWriter } from './src/platform/tickets/store.ts';
+import { createCanvasState } from './src/platform/canvas/state.ts';
+import { autoPlace as place, toScene as scenePoint, zoomAt, fitView } from './src/platform/canvas/geometry.ts';
 
 // tkcanvas — an infinite canvas over a git-ticket store.
 //
@@ -11,49 +14,33 @@
 
 // ---------------------------------------------------------------- state
 
+const store = new TicketStore(new TicketClient());
+const layoutWriter = new LayoutWriter((board, cards) => store.saveLayout(board, cards));
+let placementVersion = 0;
 const S = {
-  tickets: new Map(),      // id -> ticket DTO
-  cards: {},               // id -> {x,y,w,z} from the layout file (pinned)
-  auto: new Map(),         // id -> {x,y} computed for unplaced cards (unpinned)
-  boards: [],
-  board: 'default',
-  config: null,
-  storePath: '',
-  readOnly: false,
-  view: { x: 120, y: 90, k: 1 },
-  selection: new Set(),
-  selected: null,          // id shown in the inspector
-  query: '',
-  statusFilter: new Set(), // empty means every status
-  els: new Map(),          // id -> card element
+  ...createCanvasState(),
+  get tickets() { return store.state.tickets; },
+  get cards() { return store.state.cards; },
+  get boards() { return store.state.boards; },
+  get board() { return store.state.board; },
+  set board(name) {
+    store.selectBoard(name);
+    S.previews = {};
+    placementVersion++;
+  },
+  get config() { return store.state.config; },
+  get storePath() { return store.state.storePath; },
+  get readOnly() { return store.state.readOnly; },
+  els: new Map(), // DOM handles belong only to the renderer.
 };
 
 const CARD_W = 248;
-const LANE_W = 300;
-const LANE_GAP = 22;
 
 const $ = (id) => document.getElementById(id);
 const stage = $('stage'), scene = $('scene'), cardsEl = $('cards'),
       edgeLayer = $('edgeLayer'), grid = $('grid');
 
 // ---------------------------------------------------------------- server
-
-async function call(method, path, body) {
-  const res = await fetch(path, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
-  if (!res.ok) {
-    const err = new Error((data && data.message) || res.statusText);
-    err.code = data && data.code;
-    err.body = data;
-    throw err;
-  }
-  return data;
-}
 
 // patch sends ops for one ticket and folds the answer back into state.
 //
@@ -63,17 +50,16 @@ async function call(method, path, body) {
 // canvas starts lying about a repository.
 async function patch(id, ops, revision = S.tickets.get(id)?.revision || '') {
   try {
-    const res = await call('PATCH', `/api/tickets/${encodeURIComponent(id)}`,
-      { ifRevision: revision, ops });
-    S.tickets.set(res.ticket.id, res.ticket);
+    const ticket = await store.patch(id, ops, revision);
     render();
-    if (S.selected === res.ticket.id) renderInspector();
-    return res.ticket;
+    if (S.selected === ticket.id) renderInspector();
+    return ticket;
   } catch (e) {
     if (e.code === 'stale_revision') {
       toast('That ticket changed on disk since this page read it — reloading.', true);
-      await load();
+      paintBoard();
     } else {
+      if (ops.length > 1) paintBoard();
       toast(e.message, true);
     }
     throw e;
@@ -81,13 +67,10 @@ async function patch(id, ops, revision = S.tickets.get(id)?.revision || '') {
 }
 
 async function load() {
-  const d = await call('GET', `/api/board?board=${encodeURIComponent(S.board)}`);
-  S.tickets = new Map(d.tickets.map((t) => [t.id, t]));
-  S.cards = (d.layout && d.layout.cards) || {};
-  S.boards = d.boards || ['default'];
-  S.config = d.config;
-  S.storePath = d.storePath;
-  S.readOnly = d.readOnly;
+  if (await store.load()) paintBoard();
+}
+
+function paintBoard() {
   autoPlace();
   chrome();
   render();
@@ -99,17 +82,18 @@ async function load() {
 // they are written straight through rather than batched into a session: a drag
 // you made is a decision, and losing it to a crashed tab would be the same
 // failure as losing a ticket.
-let pending = {}, saveTimer = null;
 function saveCards(map) {
-  Object.assign(pending, map);
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
-    const cards = pending; pending = {};
-    try {
-      const b = await call('PUT', '/api/layout', { board: S.board, cards });
-      S.cards = b.cards || {};
-    } catch (e) { toast(e.message, true); }
-  }, 200);
+  const board = S.board, version = placementVersion;
+  const previews = Object.fromEntries(Object.keys(map).map(id => [id, S.previews[id]]));
+  layoutWriter.enqueue(board, map).catch((e) => toast(e.message, true)).finally(() => {
+    if (S.board !== board || version !== placementVersion) return;
+    // Clear only this save's previews. A later drag owns different objects.
+    for (const [id, preview] of Object.entries(previews)) {
+      if (S.previews[id] === preview) delete S.previews[id];
+    }
+    autoPlace();
+    render();
+  });
 }
 
 // ------------------------------------------------------------- placement
@@ -123,22 +107,11 @@ function saveCards(map) {
 // nobody chose. Dragging a card is what pins it, which is also what makes the
 // distinction visible: dashed means "nobody put this here yet".
 function autoPlace() {
-  S.auto.clear();
-  const lanes = new Map();
-  const order = S.config ? S.config.statuses : [];
-  const ids = [...S.tickets.keys()].sort();
-  for (const id of ids) {
-    if (S.cards[id]) continue;
-    const t = S.tickets.get(id);
-    const lane = Math.max(0, order.indexOf(t.status));
-    const n = lanes.get(lane) || 0;
-    lanes.set(lane, n + 1);
-    S.auto.set(id, { x: lane * (LANE_W + LANE_GAP), y: n * 132 });
-  }
+  S.auto = place(S.tickets.values(), { ...S.cards, ...S.previews }, S.config?.statuses || []);
 }
 
-const posOf = (id) => S.cards[id] || S.auto.get(id) || { x: 0, y: 0 };
-const isPinned = (id) => !!S.cards[id];
+const posOf = (id) => S.previews[id] || S.cards[id] || S.auto.get(id) || { x: 0, y: 0 };
+const isPinned = (id) => !!(S.previews[id] || S.cards[id]);
 
 // ---------------------------------------------------------------- view
 
@@ -178,25 +151,13 @@ function drawGrid() {
 
 const toScene = (cx, cy) => {
   const r = stage.getBoundingClientRect();
-  return { x: (cx - r.left - S.view.x) / S.view.k, y: (cy - r.top - S.view.y) / S.view.k };
+  return scenePoint({ x: cx, y: cy }, S.view, r);
 };
 
 function fit() {
-  const ids = visibleIds();
-  if (!ids.length) return;
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const id of ids) {
-    const p = posOf(id), el = S.els.get(id);
-    const h = el ? el.offsetHeight : 120;
-    x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y);
-    x1 = Math.max(x1, p.x + CARD_W); y1 = Math.max(y1, p.y + h);
-  }
-  const pad = 60, w = stage.clientWidth - 380, h = stage.clientHeight - 40;
-  const k = Math.min(2, Math.max(0.15, Math.min(w / (x1 - x0 + pad * 2), h / (y1 - y0 + pad * 2))));
-  S.view.k = k;
-  S.view.x = (w - (x1 - x0) * k) / 2 - x0 * k + 20;
-  S.view.y = (h - (y1 - y0) * k) / 2 - y0 * k + 20;
-  applyView();
+  const view = fitView(visibleIds().map(id => ({ ...posOf(id), height: S.els.get(id)?.offsetHeight })),
+    { width: stage.clientWidth, height: stage.clientHeight });
+  if (view) { S.view = view; applyView(); }
 }
 
 // ---------------------------------------------------------------- render
@@ -703,20 +664,20 @@ function focusOn(id) {
 }
 
 async function removeTicket(id) {
-  const t = S.tickets.get(id);
+  const t = S.tickets.get(id), version = placementVersion;
   if (!confirm(`Delete ${t.short} "${t.title}"? The file is removed from disk.`)) return;
+  let response;
   try {
-    await call('DELETE', `/api/tickets/${encodeURIComponent(id)}?board=${encodeURIComponent(S.board)}` +
-      `&ifRevision=${encodeURIComponent(t.revision)}`);
+    response = await store.remove(id, t.revision);
   } catch (e) {
-    if (e.code === 'ticket_referenced') {
-      if (!confirm(`${e.message}\n\nRemove anyway and leave the references dangling?`)) return;
-      await call('DELETE', `/api/tickets/${encodeURIComponent(id)}?board=${encodeURIComponent(S.board)}&force=true`);
-    } else { toast(e.message, true); return; }
+    if (e.code !== 'ticket_referenced' || version !== placementVersion) { toast(e.message, true); return; }
+    if (!confirm(`${e.message}\n\nRemove anyway and leave the references dangling?`)) return;
+    try { response = await store.remove(id, t.revision, true); }
+    catch (error) { toast(error.message, true); return; }
   }
-  closeInspector();
+  if (version === placementVersion && S.selected === id) closeInspector();
   await load();
-  toast('Deleted.');
+  toast(response.layoutError ? `Deleted; placement cleanup failed: ${response.layoutError}` : 'Deleted.', !!response.layoutError);
 }
 
 // ------------------------------------------------------------- gestures
@@ -768,13 +729,13 @@ stage.addEventListener('pointermove', (e) => {
     const dx = (e.clientX - drag.pointer.x) / S.view.k;
     const dy = (e.clientY - drag.pointer.y) / S.view.k;
     if (Math.abs(dx) > 1 || Math.abs(dy) > 1) drag.moved = true;
+    if (!drag.moved) return;
     for (const id of drag.ids) {
       const s = drag.start[id];
       const el = S.els.get(id);
       if (el) el.style.transform = `translate(${s.x + dx}px, ${s.y + dy}px)`;
       // Keep the model in step so edges follow the card as it moves.
-      const target = S.cards[id] || S.auto.get(id);
-      if (target) { target.x = s.x + dx; target.y = s.y + dy; }
+      S.previews[id] = { x: s.x + dx, y: s.y + dy };
     }
     drawEdges();
     return;
@@ -804,14 +765,14 @@ stage.addEventListener('pointerup', async (e) => {
   stage.classList.remove('panning', 'linking');
 
   if (d.kind === 'card' && d.moved) {
-    if (S.readOnly) { toast('read-only', true); await load(); return; }
+    if (S.readOnly) { S.previews = {}; toast('read-only', true); await load(); return; }
     // Dragging is what pins a card: an auto-placed guess becomes a decision
     // only when somebody makes it one.
     const cards = {};
     for (const id of d.ids) {
       const p = posOf(id);
       cards[id] = { x: Math.round(p.x), y: Math.round(p.y) };
-      S.cards[id] = cards[id];
+      S.previews[id] = cards[id];
       S.auto.delete(id);
     }
     saveCards(cards);
@@ -835,12 +796,7 @@ stage.addEventListener('pointerup', async (e) => {
 stage.addEventListener('wheel', (e) => {
   e.preventDefault();
   const r = stage.getBoundingClientRect();
-  const mx = e.clientX - r.left, my = e.clientY - r.top;
-  const before = { x: (mx - S.view.x) / S.view.k, y: (my - S.view.y) / S.view.k };
-  const k = Math.min(2.5, Math.max(0.1, S.view.k * Math.exp(-e.deltaY * 0.0015)));
-  S.view.k = k;
-  S.view.x = mx - before.x * k;
-  S.view.y = my - before.y * k;
+  S.view = zoomAt(S.view, { x: e.clientX, y: e.clientY }, r, e.deltaY);
   applyView();
 }, { passive: false });
 
@@ -875,16 +831,15 @@ $('composerInput').onkeydown = async (e) => {
   const at = composeAt;
   closeComposer();
   try {
-    const res = await call('POST', '/api/tickets', {
+    const version = placementVersion;
+    const res = await store.create({
       title,
       board: S.board,
       card: { x: Math.round(at.x), y: Math.round(at.y) },
     });
-    S.tickets.set(res.ticket.id, res.ticket);
-    if (res.layout) S.cards = res.layout.cards || {};
-    render();
-    select(res.ticket.id);
-    toast(`Filed ${res.ticket.short || res.ticket.id} as draft.`);
+    if (version === placementVersion) { autoPlace(); render(); select(res.ticket.id); }
+    toast(res.layoutError ? `Ticket filed; placement failed: ${res.layoutError}` :
+      `Filed ${res.ticket.short || res.ticket.id} as draft.`, !!res.layoutError);
   } catch (e) { toast(e.message, true); }
 };
 
@@ -924,15 +879,9 @@ $('inspClose').onclick = closeInspector;
 $('btnArrange').onclick = () => {
   if (!confirm('Lay every card out in status lanes? This replaces the positions on this board.')) return;
   const cards = {};
-  const lanes = new Map();
-  const order = S.config.statuses;
-  for (const id of [...S.tickets.keys()].sort()) {
-    const t = S.tickets.get(id);
-    const lane = Math.max(0, order.indexOf(t.status));
-    const n = lanes.get(lane) || 0;
-    lanes.set(lane, n + 1);
-    cards[id] = { x: lane * (LANE_W + LANE_GAP), y: n * 132 };
-    S.cards[id] = cards[id];
+  for (const [id, position] of place(S.tickets.values(), {}, S.config.statuses)) {
+    cards[id] = position;
+    S.previews[id] = cards[id];
     S.auto.delete(id);
   }
   saveCards(cards);
@@ -950,8 +899,7 @@ $('newBoard').onclick = async () => {
   const name = (prompt('New board name (letters, digits, - and _):') || '').trim();
   if (!name) return;
   S.board = name;
-  S.boards = [...new Set([...S.boards, name])].sort();
-  await call('PUT', '/api/layout', { board: name, cards: {} }).catch((e) => toast(e.message, true));
+  await store.saveLayout(name, {}).catch((e) => toast(e.message, true));
   await load();
 };
 
