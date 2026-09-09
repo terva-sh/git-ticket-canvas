@@ -3,9 +3,20 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "vite",
+    "build": "npm run typecheck && vite build",
+    "typecheck": "tsc --noEmit",
+    "pretest:browser": "npm run build",
     "test:browser": "playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "1.61.1"
+    "@playwright/test": "1.61.1",
+    "@preact/preset-vite": "2.10.6",
+    "@types/node": "22.20.1",
+    "typescript": "5.9.3",
+    "vite": "6.4.3"
+  },
+  "dependencies": {
+    "preact": "10.29.8"
   }
 }

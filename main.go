@@ -26,7 +26,7 @@ import (
 	"github.com/terva-sh/tkcanvas/internal/api"
 )
 
-//go:embed web
+//go:embed all:web/dist
 var webFS embed.FS
 
 func main() {
@@ -58,7 +58,7 @@ func run() error {
 		return err
 	}
 
-	assets, err := fs.Sub(webFS, "web")
+	assets, err := fs.Sub(webFS, "web/dist")
 	if err != nil {
 		return err
 	}

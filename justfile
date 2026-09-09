@@ -1,16 +1,16 @@
-# Developer setup and examples: docs/development.md
+# Current developer setup: docs/development-vite.md
 set positional-arguments
 
 # List available recipes.
 default:
     @just --list
 
-# Build ./tkcanvas with the embedded frontend.
-build:
+# Rebuild frontend assets, then build ./tkcanvas. Raw go build uses committed dist.
+build: web-build
     go build -o tkcanvas .
 
-# Install tkcanvas to GOBIN, or Go's default GOPATH/bin.
-install:
+# Rebuild frontend assets, then install to GOBIN or GOPATH/bin.
+install: web-build
     go install .
 
 # Rebuild and run; forward arguments unchanged to tkcanvas.
@@ -33,7 +33,7 @@ fmt-check:
 vet:
     go vet ./...
 
-# Check frontend JavaScript syntax without a frontend build step.
+# Check syntax of the legacy JavaScript during the incremental migration.
 js-check:
     node --check web/app.js
 
@@ -46,9 +46,30 @@ browser-setup:
     npm ci
     npx playwright install chromium
 
-# Test the unconverted frontend against isolated Go servers; accepts Playwright flags.
+# Rebuild assets and test the bundled frontend against isolated Go servers.
 browser-test *args="":
     npm run test:browser -- "$@"
 
-# Run formatting, static analysis, syntax, tests, and ticket validation.
-check: fmt-check vet js-check test tickets-check
+# Install the locked frontend dependencies.
+web-setup:
+    npm ci
+
+# Typecheck TypeScript and compile web/dist; commit the generated assets.
+web-build:
+    npm run build
+
+# Check strict TypeScript without emitting assets.
+web-typecheck:
+    npm run typecheck
+
+# Start Vite on loopback; /api proxies to TKCANVAS_API_URL or localhost:7777.
+web-dev *args="":
+    npm run dev -- "$@"
+
+# Start the Go API for Vite, using committed assets; accepts application flags.
+api-dev *args="":
+    go build -o tkcanvas .
+    exec ./tkcanvas "$@"
+
+# Rebuild assets before validating Go, frontend syntax, and the ticket store.
+check: web-build fmt-check vet js-check test tickets-check

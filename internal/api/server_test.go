@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -30,10 +31,10 @@ func newTestStore(t *testing.T) *ticket.Store {
 
 func startTestServer(t *testing.T, st *ticket.Store, readOnly bool) *httptest.Server {
 	t.Helper()
-	// Serve the actual frontend files, not fixture content. Embedding and
+	// Serve the built frontend files, not fixture content. Embedding and
 	// process shutdown belong to main and are outside these API tests.
 	s := httptest.NewServer(New(st, Options{
-		Actor: testActor, ReadOnly: readOnly, Assets: os.DirFS("../../web"),
+		Actor: testActor, ReadOnly: readOnly, Assets: os.DirFS("../../web/dist"),
 	}).Handler())
 	s.Client().Timeout = 5 * time.Second
 	t.Cleanup(s.Close)
@@ -108,9 +109,18 @@ func TestReadEndpoints(t *testing.T) {
 	t.Parallel()
 	st := newTestStore(t)
 	s := startTestServer(t, st, false)
-	for path, marker := range map[string]string{"/": "git-ticket canvas", "/app.js": "function"} {
-		if data := request(t, s, "GET", path, "", http.StatusOK); !strings.Contains(string(data), marker) {
-			t.Errorf("%s missing %q", path, marker)
+	html := request(t, s, "GET", "/", "", http.StatusOK)
+	if !strings.Contains(string(html), "git-ticket canvas") {
+		t.Fatal("missing application title")
+	}
+	assets := regexp.MustCompile(`(?:src|href)="(\./assets/[^" ]+)"`).FindAllSubmatch(html, -1)
+	if len(assets) == 0 {
+		t.Fatal("expected at least one bundled asset link")
+	}
+	for _, asset := range assets {
+		path := strings.TrimPrefix(string(asset[1]), ".")
+		if data := request(t, s, "GET", path, "", http.StatusOK); len(data) == 0 {
+			t.Errorf("empty asset: %s", path)
 		}
 	}
 	board := getBoard(t, s)
