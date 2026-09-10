@@ -6,15 +6,46 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 
 const cache = JSON.parse(execFileSync('go', ['env', '-json', 'GOCACHE', 'GOPATH'], { encoding: 'utf8' }))
-function fixture(t) {
+function fixture(t, inherited = process.env) {
   const home = mkdtempSync(join(tmpdir(), 'canvas-install-test-'))
   t.after(() => rmSync(home, { recursive: true, force: true }))
-  return { home, env: { ...process.env, ...cache, HOME: home, GIT_CONFIG_GLOBAL: '/dev/null' } }
+  const env = { ...inherited, ...cache, HOME: home, GIT_CONFIG_GLOBAL: '/dev/null',
+    XDG_CONFIG_HOME: join(home, '.config') }
+  // go telemetry off uses the default config path, not this Go test override.
+  delete env.TEST_TELEMETRY_DIR
+  // A fast-failing go build can leave a detached telemetry writer behind.
+  // Disable it before any build, only in this fixture's private telemetry dir.
+  execFileSync('go', ['telemetry', 'off'], { env, timeout: 30_000 })
+  return { home, env }
 }
 function install(env, args = []) {
   return spawnSync('bash', ['scripts/install-local.sh', ...args], { env, encoding: 'utf8', timeout: 120_000 })
 }
 function passed(result) { assert.equal(result.status, 0, result.stderr) }
+
+test('fixture disables Go telemetry before builds without changing inherited configuration', t => {
+  const outside = mkdtempSync(join(tmpdir(), 'canvas-install-inherited-'))
+  t.after(() => rmSync(outside, { recursive: true, force: true }))
+  const telemetry = join(outside, 'telemetry'), config = join(outside, 'config')
+  mkdirSync(telemetry)
+  mkdirSync(config)
+  writeFileSync(join(telemetry, 'mode'), 'off\n')
+  writeFileSync(join(config, 'sentinel'), 'keep config')
+  const { home, env } = fixture(t, { ...process.env, XDG_CONFIG_HOME: config, TEST_TELEMETRY_DIR: telemetry })
+  const state = JSON.parse(execFileSync('go', ['env', '-json', 'GOTELEMETRY', 'GOTELEMETRYDIR'], { env, encoding: 'utf8' }))
+  assert.equal(state.GOTELEMETRY, 'off')
+  assert.ok(state.GOTELEMETRYDIR.startsWith(home + '/'), state.GOTELEMETRYDIR)
+  assert.equal(env.TEST_TELEMETRY_DIR, undefined)
+  assert.equal(env.XDG_CONFIG_HOME, join(home, '.config'))
+  const result = install({ ...env, GOFLAGS: '-not-a-real-go-flag' }, [join(home, 'bin')])
+  assert.notEqual(result.status, 0)
+  // Mode must be off before the fast-failing Go process can start a sidecar.
+  assert.deepEqual(readdirSync(state.GOTELEMETRYDIR), ['mode'])
+  assert.equal(readFileSync(join(telemetry, 'mode'), 'utf8'), 'off\n')
+  assert.deepEqual(readdirSync(telemetry), ['mode'])
+  assert.equal(readFileSync(join(config, 'sentinel'), 'utf8'), 'keep config')
+  assert.deepEqual(readdirSync(config), ['sentinel'])
+})
 
 test('default install ignores GOBIN, replaces atomically, and is discoverable by Git', t => {
   const { home, env } = fixture(t), dest = join(home, '.local/bin')
