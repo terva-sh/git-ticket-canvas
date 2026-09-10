@@ -2,6 +2,12 @@
 .canvas-frame { position: absolute; top: 0; left: 0; border: 2px solid var(--frame-color); border-radius: 10px; background: color-mix(in srgb, var(--frame-color) 7%, transparent); pointer-events: none; }
 .canvas-frame.selected { outline: 2px solid var(--accent); outline-offset: 4px; }
 .canvas-frame-title { position: absolute; top: -18px; left: 10px; max-width: calc(100% - 20px); background: var(--panel); color: var(--ink); border: 1px solid var(--frame-color); border-radius: 5px; padding: 5px 9px; pointer-events: auto; cursor: grab; font: 12px/1.4 var(--sans); overflow-wrap: anywhere; text-align: left; }
+/* Injected sampling only: count text never changes title wrapping. Tabular
+   digits and the full membership count reserve every possible filtered count. */
+.sampling-frame-title { display: flex; flex-direction: column; align-items: flex-start; min-width: min-content; }
+.sampling-frame-count-slot { display: grid; white-space: nowrap; font-variant-numeric: tabular-nums; font-family: monospace; }
+.sampling-frame-count-slot > span { grid-area: 1 / 1; }
+.sampling-frame-count-slot > [aria-hidden] { visibility: hidden; }
 .canvas-frame-resize { position: absolute; bottom: -9px; right: -9px; width: 26px; height: 26px; border: 1px solid var(--frame-color); border-radius: 4px; background: var(--panel); color: var(--ink); pointer-events: auto; cursor: nwse-resize; }
 .canvas-frame-title:focus-visible, .canvas-frame-resize:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .canvas-frame-draft { position: absolute; border: 2px dashed var(--accent); background: var(--accent-soft); pointer-events: none; }

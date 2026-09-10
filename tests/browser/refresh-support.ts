@@ -24,7 +24,7 @@ async function instrumentedBundle() {
       plugins: [{ name: 'refresh-measurement-counters', enforce: 'pre',
         transform(code, id) {
           const points: [string, RegExp, string][] = [
-            ['/ui/App.tsx', /export function App\(\) \{/, 'appRenders'],
+            ['/ui/App.tsx', /export function App\([^\n]*\) \{/, 'appRenders'],
             ['/ui/canvas/CardView.tsx', /memo\(function CardView\([^\n]*\) \{/, 'cardRenders'],
             ['/platform/canvas/geometry.ts', /export function autoPlace\([\s\S]*?\): Map<string, Point> \{/, 'placementCalls'],
           ]

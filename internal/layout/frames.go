@@ -30,15 +30,16 @@ type Frame struct {
 
 // Expectations is a record-level read set. Nil means the record must be absent.
 type Expectations struct {
-	Cards  map[string]*Card  `json:"cards"`
-	Frames map[string]*Frame `json:"frames"`
+	Routing *Routing          `json:"routing"`
+	Cards   map[string]*Card  `json:"cards"`
+	Frames  map[string]*Frame `json:"frames"`
 }
 
 var ErrConflict = errors.New("layout conflict")
 
 // Empty always exposes maps, including for schema 1 layouts and unsaved boards.
 func Empty(name string) *Board {
-	return &Board{Schema: Schema, Board: name, Cards: map[string]Card{}, Frames: map[string]Frame{}}
+	return &Board{Schema: Schema, Board: name, Cards: map[string]Card{}, Frames: map[string]Frame{}, Routing: emptyRouting()}
 }
 
 // Parse is shared by disk loads and the live snapshot's captured file image.
@@ -54,7 +55,7 @@ func Parse(name string, data []byte) (*Board, error) {
 	if err := dec.Decode(&extra); err != io.EOF {
 		return nil, errors.New("layout must contain one YAML document")
 	}
-	if raw.Schema != 1 && raw.Schema != Schema {
+	if raw.Schema < 1 || raw.Schema > Schema {
 		return nil, fmt.Errorf("unsupported layout schema %d", raw.Schema)
 	}
 	if raw.Board != name {
@@ -62,6 +63,19 @@ func Parse(name string, data []byte) (*Board, error) {
 	}
 	if raw.Schema == 1 && len(raw.Frames) != 0 {
 		return nil, errors.New("frames require layout schema 2")
+	}
+	if raw.Schema < 3 {
+		// Even null/empty routing fields belong to schema 3.
+		var keys map[string]any
+		if err := yaml.Unmarshal(data, &keys); err != nil {
+			return nil, err
+		}
+		for _, key := range []string{"pens", "ruleOrder", "inbox"} {
+			if _, exists := keys[key]; exists {
+				return nil, errors.New("routing requires layout schema 3")
+			}
+		}
+		raw.Routing = emptyRouting()
 	}
 	raw.Schema = Schema
 	if raw.Cards == nil {
@@ -79,6 +93,7 @@ func Parse(name string, data []byte) (*Board, error) {
 		sort.Strings(f.Members)
 		raw.Frames[id] = f
 	}
+	raw.Routing = canonicalRouting(raw.Routing, false)
 	return &raw, nil
 }
 
@@ -95,7 +110,7 @@ func validRecordID(id string) bool {
 	return true
 }
 func validateBoard(b *Board) error {
-	if b.Schema != 1 && b.Schema != Schema {
+	if b.Schema < 1 || b.Schema > Schema {
 		return fmt.Errorf("unsupported layout schema %d", b.Schema)
 	}
 	if !boardNameOK(b.Board) {
@@ -132,10 +147,11 @@ func validateBoard(b *Board) error {
 			owners[member] = id
 		}
 	}
-	return nil
+	return validateRouting(b.Routing)
 }
 
 func normalize(b *Board) {
+	b.Routing = canonicalRouting(b.Routing, true)
 	for id, c := range b.Cards {
 		c.X, c.Y, c.W = round2(c.X), round2(c.Y), round2(c.W)
 		b.Cards[id] = c
@@ -158,10 +174,29 @@ func sameFrame(a, b Frame) bool {
 // one file under the same lock used by sparse card writes. validate runs after
 // conflicts, before saving, so the API can check current ticket identities.
 func (s *Store) Transaction(board string, cards map[string]*Card, frames map[string]*Frame, expect *Expectations, validate func() error) (*Board, error) {
+	return s.RoutingTransaction(board, cards, frames, nil, expect, validate)
+}
+
+// RoutingTransaction includes an optional whole-routing replacement in the
+// same read set and atomic write as card and frame edits.
+func (s *Store) RoutingTransaction(board string, cards map[string]*Card, frames map[string]*Frame, routing *Routing, expect *Expectations, validate func() error) (*Board, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if expect == nil {
-		return nil, errors.New("frame transactions require expect")
+		return nil, errors.New("layout transactions require expect")
+	}
+	if routing != nil {
+		if err := validateRouting(*routing); err != nil {
+			return nil, err
+		}
+		if expect.Routing == nil {
+			return nil, errors.New("missing routing expectation")
+		}
+	}
+	if expect.Routing != nil {
+		if err := validateRouting(*expect.Routing); err != nil {
+			return nil, fmt.Errorf("invalid routing expectation: %w", err)
+		}
 	}
 	for id := range cards {
 		if _, ok := expect.Cards[id]; !ok {
@@ -177,6 +212,9 @@ func (s *Store) Transaction(board string, cards map[string]*Card, frames map[str
 	if err != nil {
 		return nil, err
 	}
+	if expect.Routing != nil && !sameRouting(b.Routing, canonicalRouting(*expect.Routing, false)) {
+		return nil, fmt.Errorf("%w: routing changed", ErrConflict)
+	}
 	for id, expected := range expect.Cards {
 		current, ok := b.Cards[id]
 		if expected == nil && ok || expected != nil && (!ok || current != *expected) {
@@ -188,6 +226,9 @@ func (s *Store) Transaction(board string, cards map[string]*Card, frames map[str
 		if expected == nil && ok || expected != nil && (!ok || !sameFrame(current, *expected)) {
 			return nil, fmt.Errorf("%w: frame %s changed", ErrConflict, id)
 		}
+	}
+	if routing != nil {
+		b.Routing = canonicalRouting(*routing, false)
 	}
 	for id, c := range cards {
 		if c == nil {

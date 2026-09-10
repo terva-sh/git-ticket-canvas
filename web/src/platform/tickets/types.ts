@@ -30,10 +30,23 @@ export type CardChanges = Record<string, Card | null>
 export interface Frame { title: string; x: number; y: number; w: number; h: number; color: string; members: string[] }
 export type Frames = Record<string, Frame>
 export type FrameChanges = Record<string, Frame | null>
-export interface LayoutExpectation { cards: CardChanges; frames: FrameChanges }
-export interface FrameTransaction { cards: CardChanges; frames: FrameChanges; expect: LayoutExpectation }
-// Older card-only responses omit frames. TicketStore normalizes them to {}.
-export interface Board { schema: number; board: string; cards: Cards; frames?: Frames }
+export interface Point { x: number; y: number }
+export interface Pen {
+  title: string; x: number; y: number; w: number; h: number; color: string
+  pin: Point; requiredLabels: string[]
+}
+export type Pens = Record<string, Pen>
+export interface Routing { pens: Pens; ruleOrder: string[]; inbox: Point }
+export interface LayoutExpectation { cards: CardChanges; frames: FrameChanges; routing?: Routing }
+export interface CapturePrecondition { version: 1; token: string }
+export interface FrameTransaction { cards: CardChanges; frames: FrameChanges; expect: LayoutExpectation; capture?: CapturePrecondition }
+export interface RoutingTransaction extends FrameTransaction {
+  routing: Routing; expect: LayoutExpectation & { routing: Routing }
+}
+// Legacy wire layouts omit routing and sometimes frames. Normalize before use;
+// schema 3 requires all routing fields at runtime, even though legacy types do not.
+export interface Board extends Partial<Routing> { schema: number; board: string; cards: Cards; frames?: Frames }
+export type NormalizedBoard = Board & Routing & { frames: Frames }
 export interface Schema {
   statuses: string[]; openStatuses: string[]; terminalStatuses: string[]
   types: string[]; priorities: string[]; blocksOn: string[]; labels: string[]
@@ -47,6 +60,8 @@ export interface VersionInfo {
 export interface BoardResponse {
   layout: Board; boards: string[]; tickets: Ticket[]; config: Schema
   storePath: string; readOnly: boolean
+  /** Absent on legacy servers; never infer a token from an ETag. */
+  captureToken?: string
 }
 export interface TicketResponse { ticket: Ticket; layout?: Board; layoutError?: string }
 export interface Dangling { Ticket: string; Title: string; Field: string }
@@ -84,4 +99,7 @@ export type Op =
   | { op: 'release' | 'unarchive' }
   | { op: 'archive'; reason: string }
 export interface PatchRequest { ifRevision: string; ops: Op[] }
-export interface LayoutRequest { board: string; cards: CardChanges; frames?: FrameChanges; expect?: LayoutExpectation }
+export type LayoutRequest = { board: string; cards: CardChanges; frames?: FrameChanges; capture?: CapturePrecondition } & (
+  | { routing?: never; expect?: LayoutExpectation }
+  | { routing: Routing; expect: LayoutExpectation & { routing: Routing } }
+)

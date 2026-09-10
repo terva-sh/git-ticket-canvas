@@ -206,7 +206,10 @@ func (c *coordinator) reconcileLocked(force, safety bool) {
 }
 
 func (c *coordinator) build(image fileImage) (*snapshot, error) {
-	s := c.s
+	return c.s.buildSnapshot(image)
+}
+
+func (s *Server) buildSnapshot(image fileImage) (*snapshot, error) {
 	now := s.now()
 	cfg, err := ticket.ParseConfig(image.data[filepath.Join(s.store.Path(), "config.yml")])
 	if err != nil {
@@ -367,6 +370,11 @@ func (s *snapshot) representation(name string) (representation, error) {
 	if out.Board == nil {
 		out.Board = layout.Empty(name)
 	}
+	token, err := captureToken(out.Board, out.Tickets, out.Config)
+	if err != nil {
+		return representation{}, err
+	}
+	out.CaptureToken = token
 	data, err := json.Marshal(out)
 	if err != nil {
 		return representation{}, err

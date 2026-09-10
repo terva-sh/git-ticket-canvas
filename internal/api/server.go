@@ -215,12 +215,13 @@ func decode(r *http.Request, v any) error {
 // --- board -------------------------------------------------------------
 
 type boardResponse struct {
-	Board     *layout.Board `json:"layout"`
-	Boards    []string      `json:"boards"`
-	Tickets   []Ticket      `json:"tickets"`
-	Config    schemaBody    `json:"config"`
-	StorePath string        `json:"storePath"`
-	ReadOnly  bool          `json:"readOnly"`
+	CaptureToken string        `json:"captureToken"`
+	Board        *layout.Board `json:"layout"`
+	Boards       []string      `json:"boards"`
+	Tickets      []Ticket      `json:"tickets"`
+	Config       schemaBody    `json:"config"`
+	StorePath    string        `json:"storePath"`
+	ReadOnly     bool          `json:"readOnly"`
 }
 
 func (s *Server) handleBoard(w http.ResponseWriter, r *http.Request) {
@@ -606,10 +607,12 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 // --- layout ------------------------------------------------------------
 
 type layoutRequest struct {
-	Board  string                   `json:"board"`
-	Cards  map[string]*layout.Card  `json:"cards"`
-	Frames map[string]*layout.Frame `json:"frames,omitempty"`
-	Expect *layout.Expectations     `json:"expect,omitempty"`
+	Capture json.RawMessage          `json:"capture,omitempty"`
+	Routing json.RawMessage          `json:"routing,omitempty"`
+	Board   string                   `json:"board"`
+	Cards   map[string]*layout.Card  `json:"cards"`
+	Frames  map[string]*layout.Frame `json:"frames,omitempty"`
+	Expect  *layout.Expectations     `json:"expect,omitempty"`
 }
 
 func (s *Server) handleLayout(w http.ResponseWriter, r *http.Request) {
@@ -626,8 +629,33 @@ func (s *Server) handleLayout(w http.ResponseWriter, r *http.Request) {
 	}
 	var b *layout.Board
 	var err error
-	if req.Frames != nil || req.Expect != nil {
-		b, err = s.layout.Transaction(req.Board, req.Cards, req.Frames, req.Expect, func() error {
+	var routing *layout.Routing
+	if req.Routing != nil {
+		routing = &layout.Routing{}
+		dec := json.NewDecoder(bytes.NewReader(req.Routing))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(routing); err != nil {
+			writeJSON(w, http.StatusBadRequest, errBody{Code: "bad_request", Message: err.Error()})
+			return
+		}
+	}
+	if req.Capture != nil {
+		token, guardErr := parseCapture(req.Capture)
+		if guardErr != nil {
+			writeJSON(w, http.StatusBadRequest, errBody{Code: "bad_request", Message: guardErr.Error()})
+			return
+		}
+		if guardErr = s.validateCapture(req.Board, token); guardErr != nil {
+			if errors.Is(guardErr, layout.ErrConflict) {
+				writeJSON(w, http.StatusConflict, errBody{Code: "layout_conflict", Message: guardErr.Error()})
+			} else {
+				writeJSON(w, http.StatusBadRequest, errBody{Code: "invalid_board", Message: guardErr.Error()})
+			}
+			return
+		}
+	}
+	if req.Frames != nil || req.Expect != nil || routing != nil || req.Capture != nil {
+		b, err = s.layout.RoutingTransaction(req.Board, req.Cards, req.Frames, routing, req.Expect, func() error {
 			return s.validateFrameTickets(r.Context(), req)
 		})
 	} else {

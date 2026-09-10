@@ -30,7 +30,7 @@ import (
 )
 
 // Schema is the layout file version this package reads and writes.
-const Schema = 2
+const Schema = 3
 
 // DirName is the directory boards live in, inside the ticket store.
 const DirName = "canvas"
@@ -52,10 +52,11 @@ type Card struct {
 
 // Board is one canvas with manual card placements and explicit grouping frames.
 type Board struct {
-	Schema int              `yaml:"schema" json:"schema"`
-	Board  string           `yaml:"board" json:"board"`
-	Cards  map[string]Card  `yaml:"cards" json:"cards"`
-	Frames map[string]Frame `yaml:"frames" json:"frames"`
+	Routing `yaml:",inline"`
+	Schema  int              `yaml:"schema" json:"schema"`
+	Board   string           `yaml:"board" json:"board"`
+	Cards   map[string]Card  `yaml:"cards" json:"cards"`
+	Frames  map[string]Frame `yaml:"frames" json:"frames"`
 }
 
 // Store reads and writes boards under a ticket store's canvas directory.
@@ -129,9 +130,17 @@ func (s *Store) Save(b *Board) error {
 }
 
 func (s *Store) save(b *Board) error {
+	// Preserve source compatibility for callers constructing card-only boards.
+	// Parsed schema-3 files must supply routing explicitly.
+	copy := *b
+	b = &copy
+	if b.Pens == nil && b.RuleOrder == nil && b.Inbox == nil {
+		b.Routing = emptyRouting()
+	}
 	if err := validateBoard(b); err != nil {
 		return err
 	}
+	b.Routing = canonicalRouting(b.Routing, true)
 	p, err := s.path(b.Board)
 	if err != nil {
 		return err
@@ -249,6 +258,7 @@ func render(b *Board) []byte {
 		sb.WriteString("}\n")
 	}
 	renderFrames(&sb, b.Frames)
+	renderRouting(&sb, b.Routing)
 	return []byte(sb.String())
 }
 

@@ -22,19 +22,19 @@ interface CardViewProps {
   target: boolean
   frameTitle?: string
   frameMember?: boolean
-  register: (id: string, element: HTMLDivElement | null) => void
+  incarnation?: symbol
+  register: (id: string, element: HTMLDivElement, incarnation?: symbol) => (() => void)
 }
 
 // Memoization keeps metadata out of the per-frame pan and link updates.
-export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, selected, dimmed, target, frameTitle, frameMember, register }: CardViewProps) {
+export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, selected, dimmed, target, frameTitle, frameMember, incarnation, register }: CardViewProps) {
   const element = useRef<HTMLDivElement>(null)
   // Refresh regression diagnostic; unlike DOM mutation counts this sees renders.
   const renders = useRef(0)
   renders.current++
   useLayoutEffect(() => {
-    register(t.id, element.current)
-    return () => register(t.id, null)
-  }, [t.id, register])
+    if (element.current) return register(t.id, element.current, incarnation)
+  }, [t.id, register, incarnation])
   const [labelsOpen, setLabelsOpen] = useState(false)
   const labels = t.labels || []
   const blockers = (t.readiness?.blocking || []).length + (t.readiness?.blockingChildren || []).length

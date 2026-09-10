@@ -1,4 +1,7 @@
+import type { RenderableProps } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
+import type { PublicationBridge, Publication } from '../platform/canvas/publications'
+import type { CommittedSampling, SamplingPublication } from './canvas/committedSampling'
 import { TicketClient, ApiError } from '../platform/tickets/client'
 import { TicketStore, LayoutWriter } from '../platform/tickets/store'
 import { LiveUpdates, type LiveStatus } from '../platform/tickets/live'
@@ -18,7 +21,11 @@ interface InterfaceState {
   selected: string | null; selection: Set<string>; query: string; filters: Set<string>
   composer: ComposerPosition | null; composerKey: number; generation: number
 }
-export function App() {
+export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publicationBridge?: PublicationBridge; samplingProbe?: CommittedSampling }>) {
+  const [bridge] = useState(() => publicationBridge)
+  const [probe] = useState(() => samplingProbe)
+  const samplingPublication = useRef<SamplingPublication | null>(null)
+  const publication = useRef<Publication | null>(null)
   const [client] = useState(() => new TicketClient())
   const [store] = useState(() => new TicketStore(client))
   const [snapshot, setSnapshot] = useState(store.state)
@@ -50,6 +57,11 @@ export function App() {
     if (!mounted.current || published.current === store.state) return
     if (store.state.layoutSchema !== null) historyFor(store.state.board).observe({ cards: store.state.cards, frames: store.state.frames, tickets: store.state.tickets })
     published.current = store.state
+    publication.current = bridge?.publish(store.state, generation.current) ?? null
+    samplingPublication.current = probe?.publish({ store, board: store.state.board, generation: generation.current,
+      publication: store.state, captureToken: store.state.captureToken, tickets: [...store.state.tickets.keys()],
+      births: Object.fromEntries([...store.state.tickets].map(([id, ticket]) => [id, ticket.createdAt])),
+      controls: Object.keys(store.state.frames).flatMap(id => store.state.readOnly ? [`title:${id}`] : [`title:${id}`, `resize:${id}`]) }) ?? null
     publications.current++
     setSnapshot(store.state)
     setUI(current => current.selected && !store.state.tickets.has(current.selected)
@@ -82,6 +94,7 @@ export function App() {
     return store.sync
   }
   const onBusy = (value: boolean) => {
+    if (value) { bridge?.hold(); probe?.hold() }
     busy.current = value || !!frameRequest.current
     if (!busy.current && deferredRead.current) {
       deferredRead.current = false
@@ -103,6 +116,7 @@ export function App() {
   }
   async function saveLayout(board: string, cards: CardChanges) {
     if (store.state.readOnly) throw new Error('read-only')
+    bridge?.hold(); probe?.hold()
     const version = generation.current
     try { await writer.enqueue(board, cards) }
     finally {
@@ -265,6 +279,7 @@ export function App() {
   actions.current = { refresh, closeComposer, closeInspector, closeFrames, remove }
   useEffect(() => {
     mounted.current = true
+    publication.current = bridge?.publish(published.current, generation.current) ?? null
     let first = true
     const updates = new LiveUpdates({
       read: () => { const fit = first; first = false; return actions.current.refresh(fit) },
@@ -306,6 +321,7 @@ export function App() {
     document.addEventListener('keydown', keyboard)
     return () => {
       mounted.current = false
+      bridge?.dispose(); probe?.hold()
       updates.stop(); live.current = undefined; store.onWriteSettled = undefined
       cancelAnimationFrame(fitFrame.current)
       document.removeEventListener('visibilitychange', visible)
@@ -344,6 +360,12 @@ export function App() {
       })} onBoard={name => { void changeBoard(name) }} onNewBoard={() => { void newBoard() }}
       onNew={() => canvas.current?.composeCentre()} onFit={() => canvas.current?.fit()} onArrange={arrange} /></div>
     <Canvas key={ui.generation} ref={canvas} board={snapshot.board} tickets={snapshot.tickets} cards={displayed.cards}
+      publicationBridge={bridge} publication={publication.current}
+      samplingProbe={probe} samplingPublication={samplingPublication.current}
+      samplingReady={() => mounted.current && !busy.current && !frameRequest.current && published.current === store.state
+        && samplingPublication.current?.publication === snapshot && samplingPublication.current.generation === generation.current
+        && samplingPublication.current.captureToken === store.state.captureToken && store.state.layoutSchema !== null}
+      publicationReady={() => mounted.current && !busy.current && !frameRequest.current && published.current === store.state}
       frames={displayed.frames} selectedFrame={frameUI.selected} frameCreating={!!frameUI.draft} layoutBusy={!!framePreview}
       onSelectFrame={selectFrame} onNewFrame={newFrameDraft} onFrameMove={frameMove} onFrameResize={frameResize}
       statuses={snapshot.config?.statuses || []} selection={ui.selection} query={ui.query} filters={ui.filters}

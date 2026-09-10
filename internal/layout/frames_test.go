@@ -135,11 +135,11 @@ func TestYAMLSensitiveIdentifiersRoundTrip(t *testing.T) {
 func TestLayoutSchemaCompatibilityAndFailSafe(t *testing.T) {
 	good := "schema: 1\nboard: default\ncards:\n  TKT-A: {x: 12.5123, y: -3}\n"
 	b, err := Parse(DefaultBoard, []byte(good))
-	if err != nil || b.Frames == nil || b.Schema != 2 || b.Cards["TKT-A"].X != 12.5123 {
+	if err != nil || b.Frames == nil || b.Schema != Schema || b.Cards["TKT-A"].X != 12.5123 {
 		t.Fatalf("old layout: %+v %v", b, err)
 	}
 	for _, data := range []string{
-		strings.Replace(good, "schema: 1", "schema: 3", 1),
+		strings.Replace(good, "schema: 1", fmt.Sprintf("schema: %d", Schema+1), 1),
 		good + "future: {}\n",
 		strings.Replace(good, "y: -3", "y: -3, future: true", 1),
 		good + "---\nboard: other\n",

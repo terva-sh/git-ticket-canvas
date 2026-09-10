@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>One-pen canvas mockup v1</title>
+<style>
+:root{color-scheme:dark;--bg:#14161a;--panel:#1a1d23;--soft:#242933;--line:#495568;--ink:#e6e8ec;--muted:#b1bdcc;--accent:#85b7ff;--pen:#6edac5;--frame:#d9b1fc;--warn:#ffd08a;--grid:#2b313b}
+:root[data-theme=light]{color-scheme:light;--bg:#f4f5f7;--panel:#fff;--soft:#eaf0f7;--line:#8494a8;--ink:#202631;--muted:#526176;--accent:#245fae;--pen:#167263;--frame:#7840a1;--warn:#805000;--grid:#d8dfe8}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,sans-serif}button,input,select{font:inherit;color:inherit;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:7px 9px}button{cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}:focus-visible{outline:3px solid var(--accent);outline-offset:3px}h1{font-size:20px;margin:0}h2{font-size:16px;margin:0 0 8px}p{margin:8px 0}small,.muted{color:var(--muted)}.banner,.toolbar,footer{padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--line)}.banner,.toolbar,.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.banner{justify-content:space-between}.toolbar strong{margin-right:12px}.status{padding:12px 20px;min-height:48px;background:var(--soft)}.workspace{display:grid;grid-template-columns:minmax(0,1fr) 340px}.viewport{height:780px;overflow:auto;background-image:radial-gradient(var(--grid) 1px,transparent 1px);background-size:24px 24px}.scene{width:1150px;height:1140px;position:relative}.area{position:absolute;border-radius:12px;pointer-events:none}.pen{border:2px dashed var(--pen);background:color-mix(in srgb,var(--pen) 5%,transparent)}.frame{border:2px solid var(--frame);background:color-mix(in srgb,var(--frame) 5%,transparent)}.area button{position:absolute;top:-18px;left:12px;pointer-events:auto}.pen button{color:var(--pen)}.frame button{color:var(--frame)}.pin{position:absolute;color:var(--pen);font-size:12px;pointer-events:none}.inbox{position:absolute}.inbox button{color:var(--accent)}.card{position:absolute;width:240px;height:132px;padding:12px;background:var(--panel);text-align:left;box-shadow:0 4px 12px #0003;overflow:hidden}.card strong{display:block;font-size:15px;line-height:1.3;margin:4px 0}.card small{display:block;font-size:11px}.card.highlight{outline:2px solid var(--pen);outline-offset:3px}.card.member{outline-color:var(--frame)}.card.selected{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 45%,transparent)}.ghost{position:absolute;width:240px;height:132px;border:2px dotted var(--warn);pointer-events:none;opacity:.65}.spill{position:absolute;color:var(--pen);font-size:12px}.inspector{padding:18px;border-left:1px solid var(--line);background:var(--panel);max-height:780px;overflow:auto}.section{border-top:1px solid var(--line);margin-top:18px;padding-top:16px}.row{margin:8px 0}label{display:block;margin:8px 0}select{max-width:100%}.notice{padding:10px;background:var(--soft);border-left:3px solid var(--accent)}.warning{color:var(--warn)}.full{width:100%}footer p,footer ol{max-width:1050px}summary{cursor:pointer}.board-note{padding:12px 20px;color:var(--muted)}[hidden]{display:none!important}@media(max-width:850px){.workspace{grid-template-columns:1fr}.viewport{height:570px}.inspector{max-height:none;border-left:0;border-top:1px solid var(--line)}}
+</style>
+<header class="banner"><div><h1>One pen · Interactive mockup v1</h1><small>For review, not approved. Synthetic data only. No API, storage, or production changes.</small></div><button id="theme">Switch to light</button></header>
+<nav class="toolbar" aria-label="Demo controls"><strong>git-ticket-canvas</strong><span>Board / Product work</span><button id="select-pen">Select Frontend pen</button><button id="select-inbox">Select Inbox</button><button id="select-frame">Select Release work frame</button><label><input id="filter" type="checkbox"> Hide done</label><label><input id="readonly" type="checkbox"> Read-only</label></nav>
+<div id="status" class="status" role="status" aria-live="polite">Frontend routes automatic cards. Release work is an independent membership group.</div>
+<main class="workspace"><div class="viewport" tabindex="0" aria-label="Scrollable synthetic canvas"><div id="scene" class="scene"></div></div>
+<aside class="inspector" aria-label="Pen, frame, and card controls">
+<h2 id="selection">Frontend pen</h2><p id="counts"></p><p id="explanation" class="notice"></p>
+<section class="section"><h2>Ticket controls</h2><label>Selected ticket <select id="ticket"><option value="a">DEMO-A · Fix keyboard focus</option><option value="b">DEMO-B · Repair empty state</option><option value="c">DEMO-C · Polish search</option><option value="d">DEMO-D · Done regression</option><option value="e">DEMO-E · Document API</option><option value="m">DEMO-M · Release checklist</option></select></label><p id="card-info"></p>
+<div class="row"><button id="membership">Add to Release work</button><button id="labels">Toggle frontend label</button></div><div class="row"><button id="manual">Move right 40 px (manual)</button><button id="automatic">Return to automatic placement</button></div><small>Membership alone never moves or pins a card. Numeric-step buttons stand in for dragging in this mockup.</small></section>
+<section class="section"><h2>Ordinary frame</h2><p id="frame-info"></p><div class="row"><button id="move-frame">Move frame right 40 px</button><button id="undo">Undo frame move</button></div><button id="external">Simulate external member move</button><p id="history" class="muted"></p></section>
+<section class="section"><h2>Pen and Inbox edits</h2><button id="open-editor">Open preview controls</button><div id="editor"><label>Proposed change <select id="operation"><option value="move">Move pen right 40 px</option><option value="resize">Resize pen to one column</option><option value="pin">Move arrival pin down 40 px</option><option value="rule">Require frontend + urgent</option><option value="delete">Remove Frontend pen</option><option value="inbox">Move Inbox right 40 px</option></select></label><div class="row"><button id="preview">Preview</button><button id="apply">Apply</button><button id="cancel">Cancel preview</button><button id="close-editor">Close panel</button></div><p id="preview-info" class="warning"></p></div><p class="muted">Inbox cannot be deleted. Edits never move manual cards or change frame membership. Pen edits are not in Undo frame.</p></section>
+</aside></main>
+<footer><h2>Walk through one pen and one ordinary frame</h2><ol><li>Select DEMO-A. Add it to Release work without changing its position or automatic mode.</li><li>Toggle its frontend label. It moves to Inbox but remains a frame member outside the boundary.</li><li>Move the frame. All members, even outside or filtered cards, move and become manual.</li><li>Toggle the label again. The manual card stays put. Return it to automatic placement to route to Frontend while retaining membership.</li><li>Reset, add A to the frame, then move the frame and undo. Automatic placement returns using current labels. Repeat with an external member move to see a blocked undo.</li><li>Hide done. The pen count and overflow do not shrink. Preview removal or resizing, then Cancel. Apply with failure enabled to see rollback. Close the panel during a save to see pending feedback remain.</li></ol>
+<div class="row"><label><input id="fail" type="checkbox"> Fail next simulated save</label><button id="reset">Reset demo</button></div>
+<details><summary>Mockup limits and review scope</summary><p>This is a control and state walkthrough of <a href="../pen-specification-v1.md">the approved pen policies</a>. It uses fixed-size synthetic cards, a fixture slot search, one board, and a 900 ms simulated save. It does not select a production placement algorithm or persistence schema. Refresh resets everything. Label changes simulate accepted ticket updates, not a spatial label-editing action.</p><p>Review the distinct pen/frame appearance, outside membership, destination counts, overflow, manual overrides, removal, previews, pending feedback, and keyboard controls. There is no drag, zoom, SSE, board switching, creation, Arrange, or multi-rule editor here. Frame history demonstrates one grouped move and conflict blocking, not the full production frame editor. Production race, persistence, and responsiveness tests remain future work. Creating this mockup does not approve it or promote the draft ticket.</p></details></footer>
+<script>
+const $ = id => document.getElementById(id);
+const copy = value => structuredClone(value);
+const initial = () => ({
+  pen:{x:40,y:100,w:550,h:220,pin:0,rule:['frontend']}, inbox:{x:700,y:100}, frame:{x:40,y:540,w:550,h:220},
+  cards:[
+    {id:'a',title:'Fix keyboard focus',labels:['frontend','bug'],done:false,member:false,manual:null,version:0},
+    {id:'b',title:'Repair empty state',labels:['frontend','bug'],done:false,member:false,manual:null,version:0},
+    {id:'c',title:'Polish search',labels:['frontend','urgent'],done:false,member:false,manual:null,version:0},
+    {id:'d',title:'Done regression',labels:['frontend'],done:true,member:false,manual:null,version:0},
+    {id:'e',title:'Document API',labels:['docs'],done:false,member:false,manual:null,version:0},
+    {id:'m',title:'Release checklist',labels:['frontend'],done:false,member:true,manual:{x:60,y:590},version:0}
+  ]
+});
+let state=initial(), positions={}, draft=null, pending=false, history=null, selected='pen', selectedCard='a';
+const destination=(s,c)=>s.pen && s.pen.rule.every(label=>c.labels.includes(label))?'pen':'inbox';
+const overlap=(a,b)=>a.x<b.x+b.w+12 && a.x+a.w+12>b.x && a.y<b.y+b.h+12 && a.y+a.h+12>b.y;
+function layout(s) {
+  const result={}, occupied=s.cards.filter(c=>c.manual).map(c=>({...c.manual,w:240,h:132}));
+  occupied.push({x:s.frame.x,y:s.frame.y-24,w:s.frame.w,h:42});
+  // Retain valid slots when their routing area is unchanged, including during previews.
+  for(const c of s.cards.filter(c=>!c.manual)) {
+    const old=state.cards.find(old=>old.id===c.id), target=destination(s,c), p=positions[c.id];
+    if(!old || old.manual || !p || destination(state,old)!==target)continue;
+    if(JSON.stringify(s[target])!==JSON.stringify(state[target]))continue;
+    const box={...p,w:240,h:132};
+    if(!occupied.some(other=>overlap(box,other))){result[c.id]={...p};occupied.push(box);}
+  }
+  // Fixture-only slots: two pen columns, one Inbox column; never reuse filtered slots.
+  for(const c of s.cards) {
+    if(c.manual){result[c.id]={...c.manual,overflow:false};continue;}
+    if(result[c.id])continue;
+    const pen=destination(s,c)==='pen', area=pen?s.pen:s.inbox;
+    const columns=pen && area.w>=540?2:1;
+    let chosen;
+    for(let slot=0;slot<200;slot++) {
+      const x=area.x+20+(slot%columns)*260;
+      const y=area.y+60+(pen?area.pin:0)+Math.floor(slot/columns)*164;
+      const box={x,y,w:240,h:132};
+      if(!occupied.some(other=>overlap(box,other))) {chosen={x,y,overflow:pen && (x+240>area.x+area.w || y+132>area.y+area.h)};occupied.push(box);break;}
+    }
+    if(!chosen) throw new Error('Synthetic fixture exhausted slots');
+    result[c.id]=chosen;
+  }
+  return result;
+}
+function message(text){$('status').textContent=text;}
+function update(){positions=layout(state);render();}
+function button(text,handler){const b=document.createElement('button');b.textContent=text;b.onclick=handler;return b;}
+function element(className,x,y,w,h){const e=document.createElement('div');e.className=className;Object.assign(e.style,{left:x+'px',top:y+'px',...(w?{width:w+'px'}:{}),...(h?{height:h+'px'}:{})});return e;}
+function outside(s,c,p){const f=s.frame;return c.member && (p.x<f.x || p.y<f.y || p.x+240>f.x+f.w || p.y+132>f.y+f.h);}
+function undoConflict(){return history && (state.cards.filter(c=>c.member).length!==history.members.length || history.members.some(old=>{const c=state.cards.find(c=>c.id===old.id);return !c.member || c.version!==old.expected;}));}
+function render(){
+  const shown=draft?draft.state:state, pos=draft?draft.positions:positions, scene=$('scene');scene.replaceChildren();
+  const note=document.createElement('div');note.className='board-note';note.textContent=draft?'PREVIEW · Dotted outlines show accepted positions. Nothing saved yet.':'Dashed teal = automatic routing area. Solid purple = explicit frame membership.';scene.append(note);
+  if(shown.pen){const p=shown.pen,area=element('area pen',p.x,p.y,p.w,p.h);area.append(button('Frontend pen · '+p.rule.join(' + '),()=>{selected='pen';render();}));scene.append(area);const pin=element('pin',p.x+20,p.y+25+p.pin);pin.textContent='Arrival pin · automatic slots start here';scene.append(pin);}
+  const inbox=element('inbox',shown.inbox.x,shown.inbox.y-18);inbox.append(button('Inbox · unmatched automatic',()=>{selected='inbox';render();}));scene.append(inbox);
+  const f=shown.frame,frame=element('area frame',f.x,f.y,f.w,f.h);frame.append(button('Release work · ordinary frame',()=>{selected='frame';render();}));scene.append(frame);
+  for(const c of shown.cards){
+    if($('filter').checked && c.done)continue;
+    const p=pos[c.id];
+    if(draft && (p.x!==positions[c.id].x || p.y!==positions[c.id].y))scene.append(element('ghost',positions[c.id].x,positions[c.id].y));
+    const assigned=!c.manual && destination(shown,c)===selected;
+    const b=button('',()=>{selectedCard=c.id;selected='card';$('ticket').value=c.id;render();});
+    b.className='card'+(assigned || selected==='frame' && c.member?' highlight':'')+(selected==='frame' && c.member?' member':'')+(selected==='card' && selectedCard===c.id?' selected':'');
+    b.dataset.card=c.id;b.style.left=p.x+'px';b.style.top=p.y+'px';
+    const lines=[['small','DEMO-'+c.id.toUpperCase()+' · '+(c.done?'done':'ready')],['strong',c.title],['small',c.labels.join(' · ')],['small',c.manual?'Manual · routing overridden':(destination(shown,c)==='pen'?'Frontend':'Inbox')+' · automatic'+(p.overflow?' · overflow':'')],['small',c.member?'Release work member'+(outside(shown,c,p)?' · outside frame':''):'No frame membership']];
+    for(const [tag,text] of lines){const line=document.createElement(tag);line.textContent=text;b.append(line);}scene.append(b);
+  }
+  const automatic=shown.cards.filter(c=>!c.manual && destination(shown,c)==='pen');
+  const spill=automatic.filter(c=>pos[c.id].overflow);
+  $('selection').textContent=selected==='frame'?'Release work frame':selected==='inbox'?'Inbox':selected==='card'?'Ticket placement':'Frontend pen';
+  $('counts').textContent=selected==='inbox'?`${shown.cards.filter(c=>!c.manual && destination(shown,c)==='inbox').length} automatic in Inbox`:shown.pen?`Frontend: ${automatic.length} automatic · ${spill.length} overflow · ${automatic.filter(c=>c.done && $('filter').checked).length} hidden by filter`:'Frontend pen removed';
+  $('explanation').textContent=selected==='frame'?'Highlighting explicit members, including automatic cards outside the frame.':selected==='inbox'?'Highlighting unmatched automatic cards. Inbox cannot be deleted.':selected==='card'?'Labels determine routing. A saved manual coordinate overrides automatic placement. Frame membership is independent.':'Highlighting the winning automatic set, not enclosed or manually placed cards. Overflow stays assigned to Frontend.';
+  const c=state.cards.find(c=>c.id===selectedCard);
+  $('card-info').textContent=`${c.manual?'Manual placement overrides '+(destination(state,c)==='pen'?'Frontend':'Inbox')+' routing.':'Automatic. '+(destination(state,c)==='pen'?'Frontend wins because all required labels match.':'Inbox because no pen matches.')} ${c.member?'Member of Release work'+(outside(state,c,positions[c.id])?', outside its boundary.':'.'):'No frame membership.'}`;
+  $('membership').textContent=c.member?'Remove from Release work':'Add to Release work';
+  const members=state.cards.filter(c=>c.member);$('frame-info').textContent=`${members.length} ${members.length===1?'member':'members'} · ${members.filter(c=>outside(state,c,positions[c.id])).length} outside · ${members.filter(c=>c.done && $('filter').checked).length} hidden. Moving the frame makes every member manual.`;
+  const conflict=undoConflict();
+  $('history').textContent=history?(conflict?'Undo blocked: a member has a newer placement or membership. Reset to retry.':'Undo restores former automatic members using current routing, not saved automatic coordinates.'):'No frame move to undo. Pen edits do not enter this history.';
+  const locked=pending || !!draft || $('readonly').checked;
+  for(const id of ['membership','labels','manual','automatic','move-frame','external'])$(id).disabled=locked;
+  $('automatic').disabled=locked || !c.manual;
+  $('undo').disabled=locked || !history || conflict;
+  $('preview').disabled=pending || !!draft || $('readonly').checked;
+  $('operation').disabled=pending || !!draft || $('readonly').checked;
+  $('apply').disabled=pending || !draft || $('readonly').checked;
+  $('cancel').disabled=pending || !draft;
+  $('reset').disabled=pending;$('readonly').disabled=pending;
+  $('select-pen').disabled=!shown.pen;
+  $('preview-info').textContent=draft?`${draft.affected} automatic cards change position or destination. Manual coordinates and frame membership stay unchanged. Apply saves; Cancel discards.`:pending?'Save submitted. Closing this panel does not cancel it.':'Choose a change, then Preview. No pen edits are in Undo frame.';
+  scene.style.height=Math.max(1140,...Object.values(pos).map(p=>p.y+170))+'px';
+}
+async function save(next,text,onSuccess=()=>{}){
+  if(pending || $('readonly').checked)return;
+  pending=true;const fail=$('fail').checked;$('fail').checked=false;draft=null;
+  message('Saving simulated change. Closing the panel does not cancel the submitted save.');render();
+  await new Promise(resolve=>setTimeout(resolve,900));
+  if(fail)message('Save failed. Accepted state is unchanged; no preview remains.');
+  else{const nextPositions=layout(next);state=next;positions=nextPositions;onSuccess();message(text);}
+  pending=false;render();
+}
+function mutateCard(change,text){if(pending || draft || $('readonly').checked)return;const next=copy(state),c=next.cards.find(c=>c.id===selectedCard);change(c);save(next,text);}
+$('membership').onclick=()=>mutateCard(c=>{c.member=!c.member;c.version++;},'Membership saved. Placement mode and position did not change.');
+$('labels').onclick=()=>mutateCard(c=>{c.labels=c.labels.includes('frontend')?c.labels.filter(l=>l!=='frontend'):[...c.labels,'frontend'];},'Simulated label update accepted. Automatic routing reevaluated; manual coordinates and membership preserved.');
+$('manual').onclick=()=>mutateCard(c=>{c.manual={x:positions[c.id].x+40,y:positions[c.id].y};c.version++;},'Manual position saved. Labels and frame membership unchanged.');
+$('automatic').onclick=()=>mutateCard(c=>{c.manual=null;c.version++;},'Manual coordinate removed. Current routing applies; frame membership preserved.');
+$('move-frame').onclick=()=>{
+  if(pending || draft || $('readonly').checked)return;
+  const next=copy(state),entry={frame:copy(state.frame),members:[]};next.frame.x+=40;
+  for(const c of next.cards.filter(c=>c.member)){entry.members.push({id:c.id,manual:copy(c.manual),expected:c.version+1});c.manual={x:positions[c.id].x+40,y:positions[c.id].y};c.version++;}
+  save(next,'Frame and all members moved right 40 px. Every member is now manual.',()=>{history=entry;});
+};
+$('undo').onclick=()=>{
+  if(!history || pending || draft || $('readonly').checked)return;
+  if(undoConflict()){message('Undo blocked by newer member changes.');return;}
+  const next=copy(state);next.frame=copy(history.frame);
+  for(const old of history.members){const c=next.cards.find(c=>c.id===old.id);c.manual=copy(old.manual);c.version++;}
+  save(next,'Frame move undone. Former automatic members use current routing.',()=>{history=null;});
+};
+$('external').onclick=()=>{
+  if(pending || draft || $('readonly').checked)return;
+  const c=state.cards.find(c=>c.member);if(!c){message('Add a frame member first.');return;}
+  c.manual={x:positions[c.id].x+20,y:positions[c.id].y};c.version++;update();message('Simulated external member placement accepted. Older frame undo is blocked.');
+};
+$('preview').onclick=()=>{
+  if(pending || draft || $('readonly').checked)return;
+  const next=copy(state),op=$('operation').value;
+  if(op!=='inbox' && !next.pen){message('Frontend pen is removed. Reset the demo to edit it again.');return;}
+  if(op==='move')next.pen.x+=40;
+  if(op==='resize')next.pen.w=290;
+  if(op==='pin')next.pen.pin+=40;
+  if(op==='rule')next.pen.rule=['frontend','urgent'];
+  if(op==='delete')next.pen=null;
+  if(op==='inbox')next.inbox.x+=40;
+  const projected=layout(next),affected=state.cards.filter(c=>!c.manual && (positions[c.id].x!==projected[c.id].x || positions[c.id].y!==projected[c.id].y || destination(state,c)!==destination(next,c))).length;
+  draft={state:next,positions:projected,affected};message('Preview only. Apply to save, or Cancel to keep accepted placement.');render();
+};
+$('apply').onclick=()=>{if(draft)save(copy(draft.state),'Pen or Inbox edit saved. Manual positions and frame membership preserved.');};
+function cancel(){if(draft && !pending){draft=null;render();message('Preview cancelled. Accepted state is unchanged.');}}
+$('cancel').onclick=cancel;
+$('close-editor').onclick=()=>{cancel();$('editor').hidden=true;if(pending)message('Panel closed. Submitted save is still pending.');};
+$('open-editor').onclick=()=>{$('editor').hidden=false;$('operation').focus();};
+$('readonly').onchange=()=>{cancel();render();message($('readonly').checked?'Read-only. Placement and pen mutations are disabled.':'Editing enabled.');};
+$('filter').onchange=render;
+$('ticket').onchange=()=>{selectedCard=$('ticket').value;selected='card';render();};
+for(const [id,value] of [['select-pen','pen'],['select-inbox','inbox'],['select-frame','frame']])$(id).onclick=()=>{selected=value;render();};
+$('theme').onclick=()=>{const light=document.documentElement.dataset.theme!=='light';document.documentElement.dataset.theme=light?'light':'dark';$('theme').textContent=light?'Switch to dark':'Switch to light';};
+$('reset').onclick=()=>{if(pending)return;state=initial();draft=null;history=null;positions={};selected='pen';selectedCard='a';$('ticket').value='a';$('filter').checked=false;$('readonly').checked=false;$('fail').checked=false;$('editor').hidden=false;update();message('Demo reset. No data was written.');};
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(pending)message('Save already submitted; Escape does not cancel it.');else cancel();}});
+window.mockupSnapshot=()=>copy({state,positions,draft,pending,history,selected,selectedCard});
+update();
+</script>
+</html>

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Competing pen rules v1 mockup</title>
+<style>
+:root{color-scheme:dark;--bg:#14161a;--panel:#1a1d23;--soft:#242933;--line:#495568;--ink:#e6e8ec;--muted:#b1bdcc;--accent:#85b7ff;--pen:#6edac5;--frame:#d9b1fc;--warn:#ffd08a;--grid:#2b313b}
+:root[data-theme=light]{color-scheme:light;--bg:#f4f5f7;--panel:#fff;--soft:#eaf0f7;--line:#8494a8;--ink:#202631;--muted:#526176;--accent:#245fae;--pen:#167263;--frame:#7840a1;--warn:#805000;--grid:#d8dfe8}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,sans-serif}button,input,select{font:inherit;color:inherit;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:7px 9px}button{cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}:focus-visible{outline:3px solid var(--accent);outline-offset:3px}h1{font-size:21px;margin:0}h2{font-size:17px;margin:0 0 8px}h3{font-size:15px;margin:8px 0}p{margin:8px 0}small,.muted{color:var(--muted)}header,.toolbar,footer{padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--line)}header,.toolbar,.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}header{justify-content:space-between}.row{margin:10px 0}.status{padding:12px 20px;min-height:48px;background:var(--soft)}.top{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:20px;padding:20px}.panel{padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:8px;min-width:0}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:9px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted)}.rule-selected{background:var(--soft)}.badge{border:1px solid var(--line);border-radius:5px;padding:2px 5px;font-size:12px;white-space:nowrap}.notice{border-left:3px solid var(--accent);background:var(--soft);padding:10px}.warning{color:var(--warn)}.workspace{display:grid;grid-template-columns:minmax(0,1fr) 380px;border-top:1px solid var(--line)}.viewport{height:700px;overflow:auto;background-image:radial-gradient(var(--grid) 1px,transparent 1px);background-size:24px 24px}.scene{position:relative;width:1490px;min-height:700px}.area{position:absolute;width:270px;height:215px;border:2px dashed var(--pen);border-radius:12px;pointer-events:none;background:color-mix(in srgb,var(--pen) 5%,transparent)}.area button{pointer-events:auto;position:absolute;top:-20px;left:8px;color:var(--pen)}.area small{display:block;padding:22px 12px 0}.frame{width:520px;height:180px;border:2px solid var(--frame);background:color-mix(in srgb,var(--frame) 5%,transparent)}.frame button{color:var(--frame)}.frame small{position:absolute;top:-18px;left:8px;padding:0 6px;background:var(--panel);color:var(--frame)}.inbox{border-color:var(--accent)}.inbox button{color:var(--accent)}.card{position:absolute;width:246px;height:132px;text-align:left;padding:10px;background:var(--panel);box-shadow:0 4px 10px #0003;overflow:hidden}.card strong{display:block;font-size:15px;margin:3px 0}.card small{display:block;font-size:11px}.card.highlight{outline:2px solid var(--pen);outline-offset:3px}.card.selected{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 45%,transparent)}.ghost{position:absolute;width:246px;height:132px;border:2px dotted var(--warn);pointer-events:none}.inspector{padding:18px;background:var(--panel);border-left:1px solid var(--line);max-height:700px;overflow:auto}.inspector select{width:100%}.candidate{padding:10px 0;border-bottom:1px solid var(--line)}.candidate strong{display:block}.board-note{padding:12px 20px;color:var(--muted)}#changes{max-height:130px;overflow:auto;padding-left:22px}label{display:block}footer{display:block}footer p,footer ol{max-width:1150px}summary{cursor:pointer}[hidden]{display:none!important}@media(max-width:1000px){.top,.workspace{grid-template-columns:1fr}.inspector{max-height:none;border-left:0;border-top:1px solid var(--line)}.viewport{height:540px}.top{padding:12px}.panel{padding:12px}}
+</style>
+<header><div><h1>Competing pen rules · Interactive mockup v1</h1><small>For review, not approved. Synthetic data only. No API calls or storage.</small></div><button id="theme">Switch to light</button></header>
+<nav class="toolbar" aria-label="Demo controls"><strong>git-ticket-canvas</strong><span>Board / Product work</span><label><input id="filter" type="checkbox"> Hide done</label><label><input id="readonly" type="checkbox"> Read-only</label><label><input id="fail" type="checkbox"> Fail next simulated save</label><button id="reset">Reset demo</button></nav>
+<div id="status" class="status" role="status" aria-live="polite">Most distinct required labels wins. Explicit rule order breaks ties only.</div>
+<main>
+<div class="top"><section class="panel" aria-label="Rule ordering"><h2>Rule order <span id="mode" class="badge">Accepted</span></h2><p>All required labels must match. More distinct requirements wins, regardless of order. Among equally specific matches, the earlier rule wins.</p>
+<div class="table-wrap"><table><thead><tr><th>Order</th><th>Pen / required labels</th><th>Specificity</th></tr></thead><tbody id="rules"></tbody></table></div>
+<div class="row"><label>Rule to edit <select id="rule"><option value="general">Frontend</option><option value="bugs">Frontend bugs</option><option value="urgent">Frontend urgent</option><option value="security">Security bugs</option></select></label></div>
+<div class="row"><button id="earlier">Move earlier · preview</button><button id="later">Move later · preview</button><button id="duplicate">Repeat bug label · preview</button><button id="remove">Remove rule and pen · preview</button></div>
+<div class="row"><button id="apply">Apply</button><button id="cancel">Cancel preview</button><button id="close">Hide rule editor</button></div><p id="impact" class="notice"></p><ul id="changes"></ul></section>
+<section class="panel" aria-label="Overlap explanations"><h2>Equal-specificity overlaps</h2><p class="muted">These are label overlaps, not overlapping rectangles. Independent labels can coexist. Warn even when no current ticket makes the tie decisive.</p><div id="overlaps"></div><p class="notice">Even when Frontend appears first, it cannot outrank a matching two-label or three-label rule. A duplicate label never adds specificity.</p><button id="show-editor" hidden>Show rule editor</button></section></div>
+<div class="workspace"><div class="viewport" tabindex="0" aria-label="Scrollable synthetic canvas"><div id="scene" class="scene"></div></div><aside class="inspector" aria-label="Winning-rule explanation">
+<h2>Why this destination?</h2><label>Ticket <select id="ticket"><option value="a">A · Fix urgent focus bug</option><option value="b">B · Repair empty state</option><option value="c">C · Expedite search</option><option value="d">D · Polish toolbar</option><option value="e">E · Document API</option><option value="s">S · Fix security regression</option><option value="h">H · Done urgent regression</option><option value="m">M · Manual release check</option></select></label><p id="labels"></p><p id="winner" class="notice"></p><p id="membership"></p><div id="candidates"></div><div class="row"><button id="manual">Move right 20 px (manual)</button><button id="automatic">Return to automatic placement</button><button id="toggle">Toggle urgent label</button></div><p class="muted">Manual coordinates override placement, not rule matching. Frame membership never determines a routing destination.</p></aside></div>
+</main>
+<footer><h2>Review this sequence</h2><ol><li>A matches both Frontend bugs and Frontend urgent. Bugs wins the two-label tie because it appears earlier. S matches both too, but Security bugs wins with three distinct requirements.</li><li>Select Frontend urgent in Rule to edit, then Move earlier. Review the proposed destinations and overlap explanation. Cancel, then repeat and Apply. A and hidden H transfer; S and the manual M do not move.</li><li>Move the one-label Frontend rule to another position. Specificity still wins. Repeat bug in a rule to confirm duplicates do not increase its score.</li><li>Select M. Inspect its matching rules, then Return to automatic placement. It follows the current winning rule and remains a Release work member.</li><li>Preview removing a winning pen. A uses the next matching rule, not Inbox while another match exists. Reset between examples.</li><li>Hide done, try failed saves, and hide the rule editor after Apply. Counts include hidden automatic cards; a submitted save continues even when its editor closes.</li></ol>
+<details><summary>Mockup limits and approval scope</summary><p>This new artifact extends the <a href="pens-v1.html">approved one-pen mockup</a> without changing it or <a href="../pen-specification-v1.md">the approved pen policies</a>. Review explicit rule order, specificity, overlap warnings, per-ticket winning/losing explanations, and reorder/removal previews. The ticket stays draft; this mockup is not yet approved.</p><p>Fixed-size fixture cards use stable synthetic slots, not a proposed production algorithm. The demo has one board, button-based movement, a static ordinary frame, and a 900 ms simulated save. No drag, live updates, persistence, cross-board races, general rule editor, or production performance claims. Repeated-label and removal buttons expose routing cases without choosing the eventual authoring form. All labels are positive independent requirements, so equally specific rules can overlap even if their required sets share no label. Refresh resets everything.</p></details></footer>
+<script>
+const $=id=>document.getElementById(id), copy=value=>structuredClone(value), distinct=rule=>[...new Set(rule.labels)];
+const initial=()=>({rules:[
+  {id:'general',name:'Frontend',labels:['frontend']},
+  {id:'bugs',name:'Frontend bugs',labels:['frontend','bug']},
+  {id:'urgent',name:'Frontend urgent',labels:['frontend','urgent']},
+  {id:'security',name:'Security bugs',labels:['frontend','bug','security']}
+],cards:[
+  {id:'a',title:'Fix urgent focus bug',labels:['frontend','bug','urgent'],done:false,manual:null,member:true},
+  {id:'b',title:'Repair empty state',labels:['frontend','bug'],done:false,manual:null,member:false},
+  {id:'c',title:'Expedite search',labels:['frontend','urgent'],done:false,manual:null,member:false},
+  {id:'d',title:'Polish toolbar',labels:['frontend'],done:false,manual:null,member:false},
+  {id:'e',title:'Document API',labels:['docs'],done:false,manual:null,member:false},
+  {id:'s',title:'Fix security regression',labels:['frontend','bug','urgent','security'],done:false,manual:null,member:false},
+  {id:'h',title:'Done urgent regression',labels:['frontend','bug','urgent'],done:true,manual:null,member:false},
+  {id:'m',title:'Manual release check',labels:['frontend','bug','urgent'],done:false,manual:{x:30,y:640},member:true}
+]});
+const lanes={general:20,bugs:315,urgent:610,security:905,inbox:1200};
+let state=initial(),positions={},draft=null,pending=false,selected='a',selectedPen=null;
+function evaluation(s,c){
+  const candidates=s.rules.map((r,index)=>({...r,order:index+1,size:distinct(r).length,missing:distinct(r).filter(label=>!c.labels.includes(label))}));
+  const matches=candidates.filter(r=>!r.missing.length).sort((a,b)=>b.size-a.size || a.order-b.order);
+  return {candidates,matches,winner:matches[0]||null,ties:matches.length?matches.filter(r=>r.size===matches[0].size):[]};
+}
+const target=(s,c)=>evaluation(s,c).winner?.id || 'inbox';
+const name=(s,id)=>s.rules.find(r=>r.id===id)?.name || 'Inbox';
+const intersects=(p,q)=>p.x<q.x+258 && p.x+258>q.x && p.y<q.y+144 && p.y+144>q.y;
+function layout(next){
+  const result={},occupied=next.cards.filter(c=>c.manual).map(c=>c.manual);
+  // Reserve the ordinary frame header. No automatic card may cover it.
+  const free=p=>!(p.x<540 && p.x+246>20 && p.y<620 && p.y+132>590) && !occupied.some(q=>intersects(p,q));
+  for(const c of next.cards.filter(c=>!c.manual)){
+    const old=state.cards.find(o=>o.id===c.id),p=positions[c.id];
+    if(old && !old.manual && p && target(next,c)===target(state,old) && free(p)){result[c.id]={...p};occupied.push(p);}
+  }
+  for(const c of next.cards){
+    if(c.manual){result[c.id]={...c.manual,overflow:false};continue;}
+    if(result[c.id])continue;
+    for(let slot=0;slot<100;slot++){
+      const p={x:lanes[target(next,c)]+12,y:155+slot*158,overflow:slot>0};
+      if(free(p)){result[c.id]=p;occupied.push(p);break;}
+    }
+    if(!result[c.id])throw Error('Fixture slots exhausted');
+  }
+  return result;
+}
+function text(tag,value,className){const e=document.createElement(tag);e.textContent=value;if(className)e.className=className;return e;}
+function at(className,x,y){const e=document.createElement('div');e.className=className;e.style.left=x+'px';e.style.top=y+'px';return e;}
+function message(value){$('status').textContent=value;}
+function effective(){return draft?.state || state;}
+function renderRules(s){
+  $('rules').replaceChildren();
+  for(const [i,r] of s.rules.entries()){
+    const tr=document.createElement('tr');tr.dataset.rule=r.id;if($('rule').value===r.id)tr.className='rule-selected';
+    tr.append(text('td',String(i+1)));
+    const detail=document.createElement('td');detail.append(text('strong',r.name),text('div',r.labels.join(' + ')));if(r.labels.length!==distinct(r).length)detail.append(text('small','Repeated requirements count once.'));
+    tr.append(detail,text('td',distinct(r).length+' distinct'));$('rules').append(tr);
+  }
+  const selectedRule=$('rule').value;
+  $('rule').replaceChildren(...s.rules.map(r=>{const o=text('option',r.name);o.value=r.id;return o;}));
+  if(s.rules.some(r=>r.id===selectedRule))$('rule').value=selectedRule;
+  const index=s.rules.findIndex(r=>r.id===$('rule').value),locked=pending || $('readonly').checked;
+  $('earlier').disabled=locked || index<=0;$('later').disabled=locked || index<0 || index===s.rules.length-1;
+  $('remove').disabled=locked || index<0;
+  const r=s.rules[index];$('duplicate').disabled=locked || !r || !r.labels.includes('bug') || r.labels.length!==distinct(r).length;
+  $('rule').disabled=locked || !s.rules.length;
+  $('apply').disabled=locked || !draft;$('cancel').disabled=pending || !draft;
+  $('mode').textContent=draft?'Preview, not saved':pending?'Save pending':'Accepted';
+  $('changes').replaceChildren();
+  if(draft){
+    const moved=s.cards.filter(c=>!c.manual && target(s,c)!==target(state,c));
+    const manual=s.cards.filter(c=>c.manual && target(s,c)!==target(state,c));
+    $('impact').textContent=`Preview: ${moved.length} automatic transfers (${moved.filter(c=>c.done && $('filter').checked).length} hidden). ${manual.length} manual cards get a different winning rule but stay put. Labels and frame membership do not change.`;
+    for(const c of moved)$('changes').append(text('li',`${c.id.toUpperCase()}: ${name(state,target(state,c))} → ${name(s,target(s,c))}${c.done?' · done':''}`));
+    if(!moved.length)$('changes').append(text('li','No automatic destination changes. This edit can still change routing explanations.'));
+  }else $('impact').textContent=pending?'Submitted save continues if this editor closes. Accepted placement stays visible until success.':'Use Move earlier/later to preview an explicit order change. Pen locations never determine precedence.';
+}
+function renderOverlaps(s){
+  $('overlaps').replaceChildren();let pairs=0;
+  for(let i=0;i<s.rules.length;i++)for(let j=i+1;j<s.rules.length;j++){
+    const a=s.rules[i],b=s.rules[j];if(distinct(a).length!==distinct(b).length)continue;pairs++;
+    const union=[...new Set([...a.labels,...b.labels])],both=s.cards.filter(c=>union.every(l=>c.labels.includes(l)));
+    const decisive=both.filter(c=>!c.manual && evaluation(s,c).ties.some(r=>r.id===a.id) && evaluation(s,c).ties.some(r=>r.id===b.id));
+    const higher=both.filter(c=>evaluation(s,c).winner.size>distinct(a).length);
+    const box=document.createElement('div');box.className='candidate';box.dataset.pair=a.id+'-'+b.id;
+    box.append(text('strong',`${a.name} overlaps ${b.name}`,'warning'),text('p',`Both require ${distinct(a).length} distinct labels. A ticket with ${union.join(' + ')} matches both. ${a.name} is earlier (#${i+1} before #${j+1}) and wins their tie unless a more-specific rule matches.`),text('p',`${both.length} current cards match both · ${decisive.length} automatic top-specificity ties · ${both.filter(c=>c.manual).length} manual · ${higher.length} outranked by greater specificity. Counts include hidden cards.`));
+    $('overlaps').append(box);
+  }
+  if(!pairs)$('overlaps').append(text('p','No equal-specificity pairs remain. Rules can still overlap at different specificities; more distinct requirements wins.'));
+}
+function renderCanvas(s,pos){
+  const scene=$('scene');scene.replaceChildren(text('div',draft?'PREVIEW · Dotted outlines show accepted positions. Rule order does not move the pen rectangles.':'Fixed pen locations · dashed areas prefer one interior card; further arrivals spill below. Scroll horizontally for Inbox.','board-note'));
+  for(const r of [...s.rules,{id:'inbox',name:'Inbox'}]){
+    const area=at('area'+(r.id==='inbox'?' inbox':''),lanes[r.id],85);
+    const count=s.cards.filter(c=>!c.manual && target(s,c)===r.id);
+    const b=text('button',r.name);b.onclick=()=>{selectedPen=r.id;render();};area.append(b,text('small',`${count.length} automatic · ${r.id==='inbox'?0:count.filter(c=>pos[c.id].overflow).length} overflow · ${count.filter(c=>c.done && $('filter').checked).length} hidden`));scene.append(area);
+  }
+  const frame=at('area frame',20,610);frame.append(text('small','Release work · ordinary frame · A and M remain members'));scene.append(frame);
+  for(const c of s.cards){
+    if(c.done && $('filter').checked)continue;const p=pos[c.id];
+    if(draft && (p.x!==positions[c.id].x || p.y!==positions[c.id].y))scene.append(at('ghost',positions[c.id].x,positions[c.id].y));
+    const b=text('button','');b.className='card'+(c.id===selected?' selected':'')+(!c.manual && target(s,c)===selectedPen?' highlight':'');b.dataset.card=c.id;b.style.left=p.x+'px';b.style.top=p.y+'px';
+    b.onclick=()=>{selected=c.id;selectedPen=null;$('ticket').value=c.id;render();};
+    b.append(text('small',c.id.toUpperCase()+' · '+(c.done?'done':'ready')),text('strong',c.title),text('small',c.labels.join(' · ')),text('small',c.manual?'Manual · routing overridden':name(s,target(s,c))+' · automatic'+(p.overflow && target(s,c)!=='inbox'?' · overflow':'')),text('small',c.member?'Release work member':'No frame membership'));scene.append(b);
+  }
+  scene.style.height=Math.max(810,...Object.values(pos).map(p=>p.y+160))+'px';
+}
+function renderExplanation(s){
+  const c=s.cards.find(c=>c.id===selected),ev=evaluation(s,c),win=ev.winner;
+  $('labels').textContent='Labels: '+c.labels.join(', ');
+  let reason=!win?'Inbox: no rule has all its required labels.':ev.ties.length>1?`${win.name} wins: ${win.size} distinct requirements tie with ${ev.ties.slice(1).map(r=>r.name).join(', ')}; its explicit order #${win.order} is earlier.`:`${win.name} wins with ${win.size} distinct required labels${ev.matches.length>1?', more than every other matching rule':'; no other rule matches'}.`;
+  $('winner').textContent=(draft?'Preview explanation. ':'')+(c.manual?'Manual position overrides placement. If returned to automatic: ':'')+reason;
+  $('membership').textContent=c.member?'Member of Release work. Routing and reorder edits preserve this membership.':'No frame membership.';
+  $('candidates').replaceChildren();
+  for(const r of ev.candidates){
+    const box=document.createElement('div');box.className='candidate';box.dataset.candidate=r.id;
+    const result=r.missing.length?'Does not match. Missing: '+r.missing.join(', '):r.id===win.id?'Winning rule':r.size<win.size?`Matches, but loses on specificity (${r.size} < ${win.size}).`:`Matches, but loses the tie on order (#${r.order} after #${win.order}).`;
+    box.append(text('strong',`#${r.order} ${r.name} · ${r.size} distinct`),text('small','Requires '+distinct(r).join(' + ')),text('p',result));$('candidates').append(box);
+  }
+  const locked=pending || !!draft || $('readonly').checked;
+  $('manual').disabled=locked;$('automatic').disabled=locked || !c.manual;$('toggle').disabled=locked;
+}
+function render(){const s=effective();renderRules(s);renderOverlaps(s);renderCanvas(s,draft?.positions || positions);renderExplanation(s);$('reset').disabled=pending;$('readonly').disabled=pending;}
+function preview(change){if(pending || $('readonly').checked)return;const next=copy(effective());change(next);draft={state:next,positions:layout(next)};message('Preview only. Inspect order, transfers, and winning-rule explanations before Apply.');render();}
+function reorder(delta){const id=$('rule').value;preview(s=>{const i=s.rules.findIndex(r=>r.id===id),j=i+delta;if(i>=0 && j>=0 && j<s.rules.length)[s.rules[i],s.rules[j]]=[s.rules[j],s.rules[i]];});}
+$('earlier').onclick=()=>reorder(-1);$('later').onclick=()=>reorder(1);
+$('duplicate').onclick=()=>{const id=$('rule').value;preview(s=>s.rules.find(r=>r.id===id).labels.push('bug'));};
+$('remove').onclick=()=>{const id=$('rule').value;preview(s=>{s.rules=s.rules.filter(r=>r.id!==id);});};
+function cancel(){if(draft && !pending){draft=null;message('Preview cancelled. Accepted rules and placements are unchanged.');render();}}
+$('cancel').onclick=cancel;
+async function save(next){
+  if(pending || $('readonly').checked)return;const projected=layout(next),fail=$('fail').checked;$('fail').checked=false;pending=true;draft=null;message('Save submitted. Closing the editor does not cancel it.');render();
+  await new Promise(resolve=>setTimeout(resolve,900));
+  if(fail)message('Save failed. Accepted rules and placements are unchanged.');else{state=next;positions=projected;message('Saved simulated change. Current rules now determine automatic placement.');}
+  pending=false;render();
+}
+$('apply').onclick=()=>{if(draft)save(copy(draft.state));};
+function mutate(change){if(pending || draft || $('readonly').checked)return;const next=copy(state);change(next.cards.find(c=>c.id===selected));save(next);}
+$('manual').onclick=()=>mutate(c=>{c.manual={x:positions[c.id].x+20,y:positions[c.id].y};});
+$('automatic').onclick=()=>mutate(c=>{c.manual=null;});
+$('toggle').onclick=()=>mutate(c=>{c.labels=c.labels.includes('urgent')?c.labels.filter(l=>l!=='urgent'):[...c.labels,'urgent'];});
+$('close').onclick=()=>{cancel();document.querySelector('[aria-label="Rule ordering"]').hidden=true;$('show-editor').hidden=false;if(pending)message('Editor hidden. Submitted save is still pending.');};
+$('show-editor').onclick=()=>{document.querySelector('[aria-label="Rule ordering"]').hidden=false;$('show-editor').hidden=true;$('rule').focus();};
+$('ticket').onchange=()=>{selected=$('ticket').value;selectedPen=null;render();};$('rule').onchange=()=>renderRules(effective());$('filter').onchange=render;
+$('readonly').onchange=()=>{cancel();render();message($('readonly').checked?'Read-only. Rule and placement changes are disabled.':'Editing enabled.');};
+$('theme').onclick=()=>{const light=document.documentElement.dataset.theme!=='light';document.documentElement.dataset.theme=light?'light':'dark';$('theme').textContent=light?'Switch to dark':'Switch to light';};
+$('reset').onclick=()=>{if(pending)return;state=initial();positions={};draft=null;selected='a';selectedPen=null;$('ticket').value='a';$('readonly').checked=false;$('filter').checked=false;$('fail').checked=false;document.querySelector('[aria-label="Rule ordering"]').hidden=false;$('show-editor').hidden=true;positions=layout(state);message('Demo reset. No data was written.');render();};
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(pending)message('Save already submitted; Escape does not cancel it.');else cancel();}});
+window.mockupSnapshot=()=>copy({state,positions,draft,pending,selected,evaluations:Object.fromEntries(effective().cards.map(c=>[c.id,evaluation(effective(),c)]))});
+positions=layout(state);render();
+</script>
+</html>

@@ -1,15 +1,22 @@
 import { ApiError, TicketClient } from './client'
 import { reconcileRecord, reconcileTickets, reuse } from './reconcile'
+import { emptyRouting, normalizeLayout, normalizeRouting } from './layout'
 import type { SyncMetadata } from './sync'
-import type { CardChanges, Cards, CreateRequest, Frames, FrameTransaction, LayoutRequest, Op, Schema, Ticket } from './types'
+import type { Board, CardChanges, Cards, CreateRequest, Frames, FrameTransaction, LayoutRequest, NormalizedBoard, Op, Routing, RoutingTransaction, Schema, Ticket } from './types'
 
-export interface PersistedState {
+function acceptedLayout(board: Board, name: string): NormalizedBoard {
+  try { return normalizeLayout(board, name) } catch (error) {
+    throw new ApiError(200, { code: 'invalid_response', message: error instanceof Error ? error.message : 'Invalid layout' })
+  }
+}
+
+export interface PersistedState extends Routing {
   board: string; tickets: Map<string, Ticket>; cards: Cards; frames: Frames; boards: string[]
-  config: Schema | null; storePath: string; readOnly: boolean; layoutSchema: number | null
+  config: Schema | null; storePath: string; readOnly: boolean; layoutSchema: number | null; captureToken: string | null
 }
 export class TicketStore {
   state: PersistedState = {
-    board: 'default', tickets: new Map(), cards: {}, frames: {}, boards: [], config: null, storePath: '', readOnly: false, layoutSchema: null,
+    captureToken: null, board: 'default', tickets: new Map(), cards: {}, frames: {}, ...emptyRouting(), boards: [], config: null, storePath: '', readOnly: false, layoutSchema: null,
   }
   sync: SyncMetadata | undefined
   onWriteSettled?: () => void
@@ -29,7 +36,7 @@ export class TicketStore {
     this.read++
     this.validator = undefined
     this.sync = undefined
-    this.state = { ...this.state, board, cards: {}, frames: {}, layoutSchema: null }
+    this.state = { ...this.state, board, cards: {}, frames: {}, ...emptyRouting(), layoutSchema: null, captureToken: null }
   }
 
   async load(): Promise<boolean> {
@@ -48,20 +55,20 @@ export class TicketStore {
         if (result.status === 304) throw new ApiError(304, { code: 'invalid_response', message: 'Server returned 304 without a cached board' })
       }
       const response = result.data
-      if (response.layout.board !== board) throw new ApiError(200, { code: 'invalid_response', message: 'Server returned another board' })
-      const previous = this.state
+      const layout = acceptedLayout(response.layout, board)
+      const previous = this.state, laidOut = this.withLayout(layout)
       const next: PersistedState = {
-        board, tickets: reconcileTickets(previous.tickets, response.tickets),
-        cards: reconcileRecord(previous.cards, response.layout.cards),
-        frames: reconcileRecord(previous.frames, response.layout.frames ?? {}),
+        ...laidOut, board, tickets: reconcileTickets(previous.tickets, response.tickets),
         boards: reuse(previous.boards, response.boards), config: reuse(previous.config, response.config),
         storePath: response.storePath, readOnly: response.readOnly, layoutSchema: response.layout.schema,
+        captureToken: typeof response.captureToken === 'string' && response.captureToken.length > 0 ? response.captureToken : null,
       }
       this.sync = reuse(this.sync, result.sync)
       this.validator = result.etag || undefined
-      if (next.tickets === previous.tickets && next.cards === previous.cards && next.frames === previous.frames && next.boards === previous.boards
+      if (laidOut === previous && next.tickets === previous.tickets && next.boards === previous.boards
         && next.config === previous.config && next.storePath === previous.storePath
-        && next.readOnly === previous.readOnly && next.layoutSchema === previous.layoutSchema) return false
+        && next.readOnly === previous.readOnly && next.layoutSchema === previous.layoutSchema
+        && next.captureToken === previous.captureToken) return false
       this.state = next
       return true
     } catch (error) {
@@ -70,11 +77,24 @@ export class TicketStore {
     }
   }
 
+  // Shared by every layout-bearing publication; unchanged routing entries retain identity.
+  private withLayout(layout: NormalizedBoard): PersistedState {
+    const previous = this.state
+    const cards = reconcileRecord(previous.cards, layout.cards), frames = reconcileRecord(previous.frames, layout.frames)
+    const pens = reconcileRecord(previous.pens, layout.pens)
+    const ruleOrder = reuse(previous.ruleOrder, layout.ruleOrder), inbox = reuse(previous.inbox, layout.inbox)
+    if (cards === previous.cards && frames === previous.frames && pens === previous.pens
+      && ruleOrder === previous.ruleOrder && inbox === previous.inbox && layout.schema === previous.layoutSchema) return previous
+    return { ...previous, cards, frames, pens, ruleOrder, inbox, layoutSchema: layout.schema }
+  }
+
   // Serialize writes so two responses cannot regress an accepted mutation.
   // Invalidate reads on both sides, including reads started during a write.
   private write<T>(run: () => Promise<T>): Promise<T> {
     this.epoch++
     this.validator = undefined
+    // A queued write may change any capture input, even when its response is partial.
+    if (this.state.captureToken !== null) this.state = { ...this.state, captureToken: null }
     this.writes++
     const result = this.tail.then(run)
     const settled = result.finally(() => {
@@ -120,18 +140,13 @@ export class TicketStore {
     const body = { ...request, board: request.board || this.state.board }
     return this.write(async () => {
       const response = await this.client.create(body)
-      if (response.layout && response.layout.board !== body.board) {
-        throw new ApiError(200, { code: 'invalid_response', message: 'Server returned another board' })
-      }
+      const layout = response.layout ? acceptedLayout(response.layout, body.board) : undefined
       if (generation === this.generation && body.board === this.state.board) {
         const tickets = new Map(this.state.tickets)
         tickets.set(response.ticket.id, response.ticket)
-        this.state = { ...this.state, tickets,
-          cards: response.layout ? reconcileRecord(this.state.cards, response.layout.cards) : this.state.cards,
-          frames: response.layout ? reconcileRecord(this.state.frames, response.layout.frames ?? {}) : this.state.frames,
-          layoutSchema: response.layout?.schema ?? this.state.layoutSchema }
+        this.state = { ...(layout ? this.withLayout(layout) : this.state), tickets }
       }
-      return response
+      return layout ? { ...response, layout } : response
     })
   }
 
@@ -144,6 +159,23 @@ export class TicketStore {
    * layout_conflict reloads the active generation but never retries the operation.
    */
   async saveFrameLayout(board: string, transaction: FrameTransaction) {
+    return this.saveTransaction(board, transaction)
+  }
+
+  /** Whole-routing CAS, optionally atomic with card and frame edits. No placement
+   * is derived here and this method never writes ticket labels or frame history.
+   */
+  async saveRoutingLayout(board: string, transaction: RoutingTransaction) {
+    try {
+      normalizeRouting(transaction.routing)
+      normalizeRouting(transaction.expect.routing)
+    } catch (error) {
+      throw new ApiError(422, { code: 'invalid_layout', message: error instanceof Error ? error.message : 'Invalid routing' })
+    }
+    return this.saveTransaction(board, transaction)
+  }
+
+  private async saveTransaction(board: string, transaction: FrameTransaction | RoutingTransaction) {
     if (this.state.readOnly) throw new ApiError(403, { code: 'read_only', message: 'Store is read-only' })
     for (const kind of ['cards', 'frames'] as const) {
       for (const id of Object.keys(transaction[kind])) {
@@ -155,10 +187,17 @@ export class TicketStore {
     const generation = this.generation
     try {
       // Do not forward FrameOperation.label or other client-only metadata.
-      return await this.saveBoardLayout({ board, cards: transaction.cards, frames: transaction.frames, expect: transaction.expect })
+      const request = { board, cards: transaction.cards, frames: transaction.frames,
+        ...(Object.hasOwn(transaction, 'capture') ? { capture: transaction.capture } : {}) }
+      return await this.saveBoardLayout('routing' in transaction
+        ? { ...request, routing: transaction.routing, expect: transaction.expect }
+        : { ...request, expect: transaction.expect })
     } catch (error) {
       if (generation === this.generation && board === this.state.board && error instanceof ApiError && error.code === 'layout_conflict') {
-        await this.load().catch(() => false)
+        // A queued ticket-only write cannot refresh routing. Reading before it
+        // settles would discard this recovery read through the write-epoch guard.
+        await this.whenIdle()
+        if (generation === this.generation && board === this.state.board) await this.load().catch(() => false)
       }
       throw error
     }
@@ -167,16 +206,9 @@ export class TicketStore {
   private saveBoardLayout(request: LayoutRequest) {
     const generation = this.generation, body = structuredClone(request)
     return this.write(async () => {
-      if (body.frames && this.state.readOnly) throw new ApiError(403, { code: 'read_only', message: 'Store is read-only' })
-      const response = await this.client.layout(body)
-      if (response.board !== body.board) throw new ApiError(200, { code: 'invalid_response', message: 'Server returned another board' })
-      if (generation === this.generation && body.board === this.state.board) {
-        const cards = reconcileRecord(this.state.cards, response.cards)
-        const frames = reconcileRecord(this.state.frames, response.frames ?? {})
-        if (cards !== this.state.cards || frames !== this.state.frames || response.schema !== this.state.layoutSchema) {
-          this.state = { ...this.state, cards, frames, layoutSchema: response.schema }
-        }
-      }
+      if ((body.frames || body.routing) && this.state.readOnly) throw new ApiError(403, { code: 'read_only', message: 'Store is read-only' })
+      const response = acceptedLayout(await this.client.layout(body), body.board)
+      if (generation === this.generation && body.board === this.state.board) this.state = this.withLayout(response)
       return response
     })
   }
