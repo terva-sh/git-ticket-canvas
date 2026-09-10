@@ -28,6 +28,8 @@ export interface PlacementItem {
 export type PinnedPositions = Readonly<Record<string, Point | undefined>>;
 
 export interface FitCard extends Point {
+  /** Frame bounds may be wider than a ticket card. */
+  readonly width?: number;
   /** Scene-space height. Omit when no measurement is available. */
   readonly height?: number;
 }
@@ -36,7 +38,8 @@ export const CARD_WIDTH = 280;
 const LANE_W = 300;
 const LANE_GAP = 22;
 
-/** Sort unpinned items by ID, then stack them in configured status lanes. */
+/** Reserve a stable lane slot per ticket, even when it has a manual position.
+ * Pinning a frame's members must not relocate unrelated automatic cards. */
 export function autoPlace(
   items: Iterable<PlacementItem>,
   pinned: PinnedPositions,
@@ -46,10 +49,10 @@ export function autoPlace(
   const lanes = new Map<number, number>();
   const sorted = [...items].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   for (const item of sorted) {
-    if (isPinned(item.id, pinned)) continue;
     const lane = Math.max(0, statuses.indexOf(item.status));
     const row = lanes.get(lane) ?? 0;
     lanes.set(lane, row + 1);
+    if (isPinned(item.id, pinned)) continue;
     positions.set(item.id, { x: lane * (LANE_W + LANE_GAP), y: row * 340 });
   }
   return positions;
@@ -110,7 +113,7 @@ export function fitView(cards: Iterable<FitCard>, stage: Size, inspectorWidth = 
     count++;
     x0 = Math.min(x0, card.x);
     y0 = Math.min(y0, card.y);
-    x1 = Math.max(x1, card.x + CARD_WIDTH);
+    x1 = Math.max(x1, card.x + (card.width ?? CARD_WIDTH));
     y1 = Math.max(y1, card.y + (card.height ?? 120));
   }
   if (!count) return null;

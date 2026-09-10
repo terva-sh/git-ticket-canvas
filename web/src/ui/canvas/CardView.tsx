@@ -20,11 +20,13 @@ interface CardViewProps {
   selected: boolean
   dimmed: boolean
   target: boolean
+  frameTitle?: string
+  frameMember?: boolean
   register: (id: string, element: HTMLDivElement | null) => void
 }
 
 // Memoization keeps metadata out of the per-frame pan and link updates.
-export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, selected, dimmed, target, register }: CardViewProps) {
+export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, selected, dimmed, target, frameTitle, frameMember, register }: CardViewProps) {
   const element = useRef<HTMLDivElement>(null)
   // Refresh regression diagnostic; unlike DOM mutation counts this sees renders.
   const renders = useRef(0)
@@ -43,7 +45,7 @@ export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, sel
   const ac = t.body?.acceptanceCriteria || []
   const done = ac.filter(item => item.checked).length
   const classes = ['card', !pinned && 'unpinned', selected && 'selected', dimmed && 'dimmed',
-    target && 'link-target', t.status === 'done' && 'done', t.status === 'archived' && 'archived'].filter(Boolean).join(' ')
+    frameMember && 'frame-member', target && 'link-target', t.status === 'done' && 'done', t.status === 'archived' && 'archived'].filter(Boolean).join(' ')
   return <div ref={element} class={classes} data-id={t.id} data-render-count={renders.current}
     style={{ transform: `translate(${x}px, ${y}px)`, zIndex: z, '--status': `var(--s-${t.status})` }}>
     <div class="card-title">{t.title}</div>
@@ -73,6 +75,7 @@ export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, sel
     {!!ac.length && <div class="card-progress"><span>AC {done}/{ac.length}</span>
       <div class="progress" aria-hidden="true"><i style={{ width: `${done / ac.length * 100}%` }} /></div>
     </div>}
+    {frameTitle && <div class="card-frame-membership">Frame: {frameTitle}</div>}
     <div class="card-head"><span class="card-id">{t.short || t.id}</span><span class="card-type">{t.type}</span>
       <span class="card-placement">{pinned ? 'Manual' : 'Automatic'}</span></div>
     <div class="handle" title="Drag to another card to make that ticket depend on this one" />

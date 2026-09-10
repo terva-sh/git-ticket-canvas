@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, TicketClient, type BoardRead } from './client'
 import { LayoutWriter, TicketStore } from './store'
-import type { BoardResponse, Ticket } from './types'
+import type { BoardResponse, Frame, FrameTransaction, Ticket } from './types'
 
 function deferred<T>() {
   let resolve!: (value: T) => void, reject!: (error: unknown) => void
@@ -342,6 +342,149 @@ describe('TicketStore mutations', () => {
     const before = store.state
     vi.spyOn(client, 'layout').mockRejectedValue(new Error('disk full'))
     await expect(store.saveLayout('default', { 'TKT-1': null })).rejects.toThrow('disk full')
+    expect(store.state).toBe(before)
+  })
+})
+
+describe('TicketStore frames', () => {
+  const frame = (members = ['TKT-1']): Frame => ({ title: 'Work', x: 0, y: 0, w: 200, h: 100, color: 'slate', members })
+  const data = (): BoardResponse => ({ ...boardData(), layout: { ...boardData().layout, schema: 2, frames: { f: frame(), g: frame([]) } } })
+  const transaction = (): FrameTransaction => ({ cards: { 'TKT-1': { x: 11, y: 12 } },
+    frames: { f: { ...frame(), x: 10, y: 10 } },
+    expect: { cards: { 'TKT-1': { x: 1, y: 2 } }, frames: { f: frame(), g: frame([]) } } })
+  const result = (): BoardResponse['layout'] => ({ ...data().layout, cards: { 'TKT-1': { x: 11, y: 12 } },
+    frames: { f: { ...frame(), x: 10, y: 10 }, g: frame([]) } })
+
+  it('normalizes old layouts and reconciles frames without changing tickets or unchanged records', async () => {
+    const { store, read } = setup()
+    expect(store.state.frames).toEqual({}); await store.load()
+    const old = store.state, empty = store.state.frames
+    await store.load(); expect(store.state.frames).toBe(empty)
+    read.mockResolvedValueOnce({ status: 200, data: data(), etag: null }); await store.load()
+    const accepted = store.state
+    expect(accepted.tickets).toBe(old.tickets); expect(accepted.cards).toBe(old.cards)
+    expect(accepted.layoutSchema).toBe(2)
+    read.mockResolvedValueOnce({ status: 200, data: data(), etag: null })
+    expect(await store.load()).toBe(false); expect(store.state).toBe(accepted)
+    const changed = data(); changed.layout.frames!.f.title = 'Renamed'
+    read.mockResolvedValueOnce({ status: 200, data: changed, etag: null }); await store.load()
+    expect(store.state.frames.f).not.toBe(accepted.frames.f)
+    expect(store.state.frames.g).toBe(accepted.frames.g)
+    expect(store.state.tickets).toBe(accepted.tickets)
+    read.mockResolvedValueOnce(board()); await store.load()
+    expect(store.state.frames).toEqual({})
+  })
+  it('serializes grouped changes with ordinary card writes, snapshots preimages, and strips labels', async () => {
+    const { store, client } = setup(); await store.load()
+    const first = deferred<BoardResponse['layout']>(), second = deferred<BoardResponse['layout']>()
+    const layout = vi.spyOn(client, 'layout').mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    const a = store.saveLayout('default', { 'TKT-1': { x: 1, y: 2 } })
+    const op = { ...transaction(), label: 'Move frame' }, sent = structuredClone(transaction())
+    const b = store.saveFrameLayout('default', op)
+    op.cards['TKT-1']!.x = 999; op.frames.f!.members.push('changed'); op.expect.frames.g!.title = 'changed'
+    await Promise.resolve(); expect(layout).toHaveBeenCalledTimes(1)
+    expect(store.state.frames).toEqual({})
+    first.resolve(data().layout); await a
+    await Promise.resolve()
+    expect(layout).toHaveBeenLastCalledWith({ board: 'default', ...sent })
+    second.resolve(result()); await b
+    expect(store.state.cards).toEqual(result().cards); expect(store.state.frames).toEqual(result().frames)
+  })
+  it('accepts frame changes from ordinary saves and create responses with stable identity', async () => {
+    const { store, client, read } = setup()
+    read.mockResolvedValueOnce({ status: 200, data: data(), etag: null }); await store.load()
+    const before = store.state
+    vi.spyOn(client, 'layout').mockResolvedValue(data().layout)
+    await store.saveLayout('default', {})
+    expect(store.state).toBe(before)
+    await store.saveFrameLayout('default', { cards: {}, frames: {}, expect: { cards: {}, frames: {} } })
+    expect(store.state).toBe(before)
+    const changed = data(); changed.layout.frames!.f.title = 'Changed'
+    vi.spyOn(client, 'create').mockResolvedValue({ ticket: ticket('created'), layout: changed.layout })
+    await store.create({ title: 'New' })
+    expect(store.state.frames.f.title).toBe('Changed'); expect(store.state.frames.g).toBe(before.frames.g)
+    expect(store.state.cards).toBe(before.cards)
+  })
+  it.each([undefined, 'disk full'])('cleans deleted ticket membership only after successful layout cleanup, error=%s', async layoutError => {
+    const { store, client, read } = setup()
+    read.mockResolvedValueOnce({ status: 200, data: data(), etag: null }); await store.load()
+    const before = store.state
+    vi.spyOn(client, 'remove').mockResolvedValue({ removed: 'TKT-1', layoutError })
+    await store.remove('TKT-1', 'r1')
+    expect(store.state.frames.f.members).toEqual(layoutError ? ['TKT-1'] : [])
+    expect(store.state.frames.g).toBe(before.frames.g)
+    if (layoutError) expect(store.state.frames).toBe(before.frames)
+    expect(store.state.tickets.has('TKT-1')).toBe(false)
+  })
+  it.each(['other', 'default'])('ignores delayed frame saves across board generations ending on %s', async selected => {
+    const { store, client, read } = setup()
+    read.mockResolvedValueOnce({ status: 200, data: data(), etag: null }); await store.load()
+    const pending = deferred<BoardResponse['layout']>()
+    vi.spyOn(client, 'layout').mockReturnValueOnce(pending.promise)
+    const write = store.saveFrameLayout('default', transaction())
+    store.selectBoard('other'); if (selected === 'default') store.selectBoard('default')
+    const before = store.state
+    pending.resolve(result()); await write
+    expect(store.state).toBe(before); expect(store.state.frames).toEqual({})
+  })
+  it('ignores frame responses from delayed create and remove after a board switch', async () => {
+    const { store, client, read } = setup()
+    read.mockResolvedValueOnce({ status: 200, data: data(), etag: null }); await store.load()
+    const creation = deferred<{ ticket: Ticket; layout: BoardResponse['layout'] }>()
+    const removal = deferred<{ removed: string }>()
+    vi.spyOn(client, 'create').mockReturnValueOnce(creation.promise)
+    vi.spyOn(client, 'remove').mockReturnValueOnce(removal.promise)
+    const a = store.create({ title: 'New' }), b = store.remove('TKT-1', 'r1')
+    store.selectBoard('other'); store.selectBoard('default')
+    const before = store.state
+    creation.resolve({ ticket: ticket('new'), layout: data().layout }); await a
+    removal.resolve({ removed: 'TKT-1' }); await b
+    expect(store.state).toBe(before); expect(store.state.frames).toEqual({})
+  })
+  it('rejects mismatched board responses without publishing cards or frames', async () => {
+    const { store, client } = setup(); await store.load()
+    const before = store.state
+    vi.spyOn(client, 'layout').mockResolvedValue({ ...result(), board: 'wrong' })
+    await expect(store.saveFrameLayout('default', transaction())).rejects.toMatchObject({ code: 'invalid_response' })
+    expect(store.state).toBe(before)
+  })
+  it.each([false, true])('reloads a layout conflict without retrying and preserves the error if reload fails=%s', async failRead => {
+    const { store, client, read } = setup(); await store.load()
+    const error = new ApiError(409, { code: 'layout_conflict', message: 'Card TKT-1 changed' })
+    const layout = vi.spyOn(client, 'layout').mockRejectedValueOnce(error)
+    if (failRead) read.mockRejectedValueOnce(new Error('offline'))
+    else read.mockResolvedValueOnce({ status: 200, data: data(), etag: null })
+    const before = store.state
+    await expect(store.saveFrameLayout('default', transaction())).rejects.toBe(error)
+    expect(layout).toHaveBeenCalledTimes(1); expect(read).toHaveBeenCalledTimes(2)
+    if (failRead) expect(store.state).toBe(before)
+    else expect(store.state.frames).toEqual(data().layout.frames)
+  })
+  it('does not reload another generation after a delayed conflict', async () => {
+    const { store, client, read } = setup(); await store.load()
+    const response = deferred<BoardResponse['layout']>()
+    vi.spyOn(client, 'layout').mockReturnValueOnce(response.promise)
+    const write = store.saveFrameLayout('default', transaction())
+    store.selectBoard('other'); store.selectBoard('default')
+    response.reject(new ApiError(409, { code: 'layout_conflict', message: 'conflict' }))
+    await expect(write).rejects.toMatchObject({ code: 'layout_conflict' })
+    expect(read).toHaveBeenCalledTimes(1)
+  })
+  it('rejects read-only and incomplete frame transactions before sending', async () => {
+    const { store, client } = setup(); await store.load()
+    const layout = vi.spyOn(client, 'layout')
+    const op = transaction(); delete op.expect.cards['TKT-1']
+    await expect(store.saveFrameLayout('default', op)).rejects.toThrow('Missing cards preimage')
+    store.state = { ...store.state, readOnly: true }
+    await expect(store.saveFrameLayout('default', transaction())).rejects.toMatchObject({ code: 'read_only' })
+    expect(layout).not.toHaveBeenCalled()
+  })
+  it('keeps authoritative state unchanged after a failed grouped save', async () => {
+    const { store, client, read } = setup()
+    read.mockResolvedValueOnce({ status: 200, data: data(), etag: null }); await store.load()
+    const before = store.state
+    vi.spyOn(client, 'layout').mockRejectedValueOnce(new Error('disk full'))
+    await expect(store.saveFrameLayout('default', transaction())).rejects.toThrow('disk full')
     expect(store.state).toBe(before)
   })
 })

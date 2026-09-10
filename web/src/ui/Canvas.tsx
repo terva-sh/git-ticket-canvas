@@ -2,8 +2,10 @@ import type { ComponentChildren } from 'preact'
 import { forwardRef } from 'preact/compat'
 import { useImperativeHandle, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { autoPlace, fitView, posOf, toScene, zoomAt } from '../platform/canvas/geometry'
+import { captureMembers } from '../platform/canvas/frames'
 import type { Point, View } from '../platform/canvas/geometry'
-import type { Card, CardChanges, Cards, Ticket } from '../platform/tickets/types'
+import type { Card, CardChanges, Cards, Frame, Frames, Ticket } from '../platform/tickets/types'
+import './FrameCanvas.css'
 import { CardView, matches } from './canvas/CardView'
 import { CARD_WIDTH, Edges } from './canvas/Edges'
 import type { Placement } from './canvas/Edges'
@@ -14,6 +16,14 @@ export interface CanvasProps {
   board: string
   tickets: ReadonlyMap<string, Ticket>
   cards: Cards
+  frames?: Frames
+  selectedFrame?: string | null
+  frameCreating?: boolean
+  layoutBusy?: boolean
+  onSelectFrame?: (id: string) => void
+  onNewFrame?: (frame: Frame) => void
+  onFrameMove?: (id: string, before: Frame, dx: number, dy: number, positions: ReadonlyMap<string, Point>, cards: Cards) => Promise<unknown>
+  onFrameResize?: (id: string, before: Frame, next: Frame) => Promise<unknown>
   statuses: readonly string[]
   selection: ReadonlySet<string>
   relationships?: import('./canvas/Edges').RelationshipMode
@@ -36,6 +46,10 @@ export interface CanvasHandle {
   arrange(): void
   composeCentre(): void
   cancel(): void
+  newFrame(): void
+  captureFrame(frame: Frame): string[]
+  framePositions(): ReadonlyMap<string, Point>
+  layoutReady(): boolean
 }
 
 interface GestureBase {
@@ -52,6 +66,8 @@ type Gesture = GestureBase & (
   | { kind: 'pan' }
   | { kind: 'card'; ids: string[]; moved: boolean; delta: Point; readOnly: boolean }
   | { kind: 'link'; from: string; to: string | null; point: Point }
+  | { kind: 'frame-move' | 'frame-resize'; id: string; before: Frame; next: Frame; cards: Cards; delta: Point; moved: boolean }
+  | { kind: 'frame-draw'; start: Point; bounds: Frame }
 )
 interface LocalState {
   view: View
@@ -90,6 +106,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       const gesture = local.gesture
       if (gesture?.kind === 'card' && gesture.moved && !gesture.readOnly && gesture.ids.includes(id)) {
         result.set(id, { ...placement, x: placement.x + gesture.delta.x, y: placement.y + gesture.delta.y })
+      } else if (gesture?.kind === 'frame-move' && gesture.moved && gesture.before.members.includes(id)) {
+        result.set(id, { ...placement, x: placement.x + gesture.delta.x, y: placement.y + gesture.delta.y, pinned: true })
       } else result.set(id, placement)
     }
     return result
@@ -125,7 +143,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
 
   function viewport() {
     const element = stage.current!
-    const inspector = element.querySelector<HTMLElement>('#inspector.open')
+    const inspector = element.querySelector<HTMLElement>('#framePanel.open, #inspector.open')
     const bounds = element.getBoundingClientRect()
     if (inspector) {
       const panel = inspector.getBoundingClientRect()
@@ -142,9 +160,12 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     const element = stage.current
     if (!element) return
     cancel()
-    const view = fitView([...positions()].map(([id, point]) => ({ ...point,
-      height: measurements.elements.get(id)?.offsetHeight ?? measurements.heights.get(id),
-    })), viewport(), 0)
+    const view = fitView([
+      ...[...positions()].map(([id, point]) => ({ ...point,
+        height: measurements.elements.get(id)?.offsetHeight ?? measurements.heights.get(id) })),
+      ...Object.values(latest.current.frames || {}).map(frame => ({ x: frame.x, y: frame.y - 24,
+        width: frame.w, height: frame.h + 24 })),
+    ], viewport(), 0)
     if (view) { local.view = view; redraw() }
   }
 
@@ -182,8 +203,26 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     catch (error) { failed(error); complete() }
   }
 
+  function captureFrame(frame: Frame) {
+    return captureMembers(latest.current.frames || {}, frame, [...positions()].map(([id, point]) => ({
+      id, x: point.x, y: point.y, w: CARD_WIDTH,
+      h: measurements.elements.get(id)?.offsetHeight ?? measurements.heights.get(id) ?? 240,
+    })))
+  }
+
   useImperativeHandle(ref, () => ({
     fit,
+    captureFrame,
+    framePositions: positions,
+    layoutReady: () => !local.gesture && !local.previews.size,
+    newFrame() {
+      if (latest.current.readOnly || latest.current.layoutBusy || !stage.current) return
+      cancel()
+      const bounds = stage.current.getBoundingClientRect()
+      const point = toScene({ x: bounds.left + 60, y: bounds.top + 60 }, local.view, bounds)
+      latest.current.onNewFrame?.({ title: 'New frame', x: Math.round(point.x), y: Math.round(point.y), w: 620, h: 420,
+        color: '#759bcc', members: [] })
+    },
     focus(id) {
       if (!latest.current.tickets.has(id) || !stage.current) return
       cancel()
@@ -197,7 +236,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       redraw()
     },
     arrange() {
-      if (latest.current.readOnly) return
+      if (latest.current.readOnly || latest.current.layoutBusy) return
       cancel()
       // Confirmation belongs to the toolbar's parent, not the canvas.
       save(Object.fromEntries(autoPlace(latest.current.tickets.values(), {}, latest.current.statuses)))
@@ -215,7 +254,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
 
   function canvasTarget(target: EventTarget | null): Element | null {
     if (!(target instanceof Element) || !stage.current?.contains(target)) return null
-    if (target.closest('#inspector, #composer, #toolbar, button, input, select, textarea, summary, .card-label-disclosure')) return null
+    if (target.closest('#framePanel, .frame-membership, #frameHistory, #inspector, #composer, #toolbar, input, select, textarea, summary, .card-label-disclosure')) return null
+    if (target.closest('button') && !target.closest('.canvas-frame-title, .canvas-frame-resize')) return null
     // Unknown children are overlays too. Only the canvas's own elements start gestures.
     if (target !== stage.current && !target.closest('#scene, #grid, #hint')) return null
     return target
@@ -228,6 +268,10 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     if (!target || !element) return
     cancelFrame()
     const p = latest.current
+    const frameHandle = target.closest<HTMLElement>('[data-frame-gesture]')
+    const frameID = frameHandle?.dataset.frameId
+    const frame = frameID ? p.frames?.[frameID] : undefined
+    if (p.layoutBusy && (frame || target.closest('#cards .card') || p.frameCreating)) return
     const card = target.closest<HTMLDivElement>('#cards .card')
     const id = card?.dataset.id
     const handle = target.closest('.handle')
@@ -235,7 +279,17 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     const base: GestureBase = { pointerId: event.pointerId, capture: element, pointer, view: { ...local.view },
       positions: positions(), endBusy: () => p.onBusy(false) }
     let gesture: Gesture
-    if (id && p.tickets.has(id)) {
+    if (frame && frameID) {
+      p.onSelectFrame?.(frameID)
+      if (p.readOnly || local.previews.size) return
+      gesture = { ...base, kind: frameHandle?.dataset.frameGesture === 'resize' ? 'frame-resize' : 'frame-move',
+        id: frameID, before: structuredClone(frame), next: structuredClone(frame), cards: structuredClone(p.cards),
+        delta: { x: 0, y: 0 }, moved: false }
+    } else if (p.frameCreating && !p.readOnly && !card) {
+      const start = toScene(pointer, local.view, element.getBoundingClientRect())
+      gesture = { ...base, kind: 'frame-draw', start,
+        bounds: { title: 'New frame', ...start, w: 0, h: 0, color: '#759bcc', members: [] } }
+    } else if (id && p.tickets.has(id)) {
       if (handle && !p.readOnly) {
         gesture = { ...base, kind: 'link', from: id, to: null,
           point: toScene(pointer, local.view, element.getBoundingClientRect()) }
@@ -268,7 +322,18 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       const dy = (point.y - gesture.pointer.y) / gesture.view.k
       if (Math.abs(dx) > 1 || Math.abs(dy) > 1) gesture.moved = true
       gesture.delta = { x: dx, y: dy }
-    } else {
+    } else if (gesture.kind === 'frame-move' || gesture.kind === 'frame-resize') {
+      const dx = Math.round((point.x - gesture.pointer.x) / gesture.view.k)
+      const dy = Math.round((point.y - gesture.pointer.y) / gesture.view.k)
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) gesture.moved = true
+      gesture.delta = { x: dx, y: dy }
+      gesture.next = gesture.kind === 'frame-move' ? { ...gesture.before, x: gesture.before.x + dx, y: gesture.before.y + dy }
+        : { ...gesture.before, w: Math.max(80, gesture.before.w + dx), h: Math.max(80, gesture.before.h + dy) }
+    } else if (gesture.kind === 'frame-draw') {
+      const next = toScene(point, gesture.view, element.getBoundingClientRect())
+      gesture.bounds = { ...gesture.bounds, x: Math.round(Math.min(next.x, gesture.start.x)), y: Math.round(Math.min(next.y, gesture.start.y)),
+        w: Math.round(Math.abs(next.x - gesture.start.x)), h: Math.round(Math.abs(next.y - gesture.start.y)) }
+    } else if (gesture.kind === 'link') {
       const target = document.elementFromPoint(point.x, point.y)?.closest<HTMLDivElement>('#cards .card')
       const id = target && element.contains(target) ? target.dataset.id : undefined
       gesture.to = id && id !== gesture.from && latest.current.tickets.has(id) ? id : null
@@ -299,7 +364,15 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     redraw()
     if (!gesture) return
     const p = latest.current
-    if (gesture.kind === 'card' && gesture.moved) {
+    if (gesture.kind === 'frame-draw') {
+      if (!p.readOnly && !p.layoutBusy && gesture.bounds.w >= 80 && gesture.bounds.h >= 80) p.onNewFrame?.(gesture.bounds)
+    } else if (gesture.kind === 'frame-move' || gesture.kind === 'frame-resize') {
+      if (!gesture.moved || p.readOnly || p.layoutBusy) return
+      const result = gesture.kind === 'frame-move'
+        ? p.onFrameMove?.(gesture.id, gesture.before, gesture.delta.x, gesture.delta.y, gesture.positions, gesture.cards)
+        : p.onFrameResize?.(gesture.id, gesture.before, gesture.next)
+      void result?.catch(error => p.onError(error instanceof Error ? error.message : String(error)))
+    } else if (gesture.kind === 'card' && gesture.moved) {
       if (gesture.readOnly || p.readOnly) { p.onError('read-only'); return }
       const changes: Cards = {}
       for (const id of gesture.ids) {
@@ -387,19 +460,35 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     style={{ touchAction: 'none' }}
     onDblClick={event => {
       const target = canvasTarget(event.target)
-      if (event.button === 0 && target && !target.closest('.card') && !local.gesture) compose({ x: event.clientX, y: event.clientY })
+      if (event.button === 0 && target && !target.closest('.card, .canvas-frame') && !local.gesture && !props.frameCreating) compose({ x: event.clientX, y: event.clientY })
     }}>
     <canvas id="grid" ref={grid} />
     <div id="scene" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` }}>
+      <div id="frameLayer">{Object.entries(props.frames || {}).map(([id, accepted]) => {
+        const frame = (gesture?.kind === 'frame-move' || gesture?.kind === 'frame-resize') && gesture.id === id ? gesture.next : accepted
+        const dimmed = frame.members.filter(member => props.tickets.has(member) && !matching.has(member)).length
+        return <div key={id} class={`canvas-frame ${props.selectedFrame === id ? 'selected' : ''}`} data-frame-id={id}
+          style={{ transform: `translate(${frame.x}px, ${frame.y}px)`, width: `${frame.w}px`, height: `${frame.h}px`, '--frame-color': frame.color }}>
+          <button class="canvas-frame-title" data-frame-id={id} data-frame-gesture="move"
+            onClick={() => props.onSelectFrame?.(id)}>{frame.title} · {frame.members.length} members{dimmed > 0 && ` · ${dimmed} filtered`}</button>
+          {!props.readOnly && <button class="canvas-frame-resize" data-frame-id={id} data-frame-gesture="resize"
+            disabled={props.layoutBusy} aria-label={`Resize ${frame.title} boundary only`} onClick={() => props.onSelectFrame?.(id)}>↘</button>}
+        </div>
+      })}</div>
+      {gesture?.kind === 'frame-draw' && <div class="canvas-frame-draft" style={{ left: gesture.bounds.x, top: gesture.bounds.y,
+        width: gesture.bounds.w, height: gesture.bounds.h }} />}
       <Edges tickets={props.tickets} positions={placed} heights={measurements.heights} matching={matching} ghost={ghost}
         mode={props.relationships} selection={props.selection} />
       <div id="cards">{[...props.tickets.values()].map(ticket => {
         const point = placed.get(ticket.id)!
         return <CardView key={ticket.id} ticket={ticket} x={point.x} y={point.y} z={point.z} pinned={point.pinned}
           selected={props.selection.has(ticket.id)} dimmed={!matching.has(ticket.id)}
+          frameTitle={Object.values(props.frames || {}).find(frame => frame.members.includes(ticket.id))?.title}
+          frameMember={!!props.selectedFrame && !!props.frames?.[props.selectedFrame]?.members.includes(ticket.id)}
           target={gesture?.kind === 'link' && gesture.to === ticket.id} register={measurements.register} />
       })}</div>
     </div>
+    {props.frameCreating && <div id="frameDrawHint" role="status">Draw on empty canvas to capture card centers, or enter bounds in the frame panel. Escape cancels.</div>}
     <div id="hint">drag canvas to pan · scroll to zoom · double-click to file a ticket · drag the right handle to link
       {props.relationships !== 'none' && <div>Solid arrow: ticket → dependency · Dashed arrow: parent → child</div>}
     </div>

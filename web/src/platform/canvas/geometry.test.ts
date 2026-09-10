@@ -18,11 +18,11 @@ describe('autoPlace', () => {
     expect(items.map(({ id }) => id)).toEqual(['d', 'c', 'b', 'a']);
   });
 
-  it('skips pinned cards without consuming rows or changing saved positions', () => {
+  it('reserves pinned slots without changing saved or unrelated automatic positions', () => {
     const pinned = Object.freeze({ a: Object.freeze({ x: 0, y: 0 }) });
     const items = [{ id: 'a', status: 'ready' }, { id: 'b', status: 'ready' }];
     expect([...autoPlace(items, pinned, ['ready'])]).toEqual([
-      ['b', { x: 0, y: 0 }],
+      ['b', { x: 0, y: 340 }],
     ]);
     expect(pinned).toEqual({ a: { x: 0, y: 0 } });
     expect([...autoPlace(items, {}, ['ready'])]).toEqual([

@@ -27,7 +27,13 @@ export interface Ticket {
 export interface Card { x: number; y: number; w?: number; z?: number; collapsed?: boolean }
 export type Cards = Record<string, Card>
 export type CardChanges = Record<string, Card | null>
-export interface Board { schema: number; board: string; cards: Cards }
+export interface Frame { title: string; x: number; y: number; w: number; h: number; color: string; members: string[] }
+export type Frames = Record<string, Frame>
+export type FrameChanges = Record<string, Frame | null>
+export interface LayoutExpectation { cards: CardChanges; frames: FrameChanges }
+export interface FrameTransaction { cards: CardChanges; frames: FrameChanges; expect: LayoutExpectation }
+// Older card-only responses omit frames. TicketStore normalizes them to {}.
+export interface Board { schema: number; board: string; cards: Cards; frames?: Frames }
 export interface Schema {
   statuses: string[]; openStatuses: string[]; terminalStatuses: string[]
   types: string[]; priorities: string[]; blocksOn: string[]; labels: string[]
@@ -78,4 +84,4 @@ export type Op =
   | { op: 'release' | 'unarchive' }
   | { op: 'archive'; reason: string }
 export interface PatchRequest { ifRevision: string; ops: Op[] }
-export interface LayoutRequest { board: string; cards: CardChanges }
+export interface LayoutRequest { board: string; cards: CardChanges; frames?: FrameChanges; expect?: LayoutExpectation }

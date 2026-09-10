@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import { TicketClient, ApiError } from '../platform/tickets/client'
 import { TicketStore, LayoutWriter } from '../platform/tickets/store'
 import { LiveUpdates, type LiveStatus } from '../platform/tickets/live'
-import type { CardChanges, Op, Ticket, VersionInfo } from '../platform/tickets/types'
+import type { CardChanges, Cards, Frame, Op, Ticket, VersionInfo } from '../platform/tickets/types'
+import { FrameHistory, applyFrameOperation, assertFrameOperation, createFrame, moveFrame, resizeFrame, updateFrame, deleteFrame, setMembership } from '../platform/canvas/frames'
+import type { FrameOperation, FrameState, Point } from '../platform/canvas/frames'
+import { sameJSON } from '../platform/tickets/reconcile'
+import { FramePanel, FrameMembership } from './FramesPanel'
 import { Canvas, type CanvasHandle } from './Canvas'
 import { Toolbar } from './Toolbar'
 import type { RelationshipMode } from './canvas/Edges'
@@ -24,6 +28,17 @@ export function App() {
   const published = useRef(store.state), publications = useRef(0)
   const [ui, setUI] = useState<InterfaceState>({ selected: null, selection: new Set(), query: '', filters: new Set(),
     composer: null, composerKey: 0, generation: 0 })
+  const [frameUI, setFrameUI] = useState<{ selected: string | null; draft: Frame | null; key: number }>({ selected: null, draft: null, key: 0 })
+  const frameLatest = useRef(frameUI); frameLatest.current = frameUI
+  const histories = useRef(new Map<string, FrameHistory>())
+  const historyFor = (board: string) => {
+    let history = histories.current.get(board)
+    if (!history) { history = new FrameHistory(); histories.current.set(board, history) }
+    return history
+  }
+  const frameRequest = useRef<object | null>(null)
+  const [framePreview, setFramePreview] = useState<{ board: string; generation: number; state: FrameState } | null>(null)
+  const [, setHistoryVersion] = useState(0)
   const [relationships, setRelationships] = useState<RelationshipMode>('selected')
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [sync, setSync] = useState<LiveStatus>({ connection: 'connecting', stale: false, degraded: false, readFailed: false })
@@ -33,6 +48,7 @@ export function App() {
   const deferredRead = useRef(false), canvas = useRef<CanvasHandle>(null), fitFrame = useRef(0)
   const publish = () => {
     if (!mounted.current || published.current === store.state) return
+    if (store.state.layoutSchema !== null) historyFor(store.state.board).observe({ cards: store.state.cards, frames: store.state.frames, tickets: store.state.tickets })
     published.current = store.state
     publications.current++
     setSnapshot(store.state)
@@ -66,8 +82,8 @@ export function App() {
     return store.sync
   }
   const onBusy = (value: boolean) => {
-    busy.current = value
-    if (!value && deferredRead.current) {
+    busy.current = value || !!frameRequest.current
+    if (!busy.current && deferredRead.current) {
       deferredRead.current = false
       if (live.current) live.current.request()
       else void refresh().catch(report)
@@ -97,8 +113,88 @@ export function App() {
     }
   }
   function select(id: string, additive = false) {
+    setFrameUI(current => ({ ...current, selected: null, draft: null }))
     setUI(current => ({ ...current, selected: id,
       selection: new Set(additive ? [...current.selection, id] : [id]) }))
+  }
+  function closeFrames() {
+    canvas.current?.cancel()
+    setFrameUI(current => ({ ...current, selected: null, draft: null }))
+  }
+  function selectFrame(id: string) {
+    setFrameUI(current => ({ ...current, selected: id, draft: null }))
+    setUI(current => ({ ...current, composer: null }))
+  }
+  function newFrameDraft(draft: Frame) {
+    setFrameUI(current => ({ selected: null, draft, key: current.key + 1 }))
+    setUI(current => ({ ...current, composer: null }))
+  }
+  const frameState = (): FrameState => ({ cards: snapshot.cards, frames: snapshot.frames, tickets: snapshot.tickets })
+  async function performFrame(op: FrameOperation | null, mode: 'edit' | 'undo' | 'redo' = 'edit') {
+    if (!op) return
+    if (store.state.readOnly) throw new Error('read-only')
+    if (frameRequest.current || !canvas.current?.layoutReady()) throw new Error('Wait for the current canvas gesture or placement save to finish.')
+    const board = snapshot.board, version = generation.current, history = historyFor(board)
+    assertFrameOperation({ cards: store.state.cards, frames: store.state.frames, tickets: store.state.tickets }, op)
+    const preview = applyFrameOperation(frameState(), op), token = {}
+    frameRequest.current = token
+    setFramePreview({ board, generation: version, state: preview })
+    onBusy(true)
+    try {
+      const response = await store.saveFrameLayout(board, op)
+      const accepted = { cards: response.cards, frames: response.frames || {}, tickets: preview.tickets }
+      if (mode === 'undo') history.acceptUndo(op, accepted)
+      else if (mode === 'redo') history.acceptRedo(op, accepted)
+      else history.record(op, accepted)
+      toast(`${op.label} saved on ${board}.`)
+    } catch (error) {
+      report(error)
+      throw error
+    } finally {
+      if (frameRequest.current === token) {
+        frameRequest.current = null
+        if (mounted.current) { setFramePreview(null); setHistoryVersion(n => n + 1) }
+      }
+      publish()
+      onBusy(false)
+      void refresh(version !== generation.current).catch(report)
+    }
+  }
+  async function frameHistoryAction(redo: boolean) {
+    try {
+      const history = historyFor(snapshot.board)
+      await performFrame(redo ? history.redo(frameState()) : history.undo(frameState()), redo ? 'redo' : 'undo')
+    } catch (error) { report(error); setHistoryVersion(n => n + 1) }
+  }
+  async function frameMove(id: string, before: Frame, dx: number, dy: number, positions: ReadonlyMap<string, Point>, cards: Cards) {
+    const base = { ...frameState(), cards, frames: { ...snapshot.frames, [id]: before } }
+    await performFrame(moveFrame(base, id, dx, dy, positions))
+  }
+  async function frameResize(id: string, before: Frame, next: Frame) {
+    await performFrame(resizeFrame({ ...frameState(), frames: { ...snapshot.frames, [id]: before } }, id,
+      { x: before.x, y: before.y, w: next.w, h: next.h }))
+  }
+  async function saveFrame(kind: 'create' | 'move' | 'resize' | 'appearance' | 'delete', next: Frame, baseline?: Frame) {
+    const version = generation.current
+    if (kind === 'create') {
+      const id = `frame-${typeof crypto.randomUUID === 'function' ? crypto.randomUUID()
+        : Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')}`
+      const members = canvas.current?.captureFrame(next) || []
+      await performFrame(createFrame(frameState(), id, { ...next, members }))
+      if (version === generation.current) { canvas.current?.cancel(); selectFrame(id) }
+      return
+    }
+    const id = frameLatest.current.selected
+    if (!id) throw new Error('Select a frame first.')
+    const before = baseline || snapshot.frames[id]
+    if (!before || !sameJSON(before, snapshot.frames[id])) throw new Error('This frame changed. Cancel the draft and review the current frame before saving.')
+    if (kind === 'move') await frameMove(id, before, next.x - before.x, next.y - before.y, canvas.current!.framePositions(), snapshot.cards)
+    else if (kind === 'resize') await frameResize(id, before, next)
+    else if (kind === 'appearance') await performFrame(updateFrame(frameState(), id, { title: next.title, color: next.color }))
+    else {
+      await performFrame(deleteFrame(frameState(), id))
+      if (version === generation.current) closeFrames()
+    }
   }
   function closeInspector() { setUI(current => ({ ...current, selected: null, selection: new Set() })) }
   async function remove(ticket: Ticket) {
@@ -145,6 +241,7 @@ export function App() {
     toast(`${ticket.short} now waits on ${store.state.tickets.get(from)?.short || from}`)
   }
   function switchBoard(name: string) {
+    closeFrames()
     canvas.current?.cancel()
     store.selectBoard(name)
     const version = ++generation.current
@@ -161,11 +258,11 @@ export function App() {
     await refresh(true).catch(report)
   }
   function arrange() {
-    if (store.state.readOnly) return
+    if (store.state.readOnly || frameRequest.current) return
     if (confirm('Lay every card out in status lanes? This replaces the positions on this board.')) canvas.current?.arrange()
   }
-  const actions = useRef({ refresh, closeComposer, closeInspector, remove })
-  actions.current = { refresh, closeComposer, closeInspector, remove }
+  const actions = useRef({ refresh, closeComposer, closeInspector, closeFrames, remove })
+  actions.current = { refresh, closeComposer, closeInspector, closeFrames, remove }
   useEffect(() => {
     mounted.current = true
     let first = true
@@ -189,7 +286,8 @@ export function App() {
       if (event.isComposing) return
       if (event.key === 'Escape') {
         canvas.current?.cancel()
-        if (latest.current.composer) actions.current.closeComposer()
+        if (frameLatest.current.selected || frameLatest.current.draft) actions.current.closeFrames()
+        else if (latest.current.composer) actions.current.closeComposer()
         else if (typing) target.blur()
         else actions.current.closeInspector()
         return
@@ -198,7 +296,7 @@ export function App() {
       if (event.key === '/') { event.preventDefault(); document.getElementById('search')?.focus() }
       if (event.key === 'n') { event.preventDefault(); canvas.current?.composeCentre() }
       if (event.key === 'f') { event.preventDefault(); canvas.current?.fit() }
-      if ((event.key === 'Delete' || event.key === 'Backspace') && latest.current.selected) {
+      if ((event.key === 'Delete' || event.key === 'Backspace') && latest.current.selected && !frameLatest.current.selected && !frameLatest.current.draft && !frameRequest.current) {
         event.preventDefault()
         const ticket = store.state.tickets.get(latest.current.selected)
         if (ticket) void actions.current.remove(ticket)
@@ -225,6 +323,11 @@ export function App() {
     : sync.stale ? 'Store data is incomplete or invalid. Showing the last valid board; retrying.'
     : sync.degraded ? 'Store watcher unavailable. Using periodic reconciliation.'
     : sync.connection === 'polling' ? 'Live updates disconnected. Polling every 12 seconds.' : ''
+  const displayed = framePreview?.board === snapshot.board && framePreview.generation === ui.generation ? framePreview.state : snapshot
+  const selectedFrame = frameUI.selected ? snapshot.frames[frameUI.selected] : undefined
+  const frameOpen = !!frameUI.draft || !!selectedFrame
+  const history = historyFor(snapshot.board)
+  const frameMatching = new Set([...snapshot.tickets.values()].filter(matches).map(ticket => ticket.id))
   return <>
     <div id="syncStatus" role="status" class="sync-status" hidden={!syncMessage}
       data-connection={sync.connection} data-stale={sync.stale} data-degraded={sync.degraded}>{syncMessage}</div>
@@ -232,20 +335,38 @@ export function App() {
       boards={snapshot.boards} board={snapshot.board} config={snapshot.config} query={ui.query} filters={ui.filters}
       counts={`${[...snapshot.tickets.values()].filter(matches).length} of ${snapshot.tickets.size}`}
       relationships={relationships} onRelationships={setRelationships}
+      onNewFrame={() => canvas.current?.newFrame()} onUndoFrame={() => { void frameHistoryAction(false) }} onRedoFrame={() => { void frameHistoryAction(true) }}
+      framePending={!!framePreview} undoFrame={history.undoEntry} redoFrame={history.redoEntry}
       onQuery={query => setUI(current => ({ ...current, query }))}
       onFilter={status => setUI(current => {
         const filters = new Set(current.filters); filters.has(status) ? filters.delete(status) : filters.add(status)
         return { ...current, filters }
       })} onBoard={name => { void changeBoard(name) }} onNewBoard={() => { void newBoard() }}
       onNew={() => canvas.current?.composeCentre()} onFit={() => canvas.current?.fit()} onArrange={arrange} /></div>
-    <Canvas key={ui.generation} ref={canvas} board={snapshot.board} tickets={snapshot.tickets} cards={snapshot.cards}
+    <Canvas key={ui.generation} ref={canvas} board={snapshot.board} tickets={snapshot.tickets} cards={displayed.cards}
+      frames={displayed.frames} selectedFrame={frameUI.selected} frameCreating={!!frameUI.draft} layoutBusy={!!framePreview}
+      onSelectFrame={selectFrame} onNewFrame={newFrameDraft} onFrameMove={frameMove} onFrameResize={frameResize}
       statuses={snapshot.config?.statuses || []} selection={ui.selection} query={ui.query} filters={ui.filters}
       relationships={relationships} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>
       <div id="formsRoot">
+        <div id="frameHistory" role="status" hidden={!framePreview && !history.undoEntry?.blockedReason && !history.redoEntry?.blockedReason}>
+          {framePreview && <div>Saving frame operation. The submitted save continues if you close this panel.</div>}
+          {history.undoEntry?.blockedReason && <div class="frame-conflict">Undo blocked: {history.undoEntry.blockedReason}. No partial reversal.</div>}
+          {history.redoEntry?.blockedReason && <div class="frame-conflict">Redo blocked: {history.redoEntry.blockedReason}.</div>}
+        </div>
+        {frameOpen && <FramePanel key={`${ui.generation}:${frameUI.selected || `draft-${frameUI.key}`}`}
+          frame={frameUI.draft || selectedFrame!} creating={!!frameUI.draft} tickets={snapshot.tickets} matching={frameMatching}
+          readOnly={snapshot.readOnly} pending={!!framePreview} onClose={closeFrames}
+          onCapture={frame => canvas.current?.captureFrame(frame) || []} onSave={saveFrame}
+          onRemoveMissing={ids => performFrame(setMembership(frameState(), ids, null))} />}
         <Inspector ticket={snapshot.tickets.get(ui.selected || '') || null} config={snapshot.config}
-          tickets={snapshot.tickets} readOnly={snapshot.readOnly} onPatch={patch} onClose={closeInspector}
-          onNavigate={id => { select(id); canvas.current?.focus(id) }} onDelete={remove} />
+          tickets={snapshot.tickets} readOnly={snapshot.readOnly || !!framePreview} concealed={frameOpen} onPatch={patch} onClose={closeInspector}
+          onNavigate={id => { select(id); canvas.current?.focus(id) }} onDelete={remove}>
+          {ui.selected && <FrameMembership ticketId={ui.selected} frames={snapshot.frames} readOnly={snapshot.readOnly}
+            pending={!!framePreview} onSelectFrame={selectFrame}
+            onChange={target => performFrame(setMembership(frameState(), [ui.selected!], target))} />}
+        </Inspector>
         {ui.composer && <Composer key={ui.composerKey} position={ui.composer} readOnly={snapshot.readOnly}
           onCreate={create} onClose={() => closeComposer(ui.composer)} />}
         <FeedbackMessage feedback={feedback} />

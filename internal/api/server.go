@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
@@ -27,6 +29,8 @@ type Server struct {
 	assets fs.FS
 	now    nowFunc
 	live   *coordinator
+	// Shared by request clones. Ticket deletion cannot race a frame identity check.
+	mutations *sync.Mutex
 	// version is the build identity GET /api/version serves. It is fixed at
 	// construction and never depends on the store, so the browser can label
 	// the server even while the board is unavailable.
@@ -50,14 +54,15 @@ type Options struct {
 // New returns a Server over an open store.
 func New(st *ticket.Store, opts Options) *Server {
 	s := &Server{
-		store:    st,
-		layout:   layout.New(st.Path()),
-		actor:    opts.Actor,
-		assets:   opts.Assets,
-		now:      st.Now,
-		readOnly: opts.ReadOnly,
-		live:     newCoordinator(),
-		version:  opts.Version,
+		store:     st,
+		layout:    layout.New(st.Path()),
+		actor:     opts.Actor,
+		assets:    opts.Assets,
+		now:       st.Now,
+		readOnly:  opts.ReadOnly,
+		live:      newCoordinator(),
+		mutations: &sync.Mutex{},
+		version:   opts.Version,
 	}
 	if s.version.IsZero() {
 		s.version = buildinfo.Parse(nil)
@@ -92,21 +97,37 @@ func (s *Server) withStore(next func(*Server, http.ResponseWriter, *http.Request
 		if r.Method != http.MethodGet && r.Method != http.MethodHead && s.refuseWrite(w) {
 			return
 		}
-		now := s.now()
-		st, err := ticket.OpenWith(s.store.Path(), ticket.OpenOptions{Now: func() time.Time { return now }})
-		if err != nil {
-			fail(w, err)
-			return
+		// Never hold the mutation lock while waiting for a client to send
+		// its body. Handlers decode only this bounded in-memory copy.
+		// DELETE does not consume a body.
+		if r.Method == http.MethodPost || r.Method == http.MethodPatch || r.Method == http.MethodPut {
+			body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxMutationBody))
+			if err != nil {
+				writeJSON(w, http.StatusBadRequest, errBody{Code: "bad_request", Message: fmt.Sprintf("request body: %v", err)})
+				return
+			}
+			r = r.Clone(r.Context())
+			r.Body = io.NopCloser(bytes.NewReader(body))
 		}
-		request := *s
-		request.store = st
-		request.now = func() time.Time { return now }
-		// Hold the response until the shared snapshot path has reconciled.
-		// Failed batches can also have committed earlier operations, so reconcile
-		// after every handler rather than trusting its final HTTP status.
 		buffer := &mutationResponse{header: w.Header().Clone()}
-		next(&request, buffer, r)
-		s.live.reconcile(false, false)
+		func() {
+			s.mutations.Lock()
+			defer s.mutations.Unlock()
+			now := s.now()
+			st, err := ticket.OpenWith(s.store.Path(), ticket.OpenOptions{Now: func() time.Time { return now }})
+			if err != nil {
+				fail(buffer, err)
+				return
+			}
+			request := *s
+			request.store = st
+			request.now = func() time.Time { return now }
+			// Failed batches can commit earlier operations. Reconcile before
+			// releasing the lock, regardless of the buffered response status.
+			next(&request, buffer, r)
+			s.live.reconcile(false, false)
+		}()
+		// Network writes, including error responses, happen after unlock.
 		for key, values := range buffer.header {
 			w.Header()[key] = values
 		}
@@ -180,8 +201,10 @@ func (s *Server) refuseWrite(w http.ResponseWriter) bool {
 	return true
 }
 
+const maxMutationBody = 4 << 20
+
 func decode(r *http.Request, v any) error {
-	dec := json.NewDecoder(http.MaxBytesReader(nil, r.Body, 4<<20))
+	dec := json.NewDecoder(http.MaxBytesReader(nil, r.Body, maxMutationBody))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v); err != nil {
 		return fmt.Errorf("request body: %w", err)
@@ -559,9 +582,9 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	// The card outlives nothing: a removed ticket leaves no placement behind.
-	// Boards other than the named one keep their entry until they are next
-	// written, which is harmless because a card with no ticket does not render.
+	// Remove both placement and membership on the named board. Other boards
+	// retain dangling IDs, just as they do after an external ticket deletion.
+	// They remain readable so users can remove those assignments explicitly.
 	board := q.Get("board")
 	if board == "" {
 		board = layout.DefaultBoard
@@ -570,7 +593,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	if res.Ticket != nil {
 		id = res.Ticket.ID
 	}
-	if _, err := s.layout.Update(board, map[string]*layout.Card{id: nil}); err != nil {
+	if _, err := s.layout.RemoveTicket(board, id); err != nil {
 		writeJSON(w, http.StatusMultiStatus, map[string]any{"removed": id, "layoutError": err.Error()})
 		return
 	}
@@ -583,8 +606,10 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 // --- layout ------------------------------------------------------------
 
 type layoutRequest struct {
-	Board string                  `json:"board"`
-	Cards map[string]*layout.Card `json:"cards"`
+	Board  string                   `json:"board"`
+	Cards  map[string]*layout.Card  `json:"cards"`
+	Frames map[string]*layout.Frame `json:"frames,omitempty"`
+	Expect *layout.Expectations     `json:"expect,omitempty"`
 }
 
 func (s *Server) handleLayout(w http.ResponseWriter, r *http.Request) {
@@ -599,8 +624,20 @@ func (s *Server) handleLayout(w http.ResponseWriter, r *http.Request) {
 	if req.Board == "" {
 		req.Board = layout.DefaultBoard
 	}
-	b, err := s.layout.Update(req.Board, req.Cards)
+	var b *layout.Board
+	var err error
+	if req.Frames != nil || req.Expect != nil {
+		b, err = s.layout.Transaction(req.Board, req.Cards, req.Frames, req.Expect, func() error {
+			return s.validateFrameTickets(r.Context(), req)
+		})
+	} else {
+		b, err = s.layout.Update(req.Board, req.Cards)
+	}
 	if err != nil {
+		if errors.Is(err, layout.ErrConflict) {
+			writeJSON(w, http.StatusConflict, errBody{Code: "layout_conflict", Message: err.Error()})
+			return
+		}
 		writeJSON(w, http.StatusBadRequest, errBody{Code: "invalid_board", Message: err.Error()})
 		return
 	}

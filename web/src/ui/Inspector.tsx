@@ -5,6 +5,8 @@ import './Inspector.css'
 
 export interface InspectorProps {
   ticket: Ticket | null
+  children?: ComponentChildren
+  concealed?: boolean
   config: Schema | null
   tickets: ReadonlyMap<string, Ticket>
   readOnly: boolean
@@ -361,7 +363,7 @@ function InspectorBody({ ticket: t, config, tickets, readOnly, onPatch, onNaviga
   </>
 }
 
-export function Inspector({ ticket, config, tickets, readOnly, onPatch, onClose, onNavigate, onDelete }: InspectorProps) {
+export function Inspector({ ticket, config, tickets, readOnly, onPatch, onClose, onNavigate, onDelete, children, concealed }: InspectorProps) {
   const panel = useRef<HTMLElement>(null)
   const separator = useRef<HTMLDivElement>(null)
   const width = useRef(400)
@@ -387,8 +389,8 @@ export function Inspector({ ticket, config, tickets, readOnly, onPatch, onClose,
   const commit = (op: Op) => {
     if (ticket && !readOnly) void onPatch(ticket, [op]).catch(() => {})
   }
-  return <aside id="inspector" ref={panel} style={{ '--inspector-width': `${width.current}px` }}
-    data-render-count={renders.current} class={ticket ? 'open' : ''} aria-hidden={!ticket} aria-label="Ticket inspector"
+  return <aside id="inspector" ref={panel} style={{ '--inspector-width': `${width.current}px`, display: concealed ? 'none' : undefined }}
+    data-render-count={renders.current} class={ticket && !concealed ? 'open' : ''} aria-hidden={!ticket || concealed} aria-label="Ticket inspector"
     onKeyDown={event => {
       if (event.key === 'Escape') {
         event.stopPropagation()
@@ -437,6 +439,7 @@ export function Inspector({ ticket, config, tickets, readOnly, onPatch, onClose,
     <div class="insp-body" id="inspBody">
       {ticket && config && <InspectorBody key={ticket.id} ticket={ticket} config={config} tickets={tickets}
         readOnly={readOnly} onPatch={onPatch} onNavigate={onNavigate} />}
+      {ticket && children}
     </div>
     <div class="insp-foot">
       <button id="btnClaim" class="tool" disabled={readOnly || !ticket}

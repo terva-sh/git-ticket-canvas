@@ -1,15 +1,15 @@
 import { ApiError, TicketClient } from './client'
 import { reconcileRecord, reconcileTickets, reuse } from './reconcile'
 import type { SyncMetadata } from './sync'
-import type { CardChanges, Cards, CreateRequest, Op, Schema, Ticket } from './types'
+import type { CardChanges, Cards, CreateRequest, Frames, FrameTransaction, LayoutRequest, Op, Schema, Ticket } from './types'
 
 export interface PersistedState {
-  board: string; tickets: Map<string, Ticket>; cards: Cards; boards: string[]
+  board: string; tickets: Map<string, Ticket>; cards: Cards; frames: Frames; boards: string[]
   config: Schema | null; storePath: string; readOnly: boolean; layoutSchema: number | null
 }
 export class TicketStore {
   state: PersistedState = {
-    board: 'default', tickets: new Map(), cards: {}, boards: [], config: null, storePath: '', readOnly: false, layoutSchema: null,
+    board: 'default', tickets: new Map(), cards: {}, frames: {}, boards: [], config: null, storePath: '', readOnly: false, layoutSchema: null,
   }
   sync: SyncMetadata | undefined
   onWriteSettled?: () => void
@@ -29,7 +29,7 @@ export class TicketStore {
     this.read++
     this.validator = undefined
     this.sync = undefined
-    this.state = { ...this.state, board, cards: {}, layoutSchema: null }
+    this.state = { ...this.state, board, cards: {}, frames: {}, layoutSchema: null }
   }
 
   async load(): Promise<boolean> {
@@ -53,12 +53,13 @@ export class TicketStore {
       const next: PersistedState = {
         board, tickets: reconcileTickets(previous.tickets, response.tickets),
         cards: reconcileRecord(previous.cards, response.layout.cards),
+        frames: reconcileRecord(previous.frames, response.layout.frames ?? {}),
         boards: reuse(previous.boards, response.boards), config: reuse(previous.config, response.config),
         storePath: response.storePath, readOnly: response.readOnly, layoutSchema: response.layout.schema,
       }
       this.sync = reuse(this.sync, result.sync)
       this.validator = result.etag || undefined
-      if (next.tickets === previous.tickets && next.cards === previous.cards && next.boards === previous.boards
+      if (next.tickets === previous.tickets && next.cards === previous.cards && next.frames === previous.frames && next.boards === previous.boards
         && next.config === previous.config && next.storePath === previous.storePath
         && next.readOnly === previous.readOnly && next.layoutSchema === previous.layoutSchema) return false
       this.state = next
@@ -119,11 +120,15 @@ export class TicketStore {
     const body = { ...request, board: request.board || this.state.board }
     return this.write(async () => {
       const response = await this.client.create(body)
+      if (response.layout && response.layout.board !== body.board) {
+        throw new ApiError(200, { code: 'invalid_response', message: 'Server returned another board' })
+      }
       if (generation === this.generation && body.board === this.state.board) {
         const tickets = new Map(this.state.tickets)
         tickets.set(response.ticket.id, response.ticket)
         this.state = { ...this.state, tickets,
           cards: response.layout ? reconcileRecord(this.state.cards, response.layout.cards) : this.state.cards,
+          frames: response.layout ? reconcileRecord(this.state.frames, response.layout.frames ?? {}) : this.state.frames,
           layoutSchema: response.layout?.schema ?? this.state.layoutSchema }
       }
       return response
@@ -131,14 +136,45 @@ export class TicketStore {
   }
 
   saveLayout(board: string, cards: CardChanges) {
+    return this.saveBoardLayout({ board, cards })
+  }
+
+  /** Commit one frame operation without debounce, in the ordinary mutation queue.
+   * The caller records history only after success and against the returned Board.
+   * layout_conflict reloads the active generation but never retries the operation.
+   */
+  async saveFrameLayout(board: string, transaction: FrameTransaction) {
+    if (this.state.readOnly) throw new ApiError(403, { code: 'read_only', message: 'Store is read-only' })
+    for (const kind of ['cards', 'frames'] as const) {
+      for (const id of Object.keys(transaction[kind])) {
+        if (!Object.hasOwn(transaction.expect[kind], id)) {
+          throw new ApiError(422, { code: 'invalid_layout', message: `Missing ${kind} preimage for ${id}` })
+        }
+      }
+    }
     const generation = this.generation
-    const body = { board, cards: structuredClone(cards) }
+    try {
+      // Do not forward FrameOperation.label or other client-only metadata.
+      return await this.saveBoardLayout({ board, cards: transaction.cards, frames: transaction.frames, expect: transaction.expect })
+    } catch (error) {
+      if (generation === this.generation && board === this.state.board && error instanceof ApiError && error.code === 'layout_conflict') {
+        await this.load().catch(() => false)
+      }
+      throw error
+    }
+  }
+
+  private saveBoardLayout(request: LayoutRequest) {
+    const generation = this.generation, body = structuredClone(request)
     return this.write(async () => {
+      if (body.frames && this.state.readOnly) throw new ApiError(403, { code: 'read_only', message: 'Store is read-only' })
       const response = await this.client.layout(body)
-      if (generation === this.generation && board === this.state.board) {
+      if (response.board !== body.board) throw new ApiError(200, { code: 'invalid_response', message: 'Server returned another board' })
+      if (generation === this.generation && body.board === this.state.board) {
         const cards = reconcileRecord(this.state.cards, response.cards)
-        if (cards !== this.state.cards || response.schema !== this.state.layoutSchema) {
-          this.state = { ...this.state, cards, layoutSchema: response.schema }
+        const frames = reconcileRecord(this.state.frames, response.frames ?? {})
+        if (cards !== this.state.cards || frames !== this.state.frames || response.schema !== this.state.layoutSchema) {
+          this.state = { ...this.state, cards, frames, layoutSchema: response.schema }
         }
       }
       return response
@@ -153,8 +189,14 @@ export class TicketStore {
         const tickets = new Map(this.state.tickets)
         tickets.delete(response.removed)
         const cards = { ...this.state.cards }
-        if (!response.layoutError) delete cards[response.removed]
-        this.state = { ...this.state, tickets, cards }
+        let frames = this.state.frames
+        if (!response.layoutError) {
+          delete cards[response.removed]
+          frames = reconcileRecord(frames, Object.fromEntries(Object.entries(frames).map(([id, frame]) =>
+            [id, frame.members.includes(response.removed)
+              ? { ...frame, members: frame.members.filter(member => member !== response.removed) } : frame])))
+        }
+        this.state = { ...this.state, tickets, cards, frames }
       }
       return response
     })

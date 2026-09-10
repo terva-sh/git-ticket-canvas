@@ -14,7 +14,6 @@ import (
 
 	"github.com/terva-sh/git-ticket-canvas/internal/layout"
 	"github.com/terva-sh/git-ticket/ticket"
-	"gopkg.in/yaml.v3"
 )
 
 type representation struct {
@@ -265,23 +264,16 @@ func (c *coordinator) build(image fileImage) (*snapshot, error) {
 		if !validBoardName(name) {
 			return nil, errors.New("invalid board name")
 		}
-		var raw layout.Board
-		if err := yaml.Unmarshal(data, &raw); err != nil {
+		board, err := layout.Parse(name, data)
+		if err != nil {
 			return nil, err
-		}
-		if raw.Schema > layout.Schema {
-			return nil, errors.New("unsupported layout schema")
-		}
-		board := &layout.Board{Schema: layout.Schema, Board: name, Cards: raw.Cards}
-		if board.Cards == nil {
-			board.Cards = make(map[string]layout.Card)
 		}
 		next.boards[name] = board
 		names = append(names, name)
 	}
 	if len(names) == 0 {
 		names = []string{layout.DefaultBoard}
-		next.boards[layout.DefaultBoard] = &layout.Board{Schema: layout.Schema, Board: layout.DefaultBoard, Cards: map[string]layout.Card{}}
+		next.boards[layout.DefaultBoard] = layout.Empty(layout.DefaultBoard)
 	}
 	sort.Strings(names)
 	for name, board := range next.boards {
@@ -373,7 +365,7 @@ func (s *snapshot) representation(name string) (representation, error) {
 	out := s.base
 	out.Board = s.boards[name]
 	if out.Board == nil {
-		out.Board = &layout.Board{Schema: layout.Schema, Board: name, Cards: map[string]layout.Card{}}
+		out.Board = layout.Empty(name)
 	}
 	data, err := json.Marshal(out)
 	if err != nil {

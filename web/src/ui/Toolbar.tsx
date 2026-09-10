@@ -8,6 +8,8 @@ export interface ToolbarProps {
   config: Schema | null; filters: ReadonlySet<string>; counts: string
   onQuery(value: string): void; onFilter(value: string): void; onBoard(value: string): void
   onNewBoard(): void; onArrange(): void; onFit(): void; onNew(): void
+  onNewFrame?(): void; onUndoFrame?(): void; onRedoFrame?(): void
+  framePending?: boolean; undoFrame?: { label: string; blockedReason?: string }; redoFrame?: { label: string; blockedReason?: string }
   relationships?: RelationshipMode; onRelationships?(mode: RelationshipMode): void
 }
 /** The compact label: the server's version as the CLI prints it, `+dirty`
@@ -53,7 +55,14 @@ export function Toolbar(p: ToolbarProps) {
       onChange={event => p.onRelationships?.(event.currentTarget.value as RelationshipMode)}>
       <option value="all">All</option><option value="selected">Selected</option><option value="none">None</option>
     </select></label>
-    <button id="btnArrange" class="tool" title="Lay unplaced cards out in status lanes" disabled={p.readOnly} onClick={p.onArrange}>Arrange</button>
+    {p.onNewFrame && <>
+      <button id="btnFrame" class="tool" disabled={p.readOnly || p.framePending} onClick={p.onNewFrame}>New frame</button>
+      <button id="btnFrameUndo" class="tool" disabled={p.readOnly || p.framePending || !p.undoFrame || !!p.undoFrame.blockedReason}
+        title={p.undoFrame?.blockedReason || p.undoFrame?.label || 'No frame history'} onClick={p.onUndoFrame}>Undo frame</button>
+      <button id="btnFrameRedo" class="tool" disabled={p.readOnly || p.framePending || !p.redoFrame || !!p.redoFrame.blockedReason}
+        title={p.redoFrame?.blockedReason || p.redoFrame?.label || 'No frame redo'} onClick={p.onRedoFrame}>Redo frame</button>
+    </>}
+    <button id="btnArrange" class="tool" title="Lay unplaced cards out in status lanes" disabled={p.readOnly || p.framePending} onClick={p.onArrange}>Arrange</button>
     <button id="btnFit" class="tool" title="Fit all cards in view" onClick={p.onFit}>Fit</button>
     <button id="btnNew" class="tool primary" title="New ticket (double-click the canvas)" disabled={p.readOnly} onClick={p.onNew}>New ticket</button>
   </div>

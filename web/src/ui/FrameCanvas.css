@@ -1,0 +1,23 @@
+#frameLayer { position: absolute; inset: 0; pointer-events: none; }
+.canvas-frame { position: absolute; top: 0; left: 0; border: 2px solid var(--frame-color); border-radius: 10px; background: color-mix(in srgb, var(--frame-color) 7%, transparent); pointer-events: none; }
+.canvas-frame.selected { outline: 2px solid var(--accent); outline-offset: 4px; }
+.canvas-frame-title { position: absolute; top: -18px; left: 10px; max-width: calc(100% - 20px); background: var(--panel); color: var(--ink); border: 1px solid var(--frame-color); border-radius: 5px; padding: 5px 9px; pointer-events: auto; cursor: grab; font: 12px/1.4 var(--sans); overflow-wrap: anywhere; text-align: left; }
+.canvas-frame-resize { position: absolute; bottom: -9px; right: -9px; width: 26px; height: 26px; border: 1px solid var(--frame-color); border-radius: 4px; background: var(--panel); color: var(--ink); pointer-events: auto; cursor: nwse-resize; }
+.canvas-frame-title:focus-visible, .canvas-frame-resize:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.canvas-frame-draft { position: absolute; border: 2px dashed var(--accent); background: var(--accent-soft); pointer-events: none; }
+.card.frame-member { outline: 2px solid var(--accent); outline-offset: 4px; }
+.card.frame-member.dimmed { opacity: .65; }
+.card-frame-membership { font-size: 11px; color: var(--ink-dim); margin: 7px 0; overflow-wrap: anywhere; }
+#frameDrawHint { position: absolute; top: 12px; left: 12px; max-width: min(480px, 70%); background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; pointer-events: none; z-index: 10; }
+#frameHistory { position: absolute; top: 8px; left: 10px; max-width: min(420px, 60%); background: var(--panel); border: 1px solid var(--line); padding: 8px 12px; border-radius: 6px; z-index: 10; font-size: 12px; }
+#frameHistory .frame-conflict { color: var(--danger); margin-top: 6px; }
+#frameHistory[hidden] { display: none; }
+#stage:has(#framePanel.open) #frameHistory { max-width: calc(100% - 430px); }
+@media(max-width:700px) {
+  #stage:has(#framePanel.open) { display: grid; grid-template-rows: minmax(150px, 35%) minmax(0, 1fr); }
+  #stage:has(#framePanel.open) #formsRoot { display: contents; }
+  #stage:has(#framePanel.open) #framePanel { grid-row: 2; position: relative; min-height: 0; }
+  #stage:has(#framePanel.open) #hint { display: none; }
+  #stage:has(#framePanel.open) #frameHistory { max-width: 95%; top: 4px; left: 4px; }
+  #frameDrawHint { max-width: calc(100% - 24px); font-size: 11px; }
+}

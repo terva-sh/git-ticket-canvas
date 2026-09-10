@@ -1,4 +1,4 @@
-// Package layout stores where cards sit on a canvas.
+// Package layout stores manual card placements and grouping frames on a canvas.
 //
 // Position is authored data, not derived data: the whole reason a canvas beats
 // a list is that you remember where you put things, so an arrangement has to
@@ -7,10 +7,9 @@
 // in the repository, because git-ticket's format is per-field mergeable text
 // and a SQLite page is the one file in the store that could not be merged.
 //
-// So a board is text, one line per card, sorted by ticket ID. Dragging a card
-// is a one-line diff; two people arranging different cards on the same board
-// merge without a driver. The file holds geometry and nothing else, which is
-// what lets a repository gitignore boards entirely and lose only arrangement.
+// A board is text, one line per card or frame, sorted by stable ID. Dragging a
+// card is a one-line diff. The file holds positions, frame boundaries, and frame
+// membership. Ticket content stays in ticket files.
 //
 // Derived state — a search index, viewport, presence, undo — is the part that
 // wants a real database, and it belongs in a gitignored cache beside this,
@@ -28,12 +27,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-
-	"gopkg.in/yaml.v3"
 )
 
 // Schema is the layout file version this package reads and writes.
-const Schema = 1
+const Schema = 2
 
 // DirName is the directory boards live in, inside the ticket store.
 const DirName = "canvas"
@@ -53,11 +50,12 @@ type Card struct {
 	Collapsed bool    `yaml:"collapsed,omitempty" json:"collapsed,omitempty"`
 }
 
-// Board is one canvas: a name and the cards placed on it.
+// Board is one canvas with manual card placements and explicit grouping frames.
 type Board struct {
-	Schema int             `yaml:"schema" json:"schema"`
-	Board  string          `yaml:"board" json:"board"`
-	Cards  map[string]Card `yaml:"cards" json:"cards"`
+	Schema int              `yaml:"schema" json:"schema"`
+	Board  string           `yaml:"board" json:"board"`
+	Cards  map[string]Card  `yaml:"cards" json:"cards"`
+	Frames map[string]Frame `yaml:"frames" json:"frames"`
 }
 
 // Store reads and writes boards under a ticket store's canvas directory.
@@ -109,7 +107,7 @@ func (s *Store) Load(board string) (*Board, error) {
 	if err != nil {
 		return nil, err
 	}
-	b := &Board{Schema: Schema, Board: board, Cards: map[string]Card{}}
+	b := Empty(board)
 	data, err := os.ReadFile(p)
 	if errors.Is(err, os.ErrNotExist) {
 		return b, nil
@@ -117,27 +115,23 @@ func (s *Store) Load(board string) (*Board, error) {
 	if err != nil {
 		return nil, err
 	}
-	var raw Board
-	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", p, err)
-	}
-	if raw.Schema > Schema {
-		return nil, fmt.Errorf("%s declares layout schema %d, this build reads %d", p, raw.Schema, Schema)
-	}
-	if raw.Cards != nil {
-		b.Cards = raw.Cards
-	}
-	return b, nil
+	return Parse(board, data)
 }
 
 // Save writes a board, replacing what was there.
 func (s *Store) Save(b *Board) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if _, err := s.Load(b.Board); err != nil {
+		return err
+	}
 	return s.save(b)
 }
 
 func (s *Store) save(b *Board) error {
+	if err := validateBoard(b); err != nil {
+		return err
+	}
 	p, err := s.path(b.Board)
 	if err != nil {
 		return err
@@ -161,8 +155,8 @@ func (s *Store) save(b *Board) error {
 }
 
 // Update applies a set of card placements to a board and writes it. A card
-// mapped to nil is removed, which is how a client says "this ticket is off the
-// board" without deleting the ticket.
+// mapped to nil loses its manual placement. This does not delete the ticket
+// or its frame membership.
 //
 // It reloads under the lock rather than taking a board from the caller, so a
 // drag in one tab does not overwrite a drag in another with a stale copy of
@@ -181,6 +175,10 @@ func (s *Store) Update(board string, cards map[string]*Card) (*Board, error) {
 		}
 		b.Cards[id] = *c
 	}
+	if err := validateBoard(b); err != nil {
+		return nil, err
+	}
+	normalize(b)
 	if err := s.save(b); err != nil {
 		return nil, err
 	}
@@ -227,18 +225,18 @@ func render(b *Board) []byte {
 	sort.Strings(ids)
 
 	var sb strings.Builder
-	sb.WriteString("# git-ticket canvas layout. Geometry only; tickets live in their own files.\n")
+	sb.WriteString("# git-ticket canvas layout. Positions and frames; tickets live in their own files.\n")
 	sb.WriteString("# One line per card, sorted by ticket ID, so a drag is a one-line diff.\n")
 	fmt.Fprintf(&sb, "schema: %d\n", Schema)
-	fmt.Fprintf(&sb, "board: %s\n", b.Board)
+	fmt.Fprintf(&sb, "board: %s\n", strconv.Quote(b.Board))
 	if len(ids) == 0 {
 		sb.WriteString("cards: {}\n")
-		return []byte(sb.String())
+	} else {
+		sb.WriteString("cards:\n")
 	}
-	sb.WriteString("cards:\n")
 	for _, id := range ids {
 		c := b.Cards[id]
-		fmt.Fprintf(&sb, "  %s: {x: %s, y: %s", id, num(c.X), num(c.Y))
+		fmt.Fprintf(&sb, "  %s: {x: %s, y: %s", strconv.Quote(id), num(c.X), num(c.Y))
 		if c.W != 0 {
 			fmt.Fprintf(&sb, ", w: %s", num(c.W))
 		}
@@ -250,6 +248,7 @@ func render(b *Board) []byte {
 		}
 		sb.WriteString("}\n")
 	}
+	renderFrames(&sb, b.Frames)
 	return []byte(sb.String())
 }
 
