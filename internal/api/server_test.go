@@ -33,12 +33,34 @@ func startTestServer(t *testing.T, st *ticket.Store, readOnly bool) *httptest.Se
 	t.Helper()
 	// Serve the built frontend files, not fixture content. Embedding and
 	// process shutdown belong to main and are outside these API tests.
-	s := httptest.NewServer(New(st, Options{
+	api := New(st, Options{
 		Actor: testActor, ReadOnly: readOnly, Assets: os.DirFS("../../web/dist"),
-	}).Handler())
+	})
+	s := httptest.NewServer(startAPI(t, api))
 	s.Client().Timeout = 5 * time.Second
-	t.Cleanup(s.Close)
+	t.Cleanup(func() { _ = api.Close(); s.Close() })
 	return s
+}
+
+func startAPI(tb testing.TB, s *Server) http.Handler {
+	tb.Helper()
+	if err := s.Start(context.Background()); err != nil {
+		tb.Fatal(err)
+	}
+	tb.Cleanup(func() { _ = s.Close() })
+	return s.Handler()
+}
+
+func eventually(t *testing.T, check func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if check() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("live state did not converge within 3 seconds")
 }
 
 func request(t *testing.T, s *httptest.Server, method, path, body string, status int) []byte {

@@ -1,3 +1,4 @@
+import { syncHeaders, type SyncMetadata } from './sync'
 import type { Board, BoardResponse, CreateRequest, DeleteResponse, ErrorBody, LayoutRequest, PatchRequest, Schema, TicketResponse } from './types'
 
 export class ApiError extends Error {
@@ -8,9 +9,10 @@ export class ApiError extends Error {
 }
 
 /** HTTP read outcome, distinct from the board's wire representation. */
-export type BoardRead =
+export type BoardRead = (
   | { status: 200; data: BoardResponse; etag: string | null }
   | { status: 304 }
+) & { sync?: SyncMetadata }
 
 export class TicketClient {
   // Calling native fetch as a class property binds the wrong receiver in browsers.
@@ -47,11 +49,12 @@ export class TicketClient {
     // The store owns validators. Do not let the browser merge a cached body
     // into a 304 or reuse a response after a local mutation or board switch.
     const response = await this.send(`/api/board?board=${encodeURIComponent(name)}`, {
-      method: 'GET', cache: 'no-store',
+      method: 'GET', cache: 'no-store', signal: AbortSignal.timeout(10000),
       headers: etag ? { 'If-None-Match': etag } : undefined,
     })
-    if (response.status === 304) return { status: 304 }
-    return { status: 200, data: await this.decode<BoardResponse>(response), etag: response.headers.get('ETag') }
+    const sync = syncHeaders(response.headers), metadata = sync ? { sync } : {}
+    if (response.status === 304) return { status: 304, ...metadata }
+    return { status: 200, data: await this.decode<BoardResponse>(response), etag: response.headers.get('ETag'), ...metadata }
   }
   schema() { return this.request<Schema>('GET', '/api/schema') }
   create(body: CreateRequest) { return this.request<TicketResponse>('POST', '/api/tickets', body) }

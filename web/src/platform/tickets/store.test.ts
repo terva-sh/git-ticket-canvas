@@ -31,6 +31,48 @@ function setup() {
 }
 const ops = [{ op: 'setTitle', title: 'requested' }] as const
 
+describe('TicketStore synchronization metadata', () => {
+  const sync = { epoch: 'server-a', generation: 1, stale: false, degraded: false }
+  it('accepts health metadata on 304 without publishing board data', async () => {
+    const { store, read } = setup()
+    read.mockResolvedValueOnce({ ...board(), sync }); await store.load()
+    const state = store.state
+    read.mockResolvedValueOnce({ status: 304, sync: { ...sync, generation: 2, stale: true } })
+    expect(await store.load()).toBe(false)
+    expect(store.state).toBe(state); expect(store.sync?.stale).toBe(true)
+    store.selectBoard('other'); expect(store.sync).toBeUndefined()
+  })
+  it('does not accept metadata from a superseded read or wrong board', async () => {
+    const { store, read } = setup(), old = deferred<BoardRead>()
+    read.mockReturnValueOnce(old.promise).mockResolvedValueOnce({ ...board(), sync })
+    const pending = store.load(); await store.load()
+    old.resolve({ ...board(), sync: { ...sync, epoch: 'obsolete' } }); await pending
+    expect(store.sync).toEqual(sync)
+    read.mockResolvedValueOnce({ ...board('r2', 'wrong'), sync: { ...sync, generation: 9 } })
+    await expect(store.load()).rejects.toThrow('another board'); expect(store.sync).toEqual(sync)
+  })
+  it('waits for queued writes and notifies once after the final settlement', async () => {
+    const { store, client } = setup(), first = deferred<{ ticket: Ticket }>(), second = deferred<{ ticket: Ticket }>()
+    vi.spyOn(client, 'patch').mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    store.onWriteSettled = vi.fn()
+    const a = store.patch('TKT-1', [...ops], 'r1'), b = store.patch('TKT-1', [...ops], 'r2')
+    const idle = vi.fn(); const waiting = store.whenIdle().then(idle)
+    first.resolve({ ticket: ticket('r2') }); await a
+    expect(idle).not.toHaveBeenCalled(); expect(store.onWriteSettled).not.toHaveBeenCalled()
+    second.resolve({ ticket: ticket('r3') }); await b; await waiting
+    expect(idle).toHaveBeenCalledTimes(1); expect(store.onWriteSettled).toHaveBeenCalledTimes(1)
+  })
+  it('releases waiting invalidations after a failed write', async () => {
+    const { store, client } = setup(), write = deferred<{ ticket: Ticket }>()
+    vi.spyOn(client, 'patch').mockReturnValueOnce(write.promise)
+    store.onWriteSettled = vi.fn()
+    const pending = store.patch('TKT-1', [...ops], 'r1').catch(() => {})
+    const idle = store.whenIdle()
+    write.reject(new Error('failed')); await pending; await idle
+    expect(store.onWriteSettled).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('TicketStore reads', () => {
   it('accepts only the latest read, including stale errors', async () => {
     const { store, read } = setup()

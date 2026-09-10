@@ -41,7 +41,9 @@ function counts() {
     cards: [...root.querySelectorAll<HTMLElement>('.card')].map(card => card.dataset.renderCount),
   }
 }
-async function refresh() { await act(async () => { document.dispatchEvent(new Event('visibilitychange')) }) }
+async function refresh() {
+  await act(async () => { document.dispatchEvent(new Event('visibilitychange')); await vi.advanceTimersByTimeAsync(1) })
+}
 async function mount() {
   const read = vi.spyOn(TicketClient.prototype, 'board').mockResolvedValue(modified())
   await act(async () => { render(<App />, root) })
@@ -57,11 +59,51 @@ function stagePointer(type: string) {
   stage.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 1, isPrimary: true, button: 0, buttons: 1 }))
 }
 
+function streamFixture() {
+  class Source {
+    static current: Source
+    onopen: (() => void) | null = null
+    onmessage: ((event: { data: string }) => void) | null = null
+    onerror: (() => void) | null = null
+    close = vi.fn()
+    constructor() { Source.current = this }
+  }
+  vi.stubGlobal('EventSource', Source)
+  return async (generation: number, stale = false) => {
+    await act(async () => {
+      Source.current.onmessage?.({ data: JSON.stringify({ epoch: 'server-a', generation, scopes: ['tickets'], stale, degraded: false }) })
+      await vi.advanceTimersByTimeAsync(1)
+    })
+  }
+}
+it('stream invalidation updates the board without waiting for a poll', async () => {
+  const message = streamFixture(), read = await mount()
+  const next = data(); next.tickets[0].title = 'Stream update'
+  read.mockResolvedValue({ ...modified(next), sync: { epoch: 'server-a', generation: 2, stale: false, degraded: false } })
+  await message(2)
+  expect(element('.card-title').textContent).toBe('Stream update')
+  const before = counts()
+  await message(2)
+  expect(counts()).toEqual(before)
+  await act(async () => { await vi.advanceTimersByTimeAsync(25000) })
+  expect(read).toHaveBeenCalledTimes(2)
+})
+it('a stale 304 shows persistent feedback and keeps the accepted board', async () => {
+  const message = streamFixture(), read = await mount()
+  read.mockResolvedValue({ status: 304, sync: { epoch: 'server-a', generation: 2, stale: true, degraded: false } })
+  await message(2, true)
+  expect(element('#syncStatus').hidden).toBe(false)
+  expect(element('#syncStatus').textContent).toContain('last valid board')
+  expect(element('.card-title').textContent).toBe('First')
+  read.mockResolvedValue({ status: 304, sync: { epoch: 'server-a', generation: 3, stale: false, degraded: false } })
+  await message(3)
+  expect(element('#syncStatus').hidden).toBe(true)
+})
 it.each([304, 200])('an unchanged %s poll publishes and renders nothing', async status => {
   const read = await mount()
   const before = counts()
   read.mockResolvedValue(status === 304 ? { status: 304 } : modified())
-  await act(async () => { await vi.advanceTimersByTimeAsync(12000) })
+  await act(async () => { await vi.advanceTimersByTimeAsync(12001) })
   expect(read).toHaveBeenCalledTimes(2)
   expect(read).toHaveBeenLastCalledWith('default', '"snapshot"')
   expect(counts()).toEqual(before)
@@ -88,7 +130,7 @@ it('publishes an accepted drag-deferred snapshot even when the next read is 304'
   expect(element('.card-title').textContent).toBe('First')
   const before = counts()
   read.mockResolvedValue({ status: 304 })
-  await act(async () => { stagePointer('pointercancel'); await vi.advanceTimersByTimeAsync(0) })
+  await act(async () => { stagePointer('pointercancel'); await vi.advanceTimersByTimeAsync(1) })
   expect(read).toHaveBeenCalledTimes(3)
   expect(element('.card-title').textContent).toBe('Arrived during pan')
   expect(Number(counts().publications)).toBe(Number(before.publications) + 1)

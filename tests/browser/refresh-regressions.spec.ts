@@ -80,6 +80,13 @@ test('two tabs retain independent snapshots and recover after a failed read', as
   const ticket = await app.create('Two tab snapshot', { x: 0, y: 0 })
   const second = await page.context().newPage()
   try {
+    // Block SSE in both tabs. With a live stream both tabs converge on their
+    // own, so the second tab would not stay stale until its visibility
+    // refresh. This case verifies fallback-mode independent snapshots and
+    // failed-read recovery; SSE convergence is covered by
+    // live-update-regressions.spec.ts.
+    await page.route('**/api/events', route => route.abort())
+    await second.route('**/api/events', route => route.abort())
     await page.goto(app.url); await second.goto(app.url)
     await expect(page.locator('.card-title')).toHaveText('Two tab snapshot')
     await expect(second.locator('.card-title')).toHaveText('Two tab snapshot')
@@ -109,7 +116,9 @@ test('a changed response arriving during drag waits until cancellation', async (
   await page.goto(app.url)
   const card = page.locator(`.card[data-id="${ticket.id}"]`)
   await expect(card).toBeVisible()
-  await app.patch(ticket, [{ op: 'setTitle', title: 'Changed while dragging' }])
+  // Install the held-response interception before the mutation. SSE delivers
+  // the invalidation immediately, so a route installed after the patch could
+  // lose the race to an event-driven read that was already in flight.
   let release!: () => void, captured!: () => void
   const held = new Promise<void>(resolve => { release = resolve })
   const ready = new Promise<void>(resolve => { captured = resolve })
@@ -118,7 +127,7 @@ test('a changed response arriving during drag waits until cancellation', async (
     captured(); await held
     await route.fulfill({ response })
   }, { times: 1 })
-  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await app.patch(ticket, [{ op: 'setTitle', title: 'Changed while dragging' }])
   await ready
   const box = (await card.boundingBox())!
   const writes: string[] = []

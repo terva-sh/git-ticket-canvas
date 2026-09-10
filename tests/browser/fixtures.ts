@@ -18,10 +18,10 @@ export function commandEnvironment() {
     GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' }
 }
 
-async function start(root: string, readOnly: boolean, viaGit = false) {
+async function start(root: string, readOnly: boolean, viaGit = false, addr = '127.0.0.1:0') {
   const child = spawn(viaGit ? 'git' : join(process.env.GIT_TICKET_CANVAS_BROWSER_BIN!, 'git-ticket-canvas'), [
     ...(viaGit ? ['ticket-canvas'] : []),
-    '-store', root, '-addr', '127.0.0.1:0', '-actor', 'agent:playwright/baseline',
+    '-store', root, '-addr', addr, '-actor', 'agent:playwright/baseline',
     ...(readOnly ? ['-read-only'] : []),
   ], { stdio: ['ignore', 'ignore', 'pipe'], env: commandEnvironment(), cwd: root })
   try {
@@ -76,6 +76,8 @@ interface App {
   patch(ticket: Ticket, ops: object[]): Promise<Ticket>
   readOnlyURL(viaGit?: boolean): Promise<string>
   snapshot(): Promise<Record<string, string>>
+  /** Stop the server, run whileDown, and start a new one on the same port. */
+  restart(whileDown?: () => Promise<void>): Promise<void>
 }
 
 // Compare persisted files, not response timestamps or only what the UI displays.
@@ -122,6 +124,13 @@ export const test = base.extend<{ app: App }>({
           return readonly.url
         },
         snapshot: () => snapshot(join(root, '.tickets')),
+        async restart(whileDown) {
+          await stop(server.child)
+          if (whileDown) await whileDown()
+          const next = await start(root, false, false, `127.0.0.1:${new URL(server.url).port}`)
+          server.child = next.child
+          servers.push(next.child)
+        },
       })
     } finally {
       await Promise.all(servers.map(stop))

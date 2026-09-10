@@ -53,7 +53,7 @@ func BenchmarkBoardRead(b *testing.B) {
 			if _, err := s.layout.Update(layout.DefaultBoard, placements); err != nil {
 				b.Fatal(err)
 			}
-			first := boardRead(s.Handler(), "/api/board")
+			first := boardRead(startAPI(b, s), "/api/board")
 			if first.Code != 200 {
 				b.Fatalf("fixture read: %d %s", first.Code, first.Body.String())
 			}

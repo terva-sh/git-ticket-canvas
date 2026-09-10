@@ -1,0 +1,2919 @@
+{
+  "format": 1,
+  "completed": true,
+  "environment": {
+    "recordedAt": "2026-09-10T00:51:29.976Z",
+    "head": "548f34686a7ced8501fffe713ede46ea6ae9f6e3",
+    "workingTree": "D .tickets/draft/TKT-01M245JGN1A77WJASYMPSF19CM.md\n M go.mod\n M go.sum\n M internal/api/board_bench_test.go\n M internal/api/conditional_test.go\n M internal/api/server.go\n M internal/api/server_test.go\n M main.go\n M tests/browser/baseline.spec.ts\n M tests/browser/fixtures.ts\n M tests/browser/refresh-regressions.spec.ts\n D web/dist/assets/index-Ium9NVoL.js\n M web/dist/index.html\n M web/index.html\n M web/src/platform/tickets/client.test.ts\n M web/src/platform/tickets/client.ts\n M web/src/platform/tickets/store.test.ts\n M web/src/platform/tickets/store.ts\n M web/src/ui/App.test.tsx\n M web/src/ui/App.tsx\n?? .tickets/canvas/\n?? .tickets/tickets/\n?? docs/live-update-browser-harness.md\n?? docs/live-update-measurements/\n?? internal/api/events.go\n?? internal/api/live.go\n?? internal/api/live_test.go\n?? internal/api/snapshot.go\n?? tests/browser/live-update-measurements.spec.ts\n?? tests/browser/live-update-regressions.spec.ts\n?? tests/browser/live-update-support.ts\n?? web/dist/assets/index-BtzIgFi7.js\n?? web/src/platform/tickets/live.test.ts\n?? web/src/platform/tickets/live.ts\n?? web/src/platform/tickets/sync.ts",
+    "node": "v22.23.2",
+    "go": "go version go1.26.2 linux/amd64",
+    "playwright": "1.61.1",
+    "browser": "149.0.7827.55",
+    "chromiumExecutable": "Playwright managed",
+    "os": "linux 6.18.33.2-microsoft-standard-WSL2",
+    "cpu": "AMD Ryzen 9 9950X3D 16-Core Processor",
+    "logicalCPUs": 32,
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "workers": 1,
+    "conditionalExpected": true,
+    "productionPollingMs": null,
+    "healthySafetyReadMs": 60000,
+    "fallbackPollingMs": 12000,
+    "heartbeatMs": 15000
+  },
+  "fixture": {
+    "variant": "body-heavy",
+    "cards": 120,
+    "pinnedCards": 120,
+    "dependencies": 39,
+    "tabs": 2,
+    "externalEditSamples": 30,
+    "descriptionBytesPerTicket": 16384,
+    "actualDescriptionBytes": 1966080,
+    "boardJSONBytesFromFixture": 2117048
+  },
+  "instrumentation": [
+    {
+      "instrumented": true,
+      "instrumentedBundleSHA256": "6629e099fce6a00da362c90f9c05930671e4726fb0b032a184cbc0d2005f53d4",
+      "method": "In-memory Vite function-entry increments in App, CardView and autoPlace; existing Inspector data-render-count; MutationObserver."
+    },
+    {
+      "instrumented": true,
+      "instrumentedBundleSHA256": "6629e099fce6a00da362c90f9c05930671e4726fb0b032a184cbc0d2005f53d4",
+      "method": "In-memory Vite function-entry increments in App, CardView and autoPlace; existing Inspector data-render-count; MutationObserver."
+    }
+  ],
+  "phases": {
+    "initial": [
+      [
+        {
+          "id": "2241133.5",
+          "startedMs": 46.62425300000177,
+          "url": "http://127.0.0.1:37071/api/board?board=default",
+          "method": "GET",
+          "ifNoneMatch": null,
+          "status": 200,
+          "etag": "\"bd1fc597aa995309b553dc7a3e08044f37cf5aa70a345475316c5df646a18776\"",
+          "decodedPayloadBytes": 2117049,
+          "encodedBodyBytes": 2117064,
+          "wireResponseBytes": 2117478,
+          "durationMs": 28.36245699999563,
+          "fromDiskCache": false,
+          "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+        },
+        {
+          "id": "2241133.6",
+          "startedMs": 165.1237639999963,
+          "url": "http://127.0.0.1:37071/api/board?board=default",
+          "method": "GET",
+          "ifNoneMatch": "\"bd1fc597aa995309b553dc7a3e08044f37cf5aa70a345475316c5df646a18776\"",
+          "status": 304,
+          "etag": "\"bd1fc597aa995309b553dc7a3e08044f37cf5aa70a345475316c5df646a18776\"",
+          "decodedPayloadBytes": 0,
+          "encodedBodyBytes": 0,
+          "wireResponseBytes": 349,
+          "durationMs": 13.658997999998974,
+          "fromDiskCache": false,
+          "wireBytesSource": "CDP raw HTTP response headers; 304 has no body",
+          "completion": "bodyless 304 reported as ERR_ABORTED by CDP"
+        }
+      ],
+      [
+        {
+          "id": "2241648.5",
+          "startedMs": 46.419681000006676,
+          "url": "http://127.0.0.1:37071/api/board?board=default",
+          "method": "GET",
+          "ifNoneMatch": null,
+          "status": 200,
+          "etag": "\"bd1fc597aa995309b553dc7a3e08044f37cf5aa70a345475316c5df646a18776\"",
+          "decodedPayloadBytes": 2117049,
+          "encodedBodyBytes": 2117064,
+          "wireResponseBytes": 2117478,
+          "durationMs": 24.818731999999727,
+          "fromDiskCache": false,
+          "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+        },
+        {
+          "id": "2241648.6",
+          "startedMs": 164.89268200000515,
+          "url": "http://127.0.0.1:37071/api/board?board=default",
+          "method": "GET",
+          "ifNoneMatch": "\"bd1fc597aa995309b553dc7a3e08044f37cf5aa70a345475316c5df646a18776\"",
+          "status": 304,
+          "etag": "\"bd1fc597aa995309b553dc7a3e08044f37cf5aa70a345475316c5df646a18776\"",
+          "decodedPayloadBytes": 0,
+          "encodedBodyBytes": 0,
+          "wireResponseBytes": 349,
+          "durationMs": 4.579982999995991,
+          "fromDiskCache": false,
+          "wireBytesSource": "CDP raw HTTP response headers; 304 has no body",
+          "completion": "bodyless 304 reported as ERR_ABORTED by CDP"
+        }
+      ]
+    ],
+    "idle": {
+      "requestedIntervalMs": 25000,
+      "elapsedMs": 25005.807931999996,
+      "tabs": [
+        {
+          "reads": [],
+          "totals": {
+            "requests": 0,
+            "status": [],
+            "payloadBytes": 0,
+            "wireResponseBytes": 0,
+            "conditionalRequests": 0
+          },
+          "counts": {
+            "appRenders": 0,
+            "cardRenders": 0,
+            "placementCalls": 0,
+            "inspectorRenders": 0,
+            "dom": {
+              "all": 0,
+              "content": 0,
+              "cards": 0,
+              "inspector": 0,
+              "diagnostics": 0
+            }
+          }
+        },
+        {
+          "reads": [],
+          "totals": {
+            "requests": 0,
+            "status": [],
+            "payloadBytes": 0,
+            "wireResponseBytes": 0,
+            "conditionalRequests": 0
+          },
+          "counts": {
+            "appRenders": 0,
+            "cardRenders": 0,
+            "placementCalls": 0,
+            "inspectorRenders": 0,
+            "dom": {
+              "all": 0,
+              "content": 0,
+              "cards": 0,
+              "inspector": 0,
+              "diagnostics": 0
+            }
+          }
+        }
+      ],
+      "serverBefore": {
+        "status": 200,
+        "epoch": "fa2820b1bf1db59713dba4a94f815873",
+        "generation": 241,
+        "stale": false,
+        "degraded": false,
+        "rebuilds": 241,
+        "safetyScans": 0,
+        "etag": "\"bd1fc597aa995309b553dc7a3e08044f37cf5aa70a345475316c5df646a18776\""
+      },
+      "serverAfter": {
+        "status": 200,
+        "epoch": "fa2820b1bf1db59713dba4a94f815873",
+        "generation": 241,
+        "stale": false,
+        "degraded": false,
+        "rebuilds": 241,
+        "safetyScans": 0,
+        "etag": "\"bd1fc597aa995309b553dc7a3e08044f37cf5aa70a345475316c5df646a18776\""
+      },
+      "repeatRead": {
+        "status": 304,
+        "epoch": "fa2820b1bf1db59713dba4a94f815873",
+        "generation": 241,
+        "stale": false,
+        "degraded": false,
+        "rebuilds": 241,
+        "safetyScans": 0,
+        "etag": "\"bd1fc597aa995309b553dc7a3e08044f37cf5aa70a345475316c5df646a18776\""
+      },
+      "rebuildDelta": 0,
+      "safetyScanDelta": 0
+    },
+    "externalEdits": {
+      "observations": [
+        {
+          "index": 1,
+          "title": "Live sample 1",
+          "writeDurationMs": 3.436665000001085,
+          "acceptedToVisibleMs": [
+            268.54403200000525,
+            271.7939009999973
+          ],
+          "writeStartToVisibleMs": [
+            271.98069700000633,
+            275.23056599999836
+          ]
+        },
+        {
+          "index": 2,
+          "title": "Live sample 2",
+          "writeDurationMs": 1.2617579999932786,
+          "acceptedToVisibleMs": [
+            254.93748200000846,
+            254.96244899999874
+          ],
+          "writeStartToVisibleMs": [
+            256.19924000000174,
+            256.224206999992
+          ]
+        },
+        {
+          "index": 3,
+          "title": "Live sample 3",
+          "writeDurationMs": 1.7894749999977648,
+          "acceptedToVisibleMs": [
+            257.2426609999966,
+            255.22309100000712
+          ],
+          "writeStartToVisibleMs": [
+            259.03213599999435,
+            257.0125660000049
+          ]
+        },
+        {
+          "index": 4,
+          "title": "Live sample 4",
+          "writeDurationMs": 1.4253000000026077,
+          "acceptedToVisibleMs": [
+            254.7627780000039,
+            254.7393069999962
+          ],
+          "writeStartToVisibleMs": [
+            256.1880780000065,
+            256.1646069999988
+          ]
+        },
+        {
+          "index": 5,
+          "title": "Live sample 5",
+          "writeDurationMs": 1.5460210000019288,
+          "acceptedToVisibleMs": [
+            263.2493009999889,
+            265.48418899999524
+          ],
+          "writeStartToVisibleMs": [
+            264.79532199999085,
+            267.03020999999717
+          ]
+        },
+        {
+          "index": 6,
+          "title": "Live sample 6",
+          "writeDurationMs": 1.5546230000036303,
+          "acceptedToVisibleMs": [
+            254.61570999999822,
+            254.59759499999927
+          ],
+          "writeStartToVisibleMs": [
+            256.17033300000185,
+            256.1522180000029
+          ]
+        },
+        {
+          "index": 7,
+          "title": "Live sample 7",
+          "writeDurationMs": 1.4675569999963045,
+          "acceptedToVisibleMs": [
+            255.7632159999921,
+            258.71064599999227
+          ],
+          "writeStartToVisibleMs": [
+            257.2307729999884,
+            260.17820299998857
+          ]
+        },
+        {
+          "index": 8,
+          "title": "Live sample 8",
+          "writeDurationMs": 1.507227000009152,
+          "acceptedToVisibleMs": [
+            259.1233629999915,
+            257.2861649999977
+          ],
+          "writeStartToVisibleMs": [
+            260.63059000000067,
+            258.79339200000686
+          ]
+        },
+        {
+          "index": 9,
+          "title": "Live sample 9",
+          "writeDurationMs": 1.379570999997668,
+          "acceptedToVisibleMs": [
+            257.57123099999444,
+            257.5518000000011
+          ],
+          "writeStartToVisibleMs": [
+            258.9508019999921,
+            258.93137099999876
+          ]
+        },
+        {
+          "index": 10,
+          "title": "Live sample 10",
+          "writeDurationMs": 1.280242000008002,
+          "acceptedToVisibleMs": [
+            257.1785389999859,
+            259.0968989999965
+          ],
+          "writeStartToVisibleMs": [
+            258.4587809999939,
+            260.3771410000045
+          ]
+        },
+        {
+          "index": 11,
+          "title": "Live sample 11",
+          "writeDurationMs": 1.543178000007174,
+          "acceptedToVisibleMs": [
+            255.04233399999794,
+            255.0660029999999
+          ],
+          "writeStartToVisibleMs": [
+            256.5855120000051,
+            256.6091810000071
+          ]
+        },
+        {
+          "index": 12,
+          "title": "Live sample 12",
+          "writeDurationMs": 1.322093999988283,
+          "acceptedToVisibleMs": [
+            260.18423600000096,
+            262.7280390000087
+          ],
+          "writeStartToVisibleMs": [
+            261.50632999998925,
+            264.050132999997
+          ]
+        },
+        {
+          "index": 13,
+          "title": "Live sample 13",
+          "writeDurationMs": 1.4368370000011055,
+          "acceptedToVisibleMs": [
+            264.45034500000475,
+            266.6645259999932
+          ],
+          "writeStartToVisibleMs": [
+            265.88718200000585,
+            268.1013629999943
+          ]
+        },
+        {
+          "index": 14,
+          "title": "Live sample 14",
+          "writeDurationMs": 1.598305999999866,
+          "acceptedToVisibleMs": [
+            292.3959199999954,
+            305.3518949999998
+          ],
+          "writeStartToVisibleMs": [
+            293.99422599999525,
+            306.95020099999965
+          ]
+        },
+        {
+          "index": 15,
+          "title": "Live sample 15",
+          "writeDurationMs": 1.6244260000094073,
+          "acceptedToVisibleMs": [
+            281.3441729999904,
+            285.85775899999135
+          ],
+          "writeStartToVisibleMs": [
+            282.9685989999998,
+            287.48218500000075
+          ]
+        },
+        {
+          "index": 16,
+          "title": "Live sample 16",
+          "writeDurationMs": 1.2961429999995744,
+          "acceptedToVisibleMs": [
+            249.5684110000002,
+            243.04799900000216
+          ],
+          "writeStartToVisibleMs": [
+            250.86455399999977,
+            244.34414200000174
+          ]
+        },
+        {
+          "index": 17,
+          "title": "Live sample 17",
+          "writeDurationMs": 1.417846999989706,
+          "acceptedToVisibleMs": [
+            275.4152230000036,
+            277.65271200001007
+          ],
+          "writeStartToVisibleMs": [
+            276.8330699999933,
+            279.0705589999998
+          ]
+        },
+        {
+          "index": 18,
+          "title": "Live sample 18",
+          "writeDurationMs": 1.5434090000053402,
+          "acceptedToVisibleMs": [
+            284.69062900000426,
+            285.01480099999753
+          ],
+          "writeStartToVisibleMs": [
+            286.2340380000096,
+            286.5582100000029
+          ]
+        },
+        {
+          "index": 19,
+          "title": "Live sample 19",
+          "writeDurationMs": 1.3656760000012582,
+          "acceptedToVisibleMs": [
+            256.5209710000054,
+            256.5022520000057
+          ],
+          "writeStartToVisibleMs": [
+            257.88664700000663,
+            257.86792800000694
+          ]
+        },
+        {
+          "index": 20,
+          "title": "Live sample 20",
+          "writeDurationMs": 1.3852699999988545,
+          "acceptedToVisibleMs": [
+            259.1534129999927,
+            259.468703999999
+          ],
+          "writeStartToVisibleMs": [
+            260.5386829999916,
+            260.85397399999783
+          ]
+        },
+        {
+          "index": 21,
+          "title": "Live sample 21",
+          "writeDurationMs": 1.7666620000090916,
+          "acceptedToVisibleMs": [
+            259.653667999999,
+            261.51801400000113
+          ],
+          "writeStartToVisibleMs": [
+            261.4203300000081,
+            263.2846760000102
+          ]
+        },
+        {
+          "index": 22,
+          "title": "Live sample 22",
+          "writeDurationMs": 1.4298080000007758,
+          "acceptedToVisibleMs": [
+            254.02007400000002,
+            257.2114809999912
+          ],
+          "writeStartToVisibleMs": [
+            255.4498820000008,
+            258.64128899999196
+          ]
+        },
+        {
+          "index": 23,
+          "title": "Live sample 23",
+          "writeDurationMs": 1.3914589999913005,
+          "acceptedToVisibleMs": [
+            262.18698000001314,
+            262.16571900001145
+          ],
+          "writeStartToVisibleMs": [
+            263.57843900000444,
+            263.55717800000275
+          ]
+        },
+        {
+          "index": 24,
+          "title": "Live sample 24",
+          "writeDurationMs": 1.5275589999946533,
+          "acceptedToVisibleMs": [
+            253.1794030000019,
+            253.19806799999787
+          ],
+          "writeStartToVisibleMs": [
+            254.70696199999657,
+            254.72562699999253
+          ]
+        },
+        {
+          "index": 25,
+          "title": "Live sample 25",
+          "writeDurationMs": 1.2873879999970086,
+          "acceptedToVisibleMs": [
+            261.4925590000057,
+            258.0438839999988
+          ],
+          "writeStartToVisibleMs": [
+            262.7799470000027,
+            259.3312719999958
+          ]
+        },
+        {
+          "index": 26,
+          "title": "Live sample 26",
+          "writeDurationMs": 1.5139130000025034,
+          "acceptedToVisibleMs": [
+            259.0009779999964,
+            260.96863399998983
+          ],
+          "writeStartToVisibleMs": [
+            260.5148909999989,
+            262.48254699999234
+          ]
+        },
+        {
+          "index": 27,
+          "title": "Live sample 27",
+          "writeDurationMs": 1.3399420000059763,
+          "acceptedToVisibleMs": [
+            261.47461000000476,
+            258.65213400000357
+          ],
+          "writeStartToVisibleMs": [
+            262.81455200001074,
+            259.99207600000955
+          ]
+        },
+        {
+          "index": 28,
+          "title": "Live sample 28",
+          "writeDurationMs": 1.215570000000298,
+          "acceptedToVisibleMs": [
+            252.77782899999875,
+            254.5769319999963
+          ],
+          "writeStartToVisibleMs": [
+            253.99339899999904,
+            255.7925019999966
+          ]
+        },
+        {
+          "index": 29,
+          "title": "Live sample 29",
+          "writeDurationMs": 1.2721909999963827,
+          "acceptedToVisibleMs": [
+            254.32098199999018,
+            254.3400249999977
+          ],
+          "writeStartToVisibleMs": [
+            255.59317299998656,
+            255.61221599999408
+          ]
+        },
+        {
+          "index": 30,
+          "title": "Live sample 30",
+          "writeDurationMs": 1.3426200000103563,
+          "acceptedToVisibleMs": [
+            261.8766159999941,
+            261.8970929999923
+          ],
+          "writeStartToVisibleMs": [
+            263.21923600000446,
+            263.23971300000267
+          ]
+        }
+      ],
+      "percentiles": [
+        {
+          "tab": 1,
+          "samples": 30,
+          "acceptedToVisibleP95Ms": 284.69062900000426,
+          "writeStartToVisibleP95Ms": 286.2340380000096
+        },
+        {
+          "tab": 2,
+          "samples": 30,
+          "acceptedToVisibleP95Ms": 285.85775899999135,
+          "writeStartToVisibleP95Ms": 287.48218500000075
+        }
+      ],
+      "tabs": [
+        {
+          "reads": [
+            {
+              "id": "2241133.7",
+              "startedMs": 26199.549809000004,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"bd1fc597aa995309b553dc7a3e08044f37cf5aa70a345475316c5df646a18776\"",
+              "status": 200,
+              "etag": "\"0ab2b1fcc746b67b5e5e6f56966a9bcc1123e6c3640530f4eaafbd891c5cb7cc\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 19.2699389999907,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.8",
+              "startedMs": 26457.620727999994,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"0ab2b1fcc746b67b5e5e6f56966a9bcc1123e6c3640530f4eaafbd891c5cb7cc\"",
+              "status": 200,
+              "etag": "\"d4e5c833efd4dc847304ebfaa53decc2378300b0acf76f4beb7e400981a49331\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 18.58878600000753,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.9",
+              "startedMs": 26718.807216999994,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"d4e5c833efd4dc847304ebfaa53decc2378300b0acf76f4beb7e400981a49331\"",
+              "status": 200,
+              "etag": "\"c186a66b1d487913364683afe289581957fc45287365e0bc118b83719c1b7317\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 20.2249540000048,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.10",
+              "startedMs": 26976.899917000002,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"c186a66b1d487913364683afe289581957fc45287365e0bc118b83719c1b7317\"",
+              "status": 200,
+              "etag": "\"e0a4d817ba8e1eaa7bb1e384bbb18989266be7371a962e0304684115ebbd174f\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 20.61214800000016,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.11",
+              "startedMs": 27238.907009000002,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"e0a4d817ba8e1eaa7bb1e384bbb18989266be7371a962e0304684115ebbd174f\"",
+              "status": 200,
+              "etag": "\"58ddb3f791465b3bb6ca79ab48f560608604040746821e8bca2769f94e6eafa3\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 18.911668000000645,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.12",
+              "startedMs": 27497.299329999994,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"58ddb3f791465b3bb6ca79ab48f560608604040746821e8bca2769f94e6eafa3\"",
+              "status": 200,
+              "etag": "\"6d431a8ecde2eb5bab650297fadb3eca5d5e5304b8d7ce5d92874aa0537654fd\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 19.41720900000655,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.13",
+              "startedMs": 27757.561174999995,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"6d431a8ecde2eb5bab650297fadb3eca5d5e5304b8d7ce5d92874aa0537654fd\"",
+              "status": 200,
+              "etag": "\"a1e5bf4bb517c015b7d5233e0e022d41968c9db1ccd56c9be61c34d51c542789\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 18.39260400000785,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.14",
+              "startedMs": 28017.572973999995,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"a1e5bf4bb517c015b7d5233e0e022d41968c9db1ccd56c9be61c34d51c542789\"",
+              "status": 200,
+              "etag": "\"c465d4ac2b6be66db18b23ca309dc1dab75d10d55ab2a0b64a298d9c570d01a7\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 18.51286699999764,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.15",
+              "startedMs": 28278.383533999993,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"c465d4ac2b6be66db18b23ca309dc1dab75d10d55ab2a0b64a298d9c570d01a7\"",
+              "status": 200,
+              "etag": "\"0180a3b28258a77149bbbcbd73b133f3186695437197b6aa7b53b4eebbea2184\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 19.082907000003615,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.16",
+              "startedMs": 28536.730064000003,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"0180a3b28258a77149bbbcbd73b133f3186695437197b6aa7b53b4eebbea2184\"",
+              "status": 200,
+              "etag": "\"975253faf14c40cadf9322eb5c036c6cbe939e17fef66d4c13f04a7b11a61bdc\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 20.438289999990957,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.17",
+              "startedMs": 28797.830701999992,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"975253faf14c40cadf9322eb5c036c6cbe939e17fef66d4c13f04a7b11a61bdc\"",
+              "status": 200,
+              "etag": "\"ef283a50715bf075d68824564b35aa7df3a7a0905b790c706f66ceebd1d1b754\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 18.365002000005916,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.18",
+              "startedMs": 29057.130749000004,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"ef283a50715bf075d68824564b35aa7df3a7a0905b790c706f66ceebd1d1b754\"",
+              "status": 200,
+              "etag": "\"c7ba6d2431a4e1ad81331021a35c93935ce43bcf97c4141d90ff9aae7ec1e9aa\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 19.925783999991836,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.19",
+              "startedMs": 29317.325704999996,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"c7ba6d2431a4e1ad81331021a35c93935ce43bcf97c4141d90ff9aae7ec1e9aa\"",
+              "status": 200,
+              "etag": "\"9926e899c577eb325f6ff6e4f9f6c2c7415a387582440e48e0d2304f65db870a\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 21.37859500000195,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.20",
+              "startedMs": 29582.757710000005,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"9926e899c577eb325f6ff6e4f9f6c2c7415a387582440e48e0d2304f65db870a\"",
+              "status": 200,
+              "etag": "\"a5a4219cdba30b6fce2b69a3979dea8b128d04a0123921c03c4bf0cbccac57ee\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 29.9390269999858,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.21",
+              "startedMs": 29896.899697999994,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"a5a4219cdba30b6fce2b69a3979dea8b128d04a0123921c03c4bf0cbccac57ee\"",
+              "status": 200,
+              "etag": "\"036ea41a21a66b0e1c68655cf480a4d58174f5a4fcee89f56b98a9885f1feea3\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 42.905048000000534,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.22",
+              "startedMs": 30176.455451,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"036ea41a21a66b0e1c68655cf480a4d58174f5a4fcee89f56b98a9885f1feea3\"",
+              "status": 200,
+              "etag": "\"0a40286a7b302ad5f97e8737ee453820e7f0a28e66da016df49433befbc141d0\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 21.330200999989756,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.23",
+              "startedMs": 30436.126355999993,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"0a40286a7b302ad5f97e8737ee453820e7f0a28e66da016df49433befbc141d0\"",
+              "status": 200,
+              "etag": "\"7654be0e9a2e00a23f35dd7f04bd314f83cd6aaf4ef94c6f2b55a43acfa7c54c\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 21.49761099999887,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.24",
+              "startedMs": 30715.815038,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"7654be0e9a2e00a23f35dd7f04bd314f83cd6aaf4ef94c6f2b55a43acfa7c54c\"",
+              "status": 200,
+              "etag": "\"4866f09702dfd5fef777cd9384b2952e8955a448648a1f252c3f09439672de3c\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 41.54579000000376,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.25",
+              "startedMs": 30995.444766999994,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"4866f09702dfd5fef777cd9384b2952e8955a448648a1f252c3f09439672de3c\"",
+              "status": 200,
+              "etag": "\"c8efbf0589e6c8b930528a614891bcbc9dfc99372e5fecf9c2d37d2e2dab86da\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 20.157556999998633,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.26",
+              "startedMs": 31257.819625999997,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"c8efbf0589e6c8b930528a614891bcbc9dfc99372e5fecf9c2d37d2e2dab86da\"",
+              "status": 200,
+              "etag": "\"b8291cdd241f05749d121dde9a593f3ccc7e3af0bf4b5f0b73b3418a98d28453\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 19.867093000008026,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.27",
+              "startedMs": 31517.70232699999,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"b8291cdd241f05749d121dde9a593f3ccc7e3af0bf4b5f0b73b3418a98d28453\"",
+              "status": 200,
+              "etag": "\"cd7f2a60cbf707ba29fc726d34be48c145bc83e1f88e38070fa3ac9f75d14428\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 20.705647000009776,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.28",
+              "startedMs": 31777.563548000006,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"cd7f2a60cbf707ba29fc726d34be48c145bc83e1f88e38070fa3ac9f75d14428\"",
+              "status": 200,
+              "etag": "\"eb80b7739fa3e33ec86f1e6599765361f14c9ada04e20e26ad80d2d46290bf93\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 19.92022599998745,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.29",
+              "startedMs": 32039.861355999994,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"eb80b7739fa3e33ec86f1e6599765361f14c9ada04e20e26ad80d2d46290bf93\"",
+              "status": 200,
+              "etag": "\"deadd172f1d5d396ed074a4270e3107bc324968a1b504226c6e928662f241d34\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 21.39485599999898,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.30",
+              "startedMs": 32296.521183999997,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"deadd172f1d5d396ed074a4270e3107bc324968a1b504226c6e928662f241d34\"",
+              "status": 200,
+              "etag": "\"50c322b1267fafc49864d0ed6950de3b39f5459106df3dcf101edd97707ef023\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 20.76029400000698,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.31",
+              "startedMs": 32557.278288999994,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"50c322b1267fafc49864d0ed6950de3b39f5459106df3dcf101edd97707ef023\"",
+              "status": 200,
+              "etag": "\"b636a212af2ecbf14ee8d138736f3d5af28e2633aba570d77c8997b7070590a9\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 23.407130000006873,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.32",
+              "startedMs": 32816.541354999994,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"b636a212af2ecbf14ee8d138736f3d5af28e2633aba570d77c8997b7070590a9\"",
+              "status": 200,
+              "etag": "\"385b7cfa8deac490208a4f90d69d96d10897330decc6ce73d2f88369a41ea142\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 20.292093000010937,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.33",
+              "startedMs": 33082.899009,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"385b7cfa8deac490208a4f90d69d96d10897330decc6ce73d2f88369a41ea142\"",
+              "status": 200,
+              "etag": "\"c8566030f8ce8f8cf21c6dfd982253659feb32a9867559b46def12680a95920b\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 20.51928300000145,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.34",
+              "startedMs": 33340.14728399999,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"c8566030f8ce8f8cf21c6dfd982253659feb32a9867559b46def12680a95920b\"",
+              "status": 200,
+              "etag": "\"251e88c1efc6b40a089fc8a5f104ff6468387da597a98879517a27fedc954e9f\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 19.401766000009957,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.35",
+              "startedMs": 33597.643144,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"251e88c1efc6b40a089fc8a5f104ff6468387da597a98879517a27fedc954e9f\"",
+              "status": 200,
+              "etag": "\"5876413463d073372bd3728f6256ef8a60af73584aa9c018e0cbfa661b502d89\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 20.298737999997684,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241133.36",
+              "startedMs": 33858.496677,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"5876413463d073372bd3728f6256ef8a60af73584aa9c018e0cbfa661b502d89\"",
+              "status": 200,
+              "etag": "\"12501fc5f381d6bedaff7a9ae8b16a07eaef5877f27b71ac0537eb394c4a956a\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 19.71625199999835,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            }
+          ],
+          "totals": {
+            "requests": 30,
+            "status": [
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200
+            ],
+            "payloadBytes": 63511191,
+            "wireResponseBytes": 63524061,
+            "conditionalRequests": 30
+          }
+        },
+        {
+          "reads": [
+            {
+              "id": "2241648.7",
+              "startedMs": 26199.457766000007,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"bd1fc597aa995309b553dc7a3e08044f37cf5aa70a345475316c5df646a18776\"",
+              "status": 200,
+              "etag": "\"0ab2b1fcc746b67b5e5e6f56966a9bcc1123e6c3640530f4eaafbd891c5cb7cc\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 21.159069000001182,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.8",
+              "startedMs": 26457.438689000002,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"0ab2b1fcc746b67b5e5e6f56966a9bcc1123e6c3640530f4eaafbd891c5cb7cc\"",
+              "status": 200,
+              "etag": "\"d4e5c833efd4dc847304ebfaa53decc2378300b0acf76f4beb7e400981a49331\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 19.846854000003077,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.9",
+              "startedMs": 26718.535199000005,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"d4e5c833efd4dc847304ebfaa53decc2378300b0acf76f4beb7e400981a49331\"",
+              "status": 200,
+              "etag": "\"c186a66b1d487913364683afe289581957fc45287365e0bc118b83719c1b7317\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 19.2587130000029,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.10",
+              "startedMs": 26976.661261,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"c186a66b1d487913364683afe289581957fc45287365e0bc118b83719c1b7317\"",
+              "status": 200,
+              "etag": "\"e0a4d817ba8e1eaa7bb1e384bbb18989266be7371a962e0304684115ebbd174f\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 19.663851000004797,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.11",
+              "startedMs": 27238.607011,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"e0a4d817ba8e1eaa7bb1e384bbb18989266be7371a962e0304684115ebbd174f\"",
+              "status": 200,
+              "etag": "\"58ddb3f791465b3bb6ca79ab48f560608604040746821e8bca2769f94e6eafa3\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 19.87253600000986,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.12",
+              "startedMs": 27497.074334999998,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"58ddb3f791465b3bb6ca79ab48f560608604040746821e8bca2769f94e6eafa3\"",
+              "status": 200,
+              "etag": "\"6d431a8ecde2eb5bab650297fadb3eca5d5e5304b8d7ce5d92874aa0537654fd\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 20.43367300000682,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.13",
+              "startedMs": 27757.365384999997,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"6d431a8ecde2eb5bab650297fadb3eca5d5e5304b8d7ce5d92874aa0537654fd\"",
+              "status": 200,
+              "etag": "\"a1e5bf4bb517c015b7d5233e0e022d41968c9db1ccd56c9be61c34d51c542789\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 19.43065400001069,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.14",
+              "startedMs": 28016.858267000003,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"a1e5bf4bb517c015b7d5233e0e022d41968c9db1ccd56c9be61c34d51c542789\"",
+              "status": 200,
+              "etag": "\"c465d4ac2b6be66db18b23ca309dc1dab75d10d55ab2a0b64a298d9c570d01a7\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 20.135915000006207,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.15",
+              "startedMs": 28278.042466,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"c465d4ac2b6be66db18b23ca309dc1dab75d10d55ab2a0b64a298d9c570d01a7\"",
+              "status": 200,
+              "etag": "\"0180a3b28258a77149bbbcbd73b133f3186695437197b6aa7b53b4eebbea2184\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 20.10112000000663,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.16",
+              "startedMs": 28536.535807000007,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"0180a3b28258a77149bbbcbd73b133f3186695437197b6aa7b53b4eebbea2184\"",
+              "status": 200,
+              "etag": "\"975253faf14c40cadf9322eb5c036c6cbe939e17fef66d4c13f04a7b11a61bdc\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 21.429011999993236,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.17",
+              "startedMs": 28797.758667000002,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"975253faf14c40cadf9322eb5c036c6cbe939e17fef66d4c13f04a7b11a61bdc\"",
+              "status": 200,
+              "etag": "\"ef283a50715bf075d68824564b35aa7df3a7a0905b790c706f66ceebd1d1b754\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 19.275068000002648,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.18",
+              "startedMs": 29056.925111999997,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"ef283a50715bf075d68824564b35aa7df3a7a0905b790c706f66ceebd1d1b754\"",
+              "status": 200,
+              "etag": "\"c7ba6d2431a4e1ad81331021a35c93935ce43bcf97c4141d90ff9aae7ec1e9aa\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 18.78456400000141,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.19",
+              "startedMs": 29316.941987,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"c7ba6d2431a4e1ad81331021a35c93935ce43bcf97c4141d90ff9aae7ec1e9aa\"",
+              "status": 200,
+              "etag": "\"9926e899c577eb325f6ff6e4f9f6c2c7415a387582440e48e0d2304f65db870a\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 20.578814000007696,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.20",
+              "startedMs": 29582.575933,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"9926e899c577eb325f6ff6e4f9f6c2c7415a387582440e48e0d2304f65db870a\"",
+              "status": 200,
+              "etag": "\"a5a4219cdba30b6fce2b69a3979dea8b128d04a0123921c03c4bf0cbccac57ee\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 42.458543000000645,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.21",
+              "startedMs": 29896.271084000007,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"a5a4219cdba30b6fce2b69a3979dea8b128d04a0123921c03c4bf0cbccac57ee\"",
+              "status": 200,
+              "etag": "\"036ea41a21a66b0e1c68655cf480a4d58174f5a4fcee89f56b98a9885f1feea3\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 37.5658540000004,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.22",
+              "startedMs": 30176.228229,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"036ea41a21a66b0e1c68655cf480a4d58174f5a4fcee89f56b98a9885f1feea3\"",
+              "status": 200,
+              "etag": "\"0a40286a7b302ad5f97e8737ee453820e7f0a28e66da016df49433befbc141d0\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 19.477135000008275,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.23",
+              "startedMs": 30435.898935000005,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"0a40286a7b302ad5f97e8737ee453820e7f0a28e66da016df49433befbc141d0\"",
+              "status": 200,
+              "etag": "\"7654be0e9a2e00a23f35dd7f04bd314f83cd6aaf4ef94c6f2b55a43acfa7c54c\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 22.75395800000115,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.24",
+              "startedMs": 30715.582316,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"7654be0e9a2e00a23f35dd7f04bd314f83cd6aaf4ef94c6f2b55a43acfa7c54c\"",
+              "status": 200,
+              "etag": "\"4866f09702dfd5fef777cd9384b2952e8955a448648a1f252c3f09439672de3c\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 26.47315200000594,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.25",
+              "startedMs": 30995.251763000007,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"4866f09702dfd5fef777cd9384b2952e8955a448648a1f252c3f09439672de3c\"",
+              "status": 200,
+              "etag": "\"c8efbf0589e6c8b930528a614891bcbc9dfc99372e5fecf9c2d37d2e2dab86da\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 21.19542299999739,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.26",
+              "startedMs": 31257.080294,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"c8efbf0589e6c8b930528a614891bcbc9dfc99372e5fecf9c2d37d2e2dab86da\"",
+              "status": 200,
+              "etag": "\"b8291cdd241f05749d121dde9a593f3ccc7e3af0bf4b5f0b73b3418a98d28453\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 19.18858800000453,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.27",
+              "startedMs": 31517.441796,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"b8291cdd241f05749d121dde9a593f3ccc7e3af0bf4b5f0b73b3418a98d28453\"",
+              "status": 200,
+              "etag": "\"cd7f2a60cbf707ba29fc726d34be48c145bc83e1f88e38070fa3ac9f75d14428\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 19.54366999999911,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.28",
+              "startedMs": 31777.138132000007,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"cd7f2a60cbf707ba29fc726d34be48c145bc83e1f88e38070fa3ac9f75d14428\"",
+              "status": 200,
+              "etag": "\"eb80b7739fa3e33ec86f1e6599765361f14c9ada04e20e26ad80d2d46290bf93\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 24.352994999993825,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.29",
+              "startedMs": 32039.957733000003,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"eb80b7739fa3e33ec86f1e6599765361f14c9ada04e20e26ad80d2d46290bf93\"",
+              "status": 200,
+              "etag": "\"deadd172f1d5d396ed074a4270e3107bc324968a1b504226c6e928662f241d34\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 22.210816999999224,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.30",
+              "startedMs": 32296.315656000006,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"deadd172f1d5d396ed074a4270e3107bc324968a1b504226c6e928662f241d34\"",
+              "status": 200,
+              "etag": "\"50c322b1267fafc49864d0ed6950de3b39f5459106df3dcf101edd97707ef023\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 19.842328999991878,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.31",
+              "startedMs": 32557.037613000008,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"50c322b1267fafc49864d0ed6950de3b39f5459106df3dcf101edd97707ef023\"",
+              "status": 200,
+              "etag": "\"b636a212af2ecbf14ee8d138736f3d5af28e2633aba570d77c8997b7070590a9\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 21.986344999997527,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.32",
+              "startedMs": 32816.249167,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"b636a212af2ecbf14ee8d138736f3d5af28e2633aba570d77c8997b7070590a9\"",
+              "status": 200,
+              "etag": "\"385b7cfa8deac490208a4f90d69d96d10897330decc6ce73d2f88369a41ea142\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 21.38937000000442,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.33",
+              "startedMs": 33082.523337000006,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"385b7cfa8deac490208a4f90d69d96d10897330decc6ce73d2f88369a41ea142\"",
+              "status": 200,
+              "etag": "\"c8566030f8ce8f8cf21c6dfd982253659feb32a9867559b46def12680a95920b\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 19.389295000000857,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.34",
+              "startedMs": 33339.940728,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"c8566030f8ce8f8cf21c6dfd982253659feb32a9867559b46def12680a95920b\"",
+              "status": 200,
+              "etag": "\"251e88c1efc6b40a089fc8a5f104ff6468387da597a98879517a27fedc954e9f\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 20.258560999995098,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.35",
+              "startedMs": 33597.177283,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"251e88c1efc6b40a089fc8a5f104ff6468387da597a98879517a27fedc954e9f\"",
+              "status": 200,
+              "etag": "\"5876413463d073372bd3728f6256ef8a60af73584aa9c018e0cbfa661b502d89\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 21.615497999999207,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            },
+            {
+              "id": "2241648.36",
+              "startedMs": 33858.26829200001,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"5876413463d073372bd3728f6256ef8a60af73584aa9c018e0cbfa661b502d89\"",
+              "status": 200,
+              "etag": "\"12501fc5f381d6bedaff7a9ae8b16a07eaef5877f27b71ac0537eb394c4a956a\"",
+              "decodedPayloadBytes": 2117040,
+              "encodedBodyBytes": 2117055,
+              "wireResponseBytes": 2117469,
+              "durationMs": 20.68075200000021,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            }
+          ],
+          "totals": {
+            "requests": 30,
+            "status": [
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200,
+              200
+            ],
+            "payloadBytes": 63511191,
+            "wireResponseBytes": 63524061,
+            "conditionalRequests": 30
+          }
+        }
+      ]
+    },
+    "burst": {
+      "edits": 10,
+      "method": "Ten atomic replacements of the same visible ticket, without browser waits",
+      "writeDurationMs": 12.605952999991132,
+      "finalWriteToVisibleMs": [
+        269.23149099999864,
+        267.03911700000754
+      ],
+      "tabs": [
+        {
+          "reads": [
+            {
+              "id": "2241133.37",
+              "startedMs": 34136.134529999996,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"12501fc5f381d6bedaff7a9ae8b16a07eaef5877f27b71ac0537eb394c4a956a\"",
+              "status": 200,
+              "etag": "\"15fe2c01dadce8b76e80d783fd9bff99819aa8e2040d9d3faa6f9d7b2987a8b1\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 21.336728000009316,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            }
+          ],
+          "totals": {
+            "requests": 1,
+            "status": [
+              200
+            ],
+            "payloadBytes": 2117039,
+            "wireResponseBytes": 2117468,
+            "conditionalRequests": 1
+          }
+        },
+        {
+          "reads": [
+            {
+              "id": "2241648.37",
+              "startedMs": 34135.901167,
+              "url": "http://127.0.0.1:37071/api/board?board=default",
+              "method": "GET",
+              "ifNoneMatch": "\"12501fc5f381d6bedaff7a9ae8b16a07eaef5877f27b71ac0537eb394c4a956a\"",
+              "status": 200,
+              "etag": "\"15fe2c01dadce8b76e80d783fd9bff99819aa8e2040d9d3faa6f9d7b2987a8b1\"",
+              "decodedPayloadBytes": 2117039,
+              "encodedBodyBytes": 2117054,
+              "wireResponseBytes": 2117468,
+              "durationMs": 20.32908199999656,
+              "fromDiskCache": false,
+              "wireBytesSource": "CDP loadingFinished.encodedDataLength"
+            }
+          ],
+          "totals": {
+            "requests": 1,
+            "status": [
+              200
+            ],
+            "payloadBytes": 2117039,
+            "wireResponseBytes": 2117468,
+            "conditionalRequests": 1
+          }
+        }
+      ]
+    },
+    "pointer": {
+      "samples": [
+        33.199999928474426,
+        33.40000009536743,
+        33.299999952316284,
+        33.39999997615814,
+        33.39999997615814,
+        33.300000071525574,
+        33.199999928474426,
+        33.40000009536743,
+        33.299999952316284,
+        33.299999952316284,
+        33.300000071525574,
+        33.299999952316284,
+        33.39999997615814,
+        33.300000071525574,
+        33.39999997615814,
+        33.299999952316284,
+        33.300000071525574,
+        33.39999997615814,
+        33.299999952316284,
+        33.5,
+        33.200000047683716,
+        33.299999952316284,
+        33.300000071525574,
+        33.39999997615814,
+        33.200000047683716,
+        33.300000071525574,
+        33.39999997615814,
+        33.200000047683716,
+        33.39999997615814,
+        33.39999997615814
+      ],
+      "edges": 39,
+      "inspectorRendersBefore": "36",
+      "inspectorRendersAfter": "36",
+      "renderedFrames": 30,
+      "p95ms": 33.40000009536743,
+      "maxMs": 33.5
+    }
+  },
+  "streams": [
+    {
+      "attempts": [
+        {
+          "atMs": 42.91974499999924,
+          "method": "GET",
+          "url": "http://127.0.0.1:37071/api/events"
+        }
+      ],
+      "connections": [
+        {
+          "atMs": 47.461913999999524,
+          "status": 200,
+          "mimeType": "text/event-stream"
+        }
+      ],
+      "events": [
+        {
+          "atMs": 47.47295899999881,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":241,\"scopes\":[\"tickets\",\"config\",\"boards\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 241,
+            "scopes": [
+              "tickets",
+              "config",
+              "boards"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 26196.63036699999,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":242,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 242,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 26454.747860999996,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":243,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 243,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 26715.991135000004,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":244,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 244,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 26973.884617000003,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":245,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 245,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 27236.028223,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":246,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 246,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 27494.432503999997,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":247,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 247,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 27754.80935499999,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":248,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 248,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 28014.27212899999,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":249,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 249,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 28275.261304,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":250,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 250,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 28533.922204999995,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":251,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 251,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 28795.051227000004,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":252,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 252,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 29054.373626999994,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":253,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 253,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 29314.395181,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":254,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 254,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 29580.06197499999,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":255,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 255,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 29893.727379999997,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":256,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 256,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 30173.617971999993,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":257,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 257,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 30433.368728999994,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":258,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 258,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 30712.91337699999,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":259,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 259,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 30992.603409999996,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":260,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 260,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 31254.501604999998,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":261,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 261,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 31514.948206999994,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":262,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 262,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 31774.642026999994,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":263,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 263,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 32037.085263,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":264,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 264,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 32293.595759999997,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":265,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 265,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 32554.465587,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":266,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 266,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 32813.417164,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":267,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 267,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 33079.689239,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":268,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 268,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 33337.306174,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":269,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 269,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 33594.67139599999,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":270,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 270,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 33855.686275,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":271,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 271,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 34133.406541000004,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":272,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 272,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        }
+      ],
+      "boardReads": [
+        {
+          "atMs": 43.99538599999505,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 162.49870199999714,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 26196.92150099999,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 26454.882207999995,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 26716.18244399999,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 26974.265161999996,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 27236.282217,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 27494.652430000002,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 27754.935643999997,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 28014.945748,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 28275.651696,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 28534.101683999994,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 28795.195947,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 29054.503442,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 29314.56240699999,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 29580.13223399999,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 29893.879403,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 30173.831867999994,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 30433.484729999996,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 30713.186919999993,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 30992.816043999992,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 31254.708539999992,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 31515.070871999997,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 31774.936826999998,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 32037.210009999995,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 32293.839668,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 32554.655002999993,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 32813.814033999995,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 33080.138716999994,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 33337.50167299999,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 33594.96281,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 33855.838894,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 34133.51125299999,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        }
+      ]
+    },
+    {
+      "attempts": [
+        {
+          "atMs": 43.04222799999843,
+          "method": "GET",
+          "url": "http://127.0.0.1:37071/api/events"
+        }
+      ],
+      "connections": [
+        {
+          "atMs": 50.81446100000176,
+          "status": 200,
+          "mimeType": "text/event-stream"
+        }
+      ],
+      "events": [
+        {
+          "atMs": 50.820654999995895,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":241,\"scopes\":[\"tickets\",\"config\",\"boards\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 241,
+            "scopes": [
+              "tickets",
+              "config",
+              "boards"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 26196.306256999997,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":242,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 242,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 26454.396386,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":243,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 243,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 26715.637016999994,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":244,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 244,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 26973.559975999997,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":245,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 245,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 27235.673348000004,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":246,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 246,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 27494.081029,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":247,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 247,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 27754.513927999993,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":248,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 248,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 28013.952176,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":249,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 249,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 28274.937780999993,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":250,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 250,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 28533.57026,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":251,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 251,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 28794.753716999992,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":252,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 252,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 29054.024540000006,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":253,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 253,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 29314.073343999997,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":254,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 254,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 29579.692078,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":255,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 255,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 29893.405236,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":256,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 256,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 30173.289958,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":257,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 257,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 30433.015567000002,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":258,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 258,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 30712.561460000004,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":259,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 259,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 30992.281374000006,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":260,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 260,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 31254.148469999993,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":261,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 261,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 31514.594521999992,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":262,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 262,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 31774.288936999998,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":263,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 263,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 32036.763199999994,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":264,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 264,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 32293.286807000004,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":265,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 265,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 32554.112696000004,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":266,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 266,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 32813.063244,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":267,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 267,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 33079.367194,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":268,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 268,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 33336.984254999996,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":269,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 269,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 33594.317846,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":270,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 270,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 33855.36040699999,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":271,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 271,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        },
+        {
+          "atMs": 34133.053135999995,
+          "eventName": "message",
+          "data": "{\"epoch\":\"fa2820b1bf1db59713dba4a94f815873\",\"generation\":272,\"scopes\":[\"tickets\"],\"stale\":false,\"degraded\":false}",
+          "payload": {
+            "epoch": "fa2820b1bf1db59713dba4a94f815873",
+            "generation": 272,
+            "scopes": [
+              "tickets"
+            ],
+            "stale": false,
+            "degraded": false
+          }
+        }
+      ],
+      "boardReads": [
+        {
+          "atMs": 43.674460000002,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 162.14231299999665,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 26196.711292,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 26454.671431000002,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 26715.782304999993,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 26973.914182999993,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 27235.842123999995,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 27494.319087000003,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 27754.612445,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 28014.110393999996,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 28275.277731999995,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 28533.779459000005,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 28795.011353999995,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 29054.181053999993,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 29314.193349,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 29579.826905999995,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 29893.522932,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 30173.479879,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 30433.151477999992,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 30712.833307,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 30992.507965999997,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 31254.331809000003,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 31514.681048000006,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 31774.386949999993,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 32037.061741999998,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 32293.571480000006,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 32554.289723,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 32813.481674,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 33079.734673000006,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 33337.196246,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 33594.426975999995,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 33855.52127599999,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        },
+        {
+          "atMs": 34133.138705,
+          "url": "http://127.0.0.1:37071/api/board?board=default"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Latency ends at DOM text observation via requestAnimationFrame, not a compositor paint timestamp. Both tabs contain the edited card in the viewport.",
+    "Write-start includes fixture file lookup and replacement preparation. Accepted-write begins after atomic rename completion.",
+    "No accelerated timers, synthetic visibility events, reloads, or request throttling. Two tabs share one browser context and one store.",
+    "Boundary API probes are listed separately from browser board traffic. Cumulative rebuilds and safety scans are separate diagnostics.",
+    "CDP transfer bytes exclude TCP/TLS overhead; see refresh-support.ts. SSE event records exclude comment heartbeats.",
+    "completed=false means partial evidence only. Missing phases or fewer than 30 samples do not meet acceptance."
+  ]
+}

@@ -155,6 +155,7 @@ test('pan, cursor zoom, fit, and keyboard shortcuts remain usable', async ({ pag
 })
 
 test('periodic polling observes an external ticket change', async ({ page, app }) => {
+  await page.route('**/api/events', route => route.abort())
   const ticket = await app.create('Before poll')
   await page.goto(app.url)
   await expect(card(page, ticket.id)).toContainText('Before poll')
@@ -210,6 +211,7 @@ for (const field of ['description', 'title']) {
 }
 
 test('periodic polling preserves prose focus and sends no mutation', async ({ page, app }) => {
+  await page.route('**/api/events', route => route.abort())
   const ticket = await app.create('Before focused poll')
   await page.goto(app.url)
   await card(page, ticket.id).click()

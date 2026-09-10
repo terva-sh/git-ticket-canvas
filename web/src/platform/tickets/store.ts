@@ -1,5 +1,6 @@
 import { ApiError, TicketClient } from './client'
 import { reconcileRecord, reconcileTickets, reuse } from './reconcile'
+import type { SyncMetadata } from './sync'
 import type { CardChanges, Cards, CreateRequest, Op, Schema, Ticket } from './types'
 
 export interface PersistedState {
@@ -10,6 +11,8 @@ export class TicketStore {
   state: PersistedState = {
     board: 'default', tickets: new Map(), cards: {}, boards: [], config: null, storePath: '', readOnly: false, layoutSchema: null,
   }
+  sync: SyncMetadata | undefined
+  onWriteSettled?: () => void
   private generation = 0
   private read = 0
   private epoch = 0
@@ -25,6 +28,7 @@ export class TicketStore {
     this.generation++
     this.read++
     this.validator = undefined
+    this.sync = undefined
     this.state = { ...this.state, board, cards: {}, layoutSchema: null }
   }
 
@@ -36,7 +40,7 @@ export class TicketStore {
       let result = await this.client.board(board, validator)
       if (!current()) return false
       if (result.status === 304) {
-        if (validator) return false
+        if (validator) { this.sync = reuse(this.sync, result.sync); return false }
         // A proxy or inconsistent server may send 304 without a usable cache.
         // Retry once unconditionally; never loop or accept an empty board.
         result = await this.client.board(board)
@@ -52,6 +56,7 @@ export class TicketStore {
         boards: reuse(previous.boards, response.boards), config: reuse(previous.config, response.config),
         storePath: response.storePath, readOnly: response.readOnly, layoutSchema: response.layout.schema,
       }
+      this.sync = reuse(this.sync, result.sync)
       this.validator = result.etag || undefined
       if (next.tickets === previous.tickets && next.cards === previous.cards && next.boards === previous.boards
         && next.config === previous.config && next.storePath === previous.storePath
@@ -71,8 +76,18 @@ export class TicketStore {
     this.validator = undefined
     this.writes++
     const result = this.tail.then(run)
-    this.tail = result.catch(() => {})
-    return result.finally(() => { this.epoch++; this.writes--; this.validator = undefined })
+    const settled = result.finally(() => {
+      this.epoch++; this.writes--; this.validator = undefined
+      if (!this.writes) this.onWriteSettled?.()
+    })
+    this.tail = settled.catch(() => {})
+    return settled
+  }
+
+  // An invalidation received during a mutation must read after the mutation,
+  // not consume its only notification with a read that the epoch guard rejects.
+  async whenIdle(): Promise<void> {
+    while (this.writes) await this.tail
   }
 
   async patch(id: string, ops: Op[], revision: string) {

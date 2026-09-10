@@ -1,3 +1,5 @@
+github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
+github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
 github.com/terva-sh/git-ticket v0.14.3 h1:Kq5HP429jNOvqNhcB/ozW1JepxNNVhKNTFEWbSw2Q4A=
 github.com/terva-sh/git-ticket v0.14.3/go.mod h1:F8LG5Rq43gimpcEhK9NUHHGT16/R6VxSsMNzUUsRL6U=
 golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=

@@ -1,13 +1,14 @@
 package api
 
 import (
+	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ type Server struct {
 	actor  ticket.Actor
 	assets fs.FS
 	now    nowFunc
+	live   *coordinator
 	// readOnly refuses every write at the edge. It exists so the canvas can be
 	// pointed at a store somebody else is writing without the browser being
 	// able to touch it.
@@ -46,14 +48,16 @@ func New(st *ticket.Store, opts Options) *Server {
 		assets:   opts.Assets,
 		now:      st.Now,
 		readOnly: opts.ReadOnly,
+		live:     newCoordinator(),
 	}
 }
 
 // Handler returns the router.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/board", s.withStore((*Server).handleBoard))
-	mux.HandleFunc("GET /api/schema", s.withStore((*Server).handleSchema))
+	mux.HandleFunc("GET /api/board", s.handleBoard)
+	mux.HandleFunc("GET /api/schema", s.handleSchema)
+	mux.HandleFunc("GET /api/events", s.handleEvents)
 	mux.HandleFunc("POST /api/tickets", s.withStore((*Server).handleCreate))
 	mux.HandleFunc("PATCH /api/tickets/{id}", s.withStore((*Server).handlePatch))
 	mux.HandleFunc("DELETE /api/tickets/{id}", s.withStore((*Server).handleDelete))
@@ -61,7 +65,7 @@ func (s *Server) Handler() http.Handler {
 	if s.assets != nil {
 		mux.Handle("/", http.FileServerFS(s.assets))
 	}
-	return mux
+	return http.NewCrossOriginProtection().Handler(mux)
 }
 
 // withStore gives every API request current configuration and one clock value.
@@ -83,7 +87,20 @@ func (s *Server) withStore(next func(*Server, http.ResponseWriter, *http.Request
 		request := *s
 		request.store = st
 		request.now = func() time.Time { return now }
-		next(&request, w, r)
+		// Hold the response until the shared snapshot path has reconciled.
+		// Failed batches can also have committed earlier operations, so reconcile
+		// after every handler rather than trusting its final HTTP status.
+		buffer := &mutationResponse{header: w.Header().Clone()}
+		next(&request, buffer, r)
+		s.live.reconcile(false, false)
+		for key, values := range buffer.header {
+			w.Header()[key] = values
+		}
+		if buffer.code == 0 {
+			buffer.code = http.StatusOK
+		}
+		w.WriteHeader(buffer.code)
+		_, _ = w.Write(buffer.body.Bytes())
 	}
 }
 
@@ -170,76 +187,74 @@ type boardResponse struct {
 }
 
 func (s *Server) handleBoard(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	w.Header().Set("Cache-Control", "private, no-cache")
 	name := r.URL.Query().Get("board")
 	if name == "" {
 		name = layout.DefaultBoard
 	}
-
-	// withStore shares this instant with readiness and reloads configuration.
-	// This remains a full store read, not a shared snapshot cache.
-	now := s.now()
-	st := s.store
-
-	// All: true, because the canvas is the place you look at finished work
-	// beside live work. The client decides what to dim; the server does not
-	// get to decide what exists.
-	tickets, err := st.List(ctx, ticket.Filter{All: true})
+	if !validBoardName(name) {
+		writeJSON(w, http.StatusBadRequest, errBody{Code: "invalid_board", Message: "invalid board name"})
+		return
+	}
+	c := s.live
+	c.mu.Lock()
+	s.liveHeaders(w)
+	if c.snap == nil {
+		c.mu.Unlock()
+		unavailable(w)
+		return
+	}
+	rep, err := c.snap.representation(name)
+	c.mu.Unlock()
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	ready, err := st.Readiness(ctx)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	ids := make([]string, 0, len(tickets))
-	for _, t := range tickets {
-		ids = append(ids, t.ID)
-	}
-	short := ticket.ShortestUniqueAcrossSeries(ids)
-
-	out := make([]Ticket, 0, len(tickets))
-	for _, t := range tickets {
-		out = append(out, toDTO(t, short[t.ID], ready[t.ID], now))
-	}
-
-	b, err := s.layout.Load(name)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errBody{Code: "invalid_board", Message: err.Error()})
-		return
-	}
-	boards, err := s.layout.Boards()
-	if err != nil {
-		fail(w, err)
-		return
-	}
-
-	data, err := json.Marshal(boardResponse{
-		Board:     b,
-		Boards:    boards,
-		Tickets:   out,
-		Config:    s.schemaFor(st.Config()),
-		StorePath: s.store.Path(),
-		ReadOnly:  s.readOnly,
-	})
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	// Preserve the JSON encoder's trailing newline and hash exactly the bytes
-	// sent on 200. encoding/json sorts map keys; store lists are sorted too.
-	data = append(data, '\n')
-	etag := fmt.Sprintf(`"%x"`, sha256.Sum256(data))
-	w.Header().Set("ETag", etag)
-	if matchesIfNoneMatch(r.Header.Values("If-None-Match"), etag) {
+	w.Header().Set("ETag", rep.etag)
+	if matchesIfNoneMatch(r.Header.Values("If-None-Match"), rep.etag) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(data)
+	if r.Method != http.MethodHead {
+		_, _ = w.Write(rep.data)
+	}
+}
+
+// liveHeaders is called with coordinator.mu held so generation and body agree.
+func (s *Server) liveHeaders(w http.ResponseWriter) {
+	c := s.live
+	w.Header().Set("X-Canvas-Epoch", c.state.Epoch)
+	w.Header().Set("X-Canvas-Generation", strconv.FormatUint(c.state.Generation, 10))
+	w.Header().Set("X-Canvas-Stale", strconv.FormatBool(c.state.Stale))
+	w.Header().Set("X-Canvas-Degraded", strconv.FormatBool(c.state.Degraded))
+	w.Header().Set("X-Canvas-Rebuilds", strconv.FormatUint(c.stats.Rebuilds, 10))
+	w.Header().Set("X-Canvas-Safety-Scans", strconv.FormatUint(c.stats.SafetyScans, 10))
+}
+
+func unavailable(w http.ResponseWriter) {
+	w.Header().Set("Retry-After", "1")
+	writeJSON(w, http.StatusServiceUnavailable, errBody{Code: "snapshot_unavailable", Message: "no validated store snapshot is available; retry shortly"})
+}
+
+type mutationResponse struct {
+	header http.Header
+	code   int
+	body   bytes.Buffer
+}
+
+func (w *mutationResponse) Header() http.Header { return w.header }
+func (w *mutationResponse) WriteHeader(code int) {
+	if w.code == 0 {
+		w.code = code
+	}
+}
+func (w *mutationResponse) Write(data []byte) (int, error) {
+	if w.code == 0 {
+		w.code = http.StatusOK
+	}
+	return w.body.Write(data)
 }
 
 // matchesIfNoneMatch uses weak comparison for GET/HEAD. Parse the complete
@@ -339,7 +354,18 @@ func (s *Server) schemaFor(cfg ticket.Config) schemaBody {
 }
 
 func (s *Server) handleSchema(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, s.schema())
+	w.Header().Set("Cache-Control", "private, no-cache")
+	c := s.live
+	c.mu.Lock()
+	s.liveHeaders(w)
+	if c.snap == nil {
+		c.mu.Unlock()
+		unavailable(w)
+		return
+	}
+	config := c.snap.base.Config
+	c.mu.Unlock()
+	writeJSON(w, http.StatusOK, config)
 }
 
 // --- create ------------------------------------------------------------

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { TicketClient, ApiError } from '../platform/tickets/client'
 import { TicketStore, LayoutWriter } from '../platform/tickets/store'
+import { LiveUpdates, type LiveStatus } from '../platform/tickets/live'
 import type { CardChanges, Op, Ticket } from '../platform/tickets/types'
 import { Canvas, type CanvasHandle } from './Canvas'
 import { Toolbar } from './Toolbar'
@@ -19,6 +20,8 @@ export function App() {
   const [ui, setUI] = useState<InterfaceState>({ selected: null, selection: new Set(), query: '', filters: new Set(),
     composer: null, composerKey: 0, generation: 0 })
   const [feedback, setFeedback] = useState<Feedback | null>(null)
+  const [sync, setSync] = useState<LiveStatus>({ connection: 'connecting', stale: false, degraded: false, readFailed: false })
+  const live = useRef<LiveUpdates>()
   const latest = useRef(ui); latest.current = ui
   const generation = useRef(0), feedbackId = useRef(0), busy = useRef(false), mounted = useRef(true)
   const deferredRead = useRef(false), canvas = useRef<CanvasHandle>(null), fitFrame = useRef(0)
@@ -38,6 +41,8 @@ export function App() {
 
   async function refresh(fit = false) {
     if (busy.current) { deferredRead.current = true; return }
+    await store.whenIdle()
+    if (!mounted.current) return
     await store.load()
     if (busy.current) { deferredRead.current = true; return }
     // A response can be accepted while a drag delays publication. A later
@@ -52,12 +57,14 @@ export function App() {
         })
       }
     }
+    return store.sync
   }
   const onBusy = (value: boolean) => {
     busy.current = value
     if (!value && deferredRead.current) {
       deferredRead.current = false
-      void refresh().catch(report)
+      if (live.current) live.current.request()
+      else void refresh().catch(report)
     }
   }
   async function patch(ticket: Ticket, ops: Op[]) {
@@ -155,9 +162,16 @@ export function App() {
   actions.current = { refresh, closeComposer, closeInspector, remove }
   useEffect(() => {
     mounted.current = true
-    void actions.current.refresh(true).catch(report)
-    const timer = setInterval(() => { void actions.current.refresh().catch(() => {}) }, 12000)
-    const visible = () => { if (!document.hidden) void actions.current.refresh().catch(() => {}) }
+    let first = true
+    const updates = new LiveUpdates({
+      read: () => { const fit = first; first = false; return actions.current.refresh(fit) },
+      board: () => store.state.board,
+      status: status => { if (mounted.current) setSync(status) },
+    })
+    live.current = updates
+    store.onWriteSettled = () => updates.request()
+    updates.start()
+    const visible = () => { if (!document.hidden) updates.request() }
     const keyboard = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable
@@ -183,7 +197,7 @@ export function App() {
     document.addEventListener('keydown', keyboard)
     return () => {
       mounted.current = false
-      clearInterval(timer)
+      updates.stop(); live.current = undefined; store.onWriteSettled = undefined
       cancelAnimationFrame(fitFrame.current)
       document.removeEventListener('visibilitychange', visible)
       document.removeEventListener('keydown', keyboard)
@@ -195,7 +209,14 @@ export function App() {
     return !query || [ticket.id, ticket.title, ticket.type, ticket.status, ticket.priority, ticket.milestone,
       ...ticket.labels, ...ticket.assignees, ticket.body.description].filter(Boolean).join(' ').toLowerCase().includes(query)
   }
+  const syncMessage = sync.readFailed ? snapshot.config
+    ? 'Refresh failed. Showing the last accepted board; retrying.' : 'Board unavailable. Retrying.'
+    : sync.stale ? 'Store data is incomplete or invalid. Showing the last valid board; retrying.'
+    : sync.degraded ? 'Store watcher unavailable. Using periodic reconciliation.'
+    : sync.connection === 'polling' ? 'Live updates disconnected. Polling every 12 seconds.' : ''
   return <>
+    <div id="syncStatus" role="status" class="sync-status" hidden={!syncMessage}
+      data-connection={sync.connection} data-stale={sync.stale} data-degraded={sync.degraded}>{syncMessage}</div>
     <div id="toolbarRoot" data-store-publications={publications.current}><Toolbar storePath={snapshot.storePath} readOnly={snapshot.readOnly}
       boards={snapshot.boards} board={snapshot.board} config={snapshot.config} query={ui.query} filters={ui.filters}
       counts={`${[...snapshot.tickets.values()].filter(matches).length} of ${snapshot.tickets.size}`}

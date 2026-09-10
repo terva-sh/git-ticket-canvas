@@ -184,6 +184,11 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
 .muted { color: var(--ink-faint); font-size: 11px; }
 
 /* ---------- misc ---------- */
+.sync-status {
+  position: absolute; left: 12px; bottom: 34px; z-index: 20; max-width: min(60ch, calc(100% - 24px));
+  padding: 8px 12px; background: var(--panel); color: var(--ink); border: 1px solid var(--danger);
+  border-radius: var(--radius); pointer-events: none;
+}
 #toast {
   position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px);
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px;

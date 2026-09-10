@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -72,7 +73,7 @@ func saveFixture(tb testing.TB, st *ticket.Store, card *ticket.Ticket) {
 func TestBoardConditionalValidators(t *testing.T) {
 	t.Parallel()
 	s := New(newTestStore(t), Options{Actor: testActor})
-	h := s.Handler()
+	h := startAPI(t, s)
 	first := boardRead(h, "/api/board")
 	assertFullBoard(t, first)
 	etag := first.Header().Get("ETag")
@@ -141,7 +142,7 @@ func TestBoardValidatorObservableChanges(t *testing.T) {
 				saveFixture(t, st, card)
 				saveFixture(t, st, fixtureTicket(card.Dependencies[0]))
 			}
-			before := boardRead(s.Handler(), "/api/board")
+			before := boardRead(startAPI(t, s), "/api/board")
 			old := assertFullBoard(t, before)
 			switch change {
 			case "body":
@@ -163,9 +164,9 @@ func TestBoardValidatorObservableChanges(t *testing.T) {
 					t.Fatal(err)
 				}
 			case "readOnly":
-				s.readOnly = true
+				s = New(st, Options{Actor: testActor, ReadOnly: true})
 			case "actor":
-				s.actor = ticket.Actor{ID: "agent:other", Name: "Other"}
+				s = New(st, Options{Actor: ticket.Actor{ID: "agent:other", Name: "Other"}})
 			case "storePath":
 				other := newTestStore(t)
 				saveFixture(t, other, card)
@@ -184,7 +185,12 @@ func TestBoardValidatorObservableChanges(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			w := boardRead(s.Handler(), "/api/board", before.Header().Get("ETag"))
+			h := startAPI(t, s)
+			var w *httptest.ResponseRecorder
+			eventually(t, func() bool {
+				w = boardRead(h, "/api/board", before.Header().Get("ETag"))
+				return w.Code == 200 && w.Header().Get("X-Canvas-Stale") == "false"
+			})
 			after := assertFullBoard(t, w)
 			if w.Header().Get("ETag") == before.Header().Get("ETag") {
 				t.Fatal("observable change retained validator")
@@ -208,7 +214,7 @@ func TestBoardValidatorObservableChanges(t *testing.T) {
 			} else if change != "body" && change != "delete" && !reflect.DeepEqual(old.Tickets, after.Tickets) {
 				t.Fatal("metadata-only change changed ticket records")
 			}
-			if again := boardRead(s.Handler(), "/api/board", w.Header().Get("ETag")); again.Code != 304 || again.Body.Len() != 0 {
+			if again := boardRead(startAPI(t, s), "/api/board", w.Header().Get("ETag")); again.Code != 304 || again.Body.Len() != 0 {
 				t.Fatal("new validator did not revalidate")
 			}
 		})
@@ -226,7 +232,11 @@ func TestConfigRefreshAgreesAcrossBoardSchemaAndMutations(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(st.Path(), "config.yml"), ticket.RenderConfig(cfg), 0644); err != nil {
 		t.Fatal(err)
 	}
-	board := decodeResponse[boardResponse](t, request(t, s, "GET", "/api/board", "", 200))
+	var board boardResponse
+	eventually(t, func() bool {
+		board = decodeResponse[boardResponse](t, request(t, s, "GET", "/api/board", "", 200))
+		return reflect.DeepEqual(board.Config.Series, cfg.Series)
+	})
 	schema := decodeResponse[schemaBody](t, request(t, s, "GET", "/api/schema", "", 200))
 	if !reflect.DeepEqual(board.Config, schema) || !reflect.DeepEqual(schema.Series, cfg.Series) {
 		t.Fatalf("board/schema configuration mismatch: %+v / %+v", board.Config, schema)
@@ -253,45 +263,48 @@ func TestBoardClaimExpiryUsesOneInstant(t *testing.T) {
 		saveFixture(t, st, card)
 	}
 	s := New(st, Options{Actor: testActor})
-	calls := 0
-	now := fixtureTime
+	var calls atomic.Int64
+	var elapsed atomic.Int64
 	s.now = func() time.Time {
-		calls++
-		value := now
-		now = now.Add(time.Second)
-		return value
+		calls.Add(1)
+		return fixtureTime.Add(time.Duration(elapsed.Load()))
 	}
-	first := boardRead(s.Handler(), "/api/board")
+	// Count one captured evaluation time per build. The independent expiry
+	// scheduler has its own wall-clock test.
+	s.live.timing.settle = 0
+	first := boardRead(startAPI(t, s), "/api/board")
 	before := assertFullBoard(t, first)
 	if len(before.Tickets) != 2 {
 		t.Fatalf("claim fixture has %d tickets, want 2", len(before.Tickets))
 	}
-	if calls != 1 {
-		t.Fatalf("clock calls per board = %d, want 1", calls)
+	if calls.Load() != 1 {
+		t.Fatalf("clock calls per initial build = %d, want 1", calls.Load())
 	}
 	for _, card := range before.Tickets {
 		if card.Claim.Expired || card.Readiness.Ready || card.Readiness.Reason != ticket.ReasonClaimed {
 			t.Fatalf("claim at expiry inconsistent: %+v", card)
 		}
 	}
-	second := boardRead(s.Handler(), "/api/board", first.Header().Get("ETag"))
+	elapsed.Store(int64(time.Second))
+	s.live.reconcile(true, false)
+	second := boardRead(startAPI(t, s), "/api/board", first.Header().Get("ETag"))
 	after := assertFullBoard(t, second)
-	if calls != 2 {
-		t.Fatalf("clock calls for two boards = %d", calls)
+	if calls.Load() != 2 {
+		t.Fatalf("clock calls for two builds = %d", calls.Load())
 	}
 	for i, card := range after.Tickets {
 		if !card.Claim.Expired || !card.Readiness.Ready || card.Revision != before.Tickets[i].Revision {
 			t.Fatalf("expiry did not change derived state only: %+v", card)
 		}
 	}
-	if w := boardRead(s.Handler(), "/api/board", second.Header().Get("ETag")); w.Code != 304 {
+	if w := boardRead(startAPI(t, s), "/api/board", second.Header().Get("ETag")); w.Code != 304 {
 		t.Fatalf("time passing without observable change = %d", w.Code)
 	}
 }
 
 func TestBoardConditionalHTTP(t *testing.T) {
 	t.Parallel()
-	s := httptest.NewServer(New(newTestStore(t), Options{Actor: testActor}).Handler())
+	s := httptest.NewServer(startAPI(t, New(newTestStore(t), Options{Actor: testActor})))
 	defer s.Close()
 	etag := ""
 	for _, method := range []string{http.MethodGet, http.MethodGet, http.MethodHead} {
@@ -323,10 +336,11 @@ func TestBoardConditionalHTTP(t *testing.T) {
 	}
 }
 
-func TestBoardConditionalReadStillRecomputes(t *testing.T) {
+func TestBoardConditionalReadRetainsStaleSnapshot(t *testing.T) {
 	t.Parallel()
 	st := newTestStore(t)
-	h := New(st, Options{Actor: testActor}).Handler()
+	s := New(st, Options{Actor: testActor})
+	h := startAPI(t, s)
 	first := boardRead(h, "/api/board")
 	assertFullBoard(t, first)
 	path := filepath.Join(st.Path(), "config.yml")
@@ -337,22 +351,30 @@ func TestBoardConditionalReadStillRecomputes(t *testing.T) {
 	if err := os.WriteFile(path, []byte("schema: [invalid"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	w := boardRead(h, "/api/board", first.Header().Get("ETag"))
-	if w.Code == 200 || w.Code == 304 || w.Header().Get("ETag") != "" {
-		t.Fatalf("invalid config reused cached success: %d %v", w.Code, w.Header())
+	var w *httptest.ResponseRecorder
+	eventually(t, func() bool {
+		w = boardRead(h, "/api/board", first.Header().Get("ETag"))
+		return w.Header().Get("X-Canvas-Stale") == "true"
+	})
+	if w.Code != 304 || w.Body.Len() != 0 || w.Header().Get("ETag") != first.Header().Get("ETag") {
+		t.Fatalf("invalid config lost last validated snapshot: %d %v", w.Code, w.Header())
+	}
+	if full := boardRead(h, "/api/board"); !bytes.Equal(full.Body.Bytes(), first.Body.Bytes()) {
+		t.Fatal("stale full response did not retain validated bytes")
 	}
 	if err := os.WriteFile(path, original, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if w := boardRead(h, "/api/board", first.Header().Get("ETag")); w.Code != 304 {
-		t.Fatalf("restored config did not recover: %d %s", w.Code, w.Body.String())
-	}
+	eventually(t, func() bool {
+		w = boardRead(h, "/api/board", first.Header().Get("ETag"))
+		return w.Code == 304 && w.Header().Get("X-Canvas-Stale") == "false"
+	})
 }
 
 func TestBoardValidatorsSeparateBoards(t *testing.T) {
 	t.Parallel()
 	s := New(newTestStore(t), Options{Actor: testActor})
-	h := s.Handler()
+	h := startAPI(t, s)
 	first := boardRead(h, "/api/board")
 	assertFullBoard(t, first)
 	other := boardRead(h, "/api/board?board=other", first.Header().Get("ETag"))

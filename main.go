@@ -2,9 +2,8 @@
 //
 // The store on disk stays the source of truth: every edit made here goes
 // through the library's typed mutations, under its lock, with the same
-// revision preconditions the CLI uses. Nothing in this program holds ticket
-// state of its own. The one thing a canvas knows that a ticket file does not
-// is where a card sits, and that lives beside the tickets as text.
+// revision preconditions the CLI uses. Shared read snapshots are rebuilt from
+// authoritative files. Card positions live beside the tickets as text.
 package main
 
 import (
@@ -72,7 +71,13 @@ func run() error {
 		return err
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	srv := api.New(st, api.Options{Actor: actor, Assets: assets, ReadOnly: *readOnly})
+	if err := srv.Start(ctx); err != nil {
+		return err
+	}
+	defer srv.Close()
 
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {
@@ -91,9 +96,6 @@ func run() error {
 	log.Printf("actor  %s <%s>%s", actor.Name, actor.ID, mode)
 	log.Printf("canvas http://%s", ln.Addr())
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
 	errc := make(chan error, 1)
 	go func() { errc <- http.Serve(ln) }()
 
@@ -104,6 +106,9 @@ func run() error {
 		}
 		return err
 	case <-ctx.Done():
+		// Closing live streams first lets HTTP Shutdown finish without waiting
+		// for EventSource connections that are intended to stay open.
+		_ = srv.Close()
 		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		return http.Shutdown(shutdown)
