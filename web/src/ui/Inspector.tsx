@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { ChecklistItem, Entry, Op, Schema, Ticket } from '../platform/tickets/types'
+import './Inspector.css'
 
 export interface InspectorProps {
   ticket: Ticket | null
@@ -31,6 +32,7 @@ interface TextProps {
   onPatch: Patch
   operation: (text: string) => Op
   multiline?: boolean
+  enterToBlur?: boolean
   add?: boolean
   id?: string
   className?: string
@@ -41,8 +43,26 @@ interface TextProps {
 // Each editor keeps the ticket snapshot that supplied its draft. A refreshed
 // parent can update metadata without replacing the DOM node or rebasing an edit.
 function TextEditor({ ticket, value = '', readOnly, onPatch, operation,
-  multiline = false, add = false, id, className = 'control', placeholder, list }: TextProps) {
+  multiline = false, enterToBlur = false, add = false, id, className = 'control', placeholder, list }: TextProps) {
   const [, redraw] = useState(0)
+  const textarea = useRef<HTMLTextAreaElement>(null)
+  const sizeTitle = () => {
+    if (!enterToBlur || !textarea.current) return
+    textarea.current.style.height = 'auto'
+    textarea.current.style.height = `${textarea.current.scrollHeight + 2}px`
+  }
+  useLayoutEffect(sizeTitle)
+  useLayoutEffect(() => {
+    if (!enterToBlur || !textarea.current || typeof ResizeObserver === 'undefined') return
+    let width = -1
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width === width) return
+      width = entry.contentRect.width
+      sizeTitle()
+    })
+    observer.observe(textarea.current)
+    return () => observer.disconnect()
+  }, [enterToBlur])
   const mounted = useRef(false)
   const latest = useRef({ ticket, value })
   latest.current = { ticket, value }
@@ -135,7 +155,7 @@ function TextEditor({ ticket, value = '', readOnly, onPatch, operation,
       if (event.key === 'Escape') {
         event.stopPropagation()
         element.blur()
-      } else if (event.key === 'Enter' && (!multiline || (add && (event.metaKey || event.ctrlKey)))) {
+      } else if (event.key === 'Enter' && (enterToBlur || !multiline || (add && (event.metaKey || event.ctrlKey)))) {
         event.preventDefault()
         if (add) void submit()
         else element.blur()
@@ -143,16 +163,42 @@ function TextEditor({ ticket, value = '', readOnly, onPatch, operation,
     },
   }
   return multiline
-    ? <textarea {...control} style={add ? { minHeight: '46px' } : undefined} />
+    ? <textarea {...control} ref={textarea} rows={enterToBlur ? 1 : undefined}
+      aria-label={enterToBlur ? 'Title' : undefined} style={add ? { minHeight: '46px' } : undefined} />
     : <input {...control} list={list} />
 }
 
-function SummaryField(props: Omit<TextProps, 'operation'>) {
-  // Once visible, keep this editor mounted even if a poll clears the summary.
-  const visible = useRef(!!props.value)
-  if (props.value) visible.current = true
-  return visible.current ? <Field label="Summary"><TextEditor {...props} multiline
-    operation={text => ({ op: 'setSummary', text })} /></Field> : null
+function Disclosure({ label, initiallyOpen = false, children }: {
+  label: string; initiallyOpen?: boolean; children: ComponentChildren
+}) {
+  const details = useRef<HTMLDetailsElement>(null)
+  // Native details owns expansion after mount. Polls never overwrite that state,
+  // and hidden editor children remain mounted with their original draft snapshots.
+  useLayoutEffect(() => { if (details.current) details.current.open = initiallyOpen }, [])
+  return <details class="insp-section" ref={details}><summary>{label}</summary>{children}</details>
+}
+
+function StateSummary({ ticket: t }: { ticket: Ticket }) {
+  const count = (n: number | undefined, singular: string, plural: string) => n ? `${n} ${n === 1 ? singular : plural}` : ''
+  const blockers = [
+    count(t.readiness.blocking?.length, 'dependency', 'dependencies'),
+    count(t.readiness.blockingChildren?.length, 'child', 'children'),
+    count(t.readiness.missing?.length, 'missing', 'missing'),
+  ].filter(Boolean).join(', ')
+  const blocked = t.readiness.blocked || t.status === 'blocked' || !!blockers
+  const late = !!t.dueOn && t.dueOn < new Date().toISOString().slice(0, 10)
+    && t.status !== 'done' && t.status !== 'archived'
+  return <dl class="insp-state" aria-label="Ticket state">
+    <div><dt>Status</dt><dd>{t.status}{t.archived ? ' · archived' : ''}</dd></div>
+    <div><dt>Priority</dt><dd>{t.priority}</dd></div>
+    <div><dt>Assigned</dt><dd>{t.assignees.join(', ') || 'Unassigned'}</dd></div>
+    <div><dt>Claimed</dt><dd>{t.claim ? `${t.claim.actor}${t.claim.expired ? ' · expired' : ''}` : 'Unclaimed'}</dd></div>
+    <div class={blocked ? 'insp-warning' : ''}><dt>Blockers</dt>
+      <dd>{blockers || (blocked ? 'Blocked' : 'None')}
+        {blocked && (t.readiness.reason || t.statusReason) && <span class="insp-reason">{t.readiness.reason || t.statusReason}</span>}
+      </dd></div>
+    <div class={late ? 'insp-warning' : ''}><dt>Due</dt><dd>{late ? 'Overdue · ' : ''}{t.dueOn || 'No due date'}</dd></div>
+  </dl>
 }
 
 function SelectControl({ value = '', options, blank, readOnly, onChange }: {
@@ -196,17 +242,24 @@ function LogSection({ label, entries, ticket, readOnly, onPatch, op }: {
   label: string; entries: readonly Entry[]; ticket: Ticket; readOnly: boolean
   onPatch: Patch; op: 'appendNote' | 'appendComment'
 }) {
-  return <Field label={label}><div>
-    {entries.map(entry => {
-      const who = [entry.actor, entry.at?.slice(0, 16).replace('T', ' ')].filter(Boolean).join(' · ')
-      return <div class="entry" key={entry.index}>
-        {who && <div class="who">{who}</div>}
-        <div class="what">{entry.text}</div>
-      </div>
-    })}
-    <TextEditor key="add" ticket={ticket} readOnly={readOnly} onPatch={onPatch} add multiline
-      placeholder="add…  (⌘/Ctrl+Enter)" operation={text => ({ op, text })} />
-  </div></Field>
+  const entryView = (entry: Entry) => {
+    const who = [entry.actor, entry.at?.slice(0, 16).replace('T', ' ')].filter(Boolean).join(' · ')
+    return <div class="entry" key={entry.index}>
+      {who && <div class="who">{who}</div>}
+      <div class="what">{entry.text}</div>
+    </div>
+  }
+  return <Disclosure label={`${label} · ${entries.length || 'add'}`} initiallyOpen={entries.length > 0}>
+    <Field label={label}><div>
+      <Disclosure label={`Older ${label.toLowerCase()} · ${Math.max(0, entries.length - 1)}`}>
+        {entries.slice(0, -1).map(entryView)}
+        {entries.length < 2 && <div class="muted">No older {label.toLowerCase()}</div>}
+      </Disclosure>
+      {entries.length > 0 && entryView(entries[entries.length - 1])}
+      <TextEditor key="add" ticket={ticket} readOnly={readOnly} onPatch={onPatch} add multiline
+        placeholder="add…  (⌘/Ctrl+Enter)" operation={text => ({ op, text })} />
+    </div></Field>
+  </Disclosure>
 }
 
 function Relation({ label, id, tickets, readOnly, onNavigate, onRemove }: {
@@ -231,87 +284,151 @@ function InspectorBody({ ticket: t, config, tickets, readOnly, onPatch, onNaviga
   const textProps = { ticket: t, readOnly, onPatch }
   const relationProps = { tickets, readOnly, onNavigate }
   return <>
-    <Field label="Status">
-      <div class="row"><SelectControl value={t.status} options={[t.status, ...(config.transitions[t.status] || [])]}
-        readOnly={readOnly} onChange={status => {
-          let reason = ''
-          if ((config.reasonRequired[t.status] || []).includes(status)) {
-            reason = prompt(`Moving ${t.short} to ${status} needs a reason:`) || ''
-            if (!reason.trim()) return
-          }
-          commit({ op: 'setStatus', status, reason })
-        }} /></div>
-      {t.statusReason && <div class="muted">{t.statusReason}</div>}
-    </Field>
-    <Field label="Type"><SelectControl value={t.type} options={config.types} readOnly={readOnly}
-      onChange={type => commit({ op: 'setType', type })} /></Field>
-    <Field label="Priority"><SelectControl value={t.priority} options={config.priorities} readOnly={readOnly}
-      onChange={priority => commit({ op: 'setPriority', priority })} /></Field>
-    <Field label="Due on"><TextEditor {...textProps} value={t.dueOn}
-      operation={text => ({ op: 'setDueOn', dueOn: text.trim() || null })} /></Field>
-    {config.milestones.length > 0 && <Field label="Milestone">
-      <SelectControl value={t.milestone} options={config.milestones} blank="none" readOnly={readOnly}
-        onChange={milestone => commit({ op: 'setMilestone', milestone: milestone || null })} />
-    </Field>}
+    <StateSummary ticket={t} />
+    <Disclosure label="Edit status, priority, ownership and due date">
+      <Field label="Status">
+        <div class="row"><SelectControl value={t.status} options={[t.status, ...(config.transitions[t.status] || [])]}
+          readOnly={readOnly} onChange={status => {
+            let reason = ''
+            if ((config.reasonRequired[t.status] || []).includes(status)) {
+              reason = prompt(`Moving ${t.short} to ${status} needs a reason:`) || ''
+              if (!reason.trim()) return
+            }
+            commit({ op: 'setStatus', status, reason })
+          }} /></div>
+        {t.statusReason && <div class="muted">{t.statusReason}</div>}
+      </Field>
+      <Field label="Type"><SelectControl value={t.type} options={config.types} readOnly={readOnly}
+        onChange={type => commit({ op: 'setType', type })} /></Field>
+      <Field label="Priority"><SelectControl value={t.priority} options={config.priorities} readOnly={readOnly}
+        onChange={priority => commit({ op: 'setPriority', priority })} /></Field>
+      <Field label="Due on"><TextEditor {...textProps} value={t.dueOn}
+        operation={text => ({ op: 'setDueOn', dueOn: text.trim() || null })} /></Field>
+      {config.milestones.length > 0 && <Field label="Milestone">
+        <SelectControl value={t.milestone} options={config.milestones} blank="none" readOnly={readOnly}
+          onChange={milestone => commit({ op: 'setMilestone', milestone: milestone || null })} />
+      </Field>}
+      <Field label="Assignees"><div class="row">
+        {t.assignees.map(actor => <button key={actor} class="chip" style={{ color: 'var(--ink-dim)' }}
+          disabled={readOnly} onClick={() => commit({ op: 'unassign', actor })}>{actor} ×</button>)}
+        <TextEditor key="add" {...textProps} add placeholder="assign…" operation={actor => ({ op: 'assign', actor })} />
+      </div></Field>
+    </Disclosure>
     <Field label="Labels"><div class="row">
       {t.labels.map(label => <button key={label} class="chip" style={{ color: 'var(--ink-dim)' }}
         disabled={readOnly} onClick={() => commit({ op: 'removeLabel', label })}>{label} ×</button>)}
+      {!t.labels.length && <span class="muted">No labels</span>}
       <TextEditor key="add" {...textProps} add placeholder="add label…" list="labelList"
         operation={label => ({ op: 'addLabel', label })} />
       <datalist id="labelList">{config.labels.map(label => <option key={label} value={label}>{label}</option>)}</datalist>
     </div></Field>
-    <Field label="Assignees"><div class="row">
-      {t.assignees.map(actor => <button key={actor} class="chip" style={{ color: 'var(--ink-dim)' }}
-        disabled={readOnly} onClick={() => commit({ op: 'unassign', actor })}>{actor} ×</button>)}
-      <TextEditor key="add" {...textProps} add placeholder="assign…" operation={actor => ({ op: 'assign', actor })} />
-    </div></Field>
-    <Field label="Parent"><div>
-      {t.parent ? <Relation {...relationProps} label="parent" id={t.parent}
-        onRemove={() => commit({ op: 'setParent', parent: null })} /> : <div class="muted">no parent</div>}
-    </div></Field>
-    <Field label="Depends on"><div>
-      {t.dependencies.map(id => <Relation key={id} {...relationProps} label="dependency" id={id}
-        onRemove={() => commit({ op: 'removeDependency', id })} />)}
-      {!t.dependencies.length && <div class="muted">none. Drag a card's right handle onto another to add one</div>}
-      {!!t.readiness.missing?.length && <div class="muted" style={{ color: 'var(--danger)' }}>
-        missing: {t.readiness.missing.join(', ')}
-      </div>}
-    </div></Field>
-    {(t.type === 'epic' || t.blocksOn === 'children') && <Field label="Blocks on">
-      <SelectControl value={t.blocksOn} options={config.blocksOn} readOnly={readOnly}
-        onChange={blocksOn => commit({ op: 'setBlocksOn', blocksOn })} />
-    </Field>}
+    <Disclosure label={`Relationships · ${t.dependencies.length} dependencies, ${t.parent ? 1 : 0} parent`}>
+      <Field label="Parent"><div>
+        {t.parent ? <Relation {...relationProps} label="parent" id={t.parent}
+          onRemove={() => commit({ op: 'setParent', parent: null })} /> : <div class="muted">no parent</div>}
+      </div></Field>
+      <Field label="Depends on"><div>
+        {t.dependencies.map(id => <Relation key={id} {...relationProps} label="dependency" id={id}
+          onRemove={() => commit({ op: 'removeDependency', id })} />)}
+        {!t.dependencies.length && <div class="muted">none. Drag a card's right handle onto another to add one</div>}
+        {!!t.readiness.missing?.length && <div class="muted" style={{ color: 'var(--danger)' }}>
+          missing: {t.readiness.missing.join(', ')}
+        </div>}
+      </div></Field>
+      {(t.type === 'epic' || t.blocksOn === 'children') && <Field label="Blocks on">
+        <SelectControl value={t.blocksOn} options={config.blocksOn} readOnly={readOnly}
+          onChange={blocksOn => commit({ op: 'setBlocksOn', blocksOn })} />
+      </Field>}
+    </Disclosure>
     <Field label="Description"><TextEditor {...textProps} multiline value={t.body.description}
       operation={text => ({ op: 'setDescription', text })} /></Field>
-    <Field label="Implementation plan"><TextEditor {...textProps} multiline value={t.body.plan}
-      operation={text => ({ op: 'setPlan', text })} /></Field>
-    <Checklist {...textProps} label="Acceptance criteria" section="ac" items={t.body.acceptanceCriteria} />
-    <Checklist {...textProps} label="Definition of done" section="dod" items={t.body.definitionOfDone} />
+    <Disclosure label="Implementation plan · edit" initiallyOpen={!!t.body.plan}>
+      <Field label="Implementation plan"><TextEditor {...textProps} multiline value={t.body.plan}
+        operation={text => ({ op: 'setPlan', text })} /></Field>
+    </Disclosure>
+    <Disclosure label={`Acceptance criteria · ${t.body.acceptanceCriteria.length || 'add'}`} initiallyOpen={t.body.acceptanceCriteria.length > 0}>
+      <Checklist {...textProps} label="Acceptance criteria" section="ac" items={t.body.acceptanceCriteria} />
+    </Disclosure>
+    <Disclosure label={`Definition of done · ${t.body.definitionOfDone.length || 'add'}`} initiallyOpen={t.body.definitionOfDone.length > 0}>
+      <Checklist {...textProps} label="Definition of done" section="dod" items={t.body.definitionOfDone} />
+    </Disclosure>
     <LogSection {...textProps} label="Notes" entries={t.body.notes} op="appendNote" />
     <LogSection {...textProps} label="Comments" entries={t.body.comments} op="appendComment" />
-    <SummaryField {...textProps} value={t.body.summary} />
+    <Disclosure label="Summary · edit" initiallyOpen={!!t.body.summary}>
+      <Field label="Summary"><TextEditor {...textProps} multiline value={t.body.summary}
+        operation={text => ({ op: 'setSummary', text })} /></Field>
+    </Disclosure>
   </>
 }
 
 export function Inspector({ ticket, config, tickets, readOnly, onPatch, onClose, onNavigate, onDelete }: InspectorProps) {
+  const panel = useRef<HTMLElement>(null)
+  const separator = useRef<HTMLDivElement>(null)
+  const width = useRef(400)
+  const drag = useRef<{ pointerId: number; x: number; width: number } | null>(null)
+  const resize = (next: number) => {
+    width.current = Math.min(560, Math.max(320, Math.round(next)))
+    // Resizing changes layout, not editor state. Keep pointer frames out of the
+    // component tree so a focused textarea and its selection stay untouched.
+    panel.current?.style.setProperty('--inspector-width', `${width.current}px`)
+    separator.current?.setAttribute('aria-valuenow', String(width.current))
+    separator.current?.setAttribute('aria-valuetext', `${width.current} pixels`)
+  }
+  const finishResize = (event: PointerEvent) => {
+    if (drag.current?.pointerId !== event.pointerId) return
+    event.stopPropagation()
+    drag.current = null
+    const target = event.currentTarget as HTMLElement
+    if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId)
+  }
   // A cheap diagnostic used by the browser responsiveness regression.
   const renders = useRef(0)
   renders.current++
   const commit = (op: Op) => {
     if (ticket && !readOnly) void onPatch(ticket, [op]).catch(() => {})
   }
-  return <aside id="inspector" data-render-count={renders.current} class={ticket ? 'open' : ''} aria-hidden={!ticket}
+  return <aside id="inspector" ref={panel} style={{ '--inspector-width': `${width.current}px` }}
+    data-render-count={renders.current} class={ticket ? 'open' : ''} aria-hidden={!ticket} aria-label="Ticket inspector"
     onKeyDown={event => {
       if (event.key === 'Escape') {
         event.stopPropagation()
         onClose()
       }
     }}>
+    <div class="insp-resize" ref={separator} role="separator" tabIndex={ticket ? 0 : -1}
+      aria-label="Inspector width" aria-controls="inspector" aria-orientation="vertical"
+      aria-valuemin={320} aria-valuemax={560} aria-valuenow={width.current} aria-valuetext={`${width.current} pixels`}
+      title="Resize inspector. Left widens, Right narrows; Home sets 320px, End sets 560px."
+      onPointerDown={event => {
+        if (event.button !== 0) return
+        event.preventDefault()
+        event.stopPropagation()
+        drag.current = { pointerId: event.pointerId, x: event.clientX, width: width.current }
+        event.currentTarget.setPointerCapture(event.pointerId)
+      }}
+      onPointerMove={event => {
+        if (drag.current?.pointerId !== event.pointerId) return
+        event.stopPropagation()
+        resize(drag.current.width + drag.current.x - event.clientX)
+      }}
+      onPointerUp={finishResize} onPointerCancel={finishResize}
+      onLostPointerCapture={() => { drag.current = null }}
+      onKeyDown={event => {
+        let next: number
+        if (event.key === 'ArrowLeft') next = width.current + 16
+        else if (event.key === 'ArrowRight') next = width.current - 16
+        else if (event.key === 'Home') next = 320
+        else if (event.key === 'End') next = 560
+        else return
+        event.preventDefault()
+        event.stopPropagation()
+        resize(next)
+      }} />
     <div class="insp-head">
       <div style={{ flex: 1, minWidth: 0 }}>
         {ticket ? <TextEditor key={ticket.id} ticket={ticket} value={ticket.title} readOnly={readOnly}
           onPatch={onPatch} operation={title => ({ op: 'setTitle', title })}
-          id="fTitle" className="insp-title" placeholder="Title" />
+          id="fTitle" className="insp-title" placeholder="Title" multiline enterToBlur />
           : <input id="fTitle" class="insp-title" placeholder="Title" disabled />}
         <div class="muted" id="fMeta">{ticket && `${ticket.id}  ·  updated ${ticket.updatedAt.slice(0, 16).replace('T', ' ')}${ticket.updatedBy ? ` by ${ticket.updatedBy}` : ''}`}</div>
       </div>

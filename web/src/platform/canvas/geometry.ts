@@ -32,7 +32,7 @@ export interface FitCard extends Point {
   readonly height?: number;
 }
 
-const CARD_W = 248;
+export const CARD_WIDTH = 280;
 const LANE_W = 300;
 const LANE_GAP = 22;
 
@@ -50,7 +50,7 @@ export function autoPlace(
     const lane = Math.max(0, statuses.indexOf(item.status));
     const row = lanes.get(lane) ?? 0;
     lanes.set(lane, row + 1);
-    positions.set(item.id, { x: lane * (LANE_W + LANE_GAP), y: row * 132 });
+    positions.set(item.id, { x: lane * (LANE_W + LANE_GAP), y: row * 340 });
   }
   return positions;
 }
@@ -100,22 +100,22 @@ export function zoomAt(
 }
 
 /**
- * Fit fixed-width cards using the legacy inspector allowance and padding.
+ * Fit fixed-width cards with an optional inspector allowance and padding.
  * Returns null for an empty board so the caller can leave its view unchanged.
  */
-export function fitView(cards: Iterable<FitCard>, stage: Size): View | null {
+export function fitView(cards: Iterable<FitCard>, stage: Size, inspectorWidth = 380): View | null {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   let count = 0;
   for (const card of cards) {
     count++;
     x0 = Math.min(x0, card.x);
     y0 = Math.min(y0, card.y);
-    x1 = Math.max(x1, card.x + CARD_W);
+    x1 = Math.max(x1, card.x + CARD_WIDTH);
     y1 = Math.max(y1, card.y + (card.height ?? 120));
   }
   if (!count) return null;
   const pad = 60;
-  const w = stage.width - 380, h = stage.height - 40;
+  const w = stage.width - inspectorWidth, h = stage.height - 40;
   const k = Math.min(2, Math.max(0.15, Math.min(
     w / (x1 - x0 + pad * 2),
     h / (y1 - y0 + pad * 2),

@@ -9,6 +9,8 @@ test('120-card board keeps pointer frames out of the inspector', async ({ page, 
   }
   await page.goto(app.url)
   await expect(page.locator('.card')).toHaveCount(120)
+  // Keep all 39 edges in the workload despite the quieter Selected default.
+  await page.locator('#relationshipMode').selectOption('all')
   const target = page.locator(`.card[data-id="${tickets[0].id}"]`)
   await target.click()
   const box = (await target.boundingBox())!

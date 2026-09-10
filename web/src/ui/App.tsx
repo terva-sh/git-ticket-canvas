@@ -5,6 +5,7 @@ import { LiveUpdates, type LiveStatus } from '../platform/tickets/live'
 import type { CardChanges, Op, Ticket, VersionInfo } from '../platform/tickets/types'
 import { Canvas, type CanvasHandle } from './Canvas'
 import { Toolbar } from './Toolbar'
+import type { RelationshipMode } from './canvas/Edges'
 import { Inspector } from './Inspector'
 import { Composer, type ComposerPosition } from './Composer'
 import { FeedbackMessage, type Feedback } from './Feedback'
@@ -23,6 +24,7 @@ export function App() {
   const published = useRef(store.state), publications = useRef(0)
   const [ui, setUI] = useState<InterfaceState>({ selected: null, selection: new Set(), query: '', filters: new Set(),
     composer: null, composerKey: 0, generation: 0 })
+  const [relationships, setRelationships] = useState<RelationshipMode>('selected')
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [sync, setSync] = useState<LiveStatus>({ connection: 'connecting', stale: false, degraded: false, readFailed: false })
   const live = useRef<LiveUpdates>()
@@ -229,6 +231,7 @@ export function App() {
     <div id="toolbarRoot" data-store-publications={publications.current}><Toolbar storePath={snapshot.storePath} readOnly={snapshot.readOnly} version={version}
       boards={snapshot.boards} board={snapshot.board} config={snapshot.config} query={ui.query} filters={ui.filters}
       counts={`${[...snapshot.tickets.values()].filter(matches).length} of ${snapshot.tickets.size}`}
+      relationships={relationships} onRelationships={setRelationships}
       onQuery={query => setUI(current => ({ ...current, query }))}
       onFilter={status => setUI(current => {
         const filters = new Set(current.filters); filters.has(status) ? filters.delete(status) : filters.add(status)
@@ -237,7 +240,7 @@ export function App() {
       onNew={() => canvas.current?.composeCentre()} onFit={() => canvas.current?.fit()} onArrange={arrange} /></div>
     <Canvas key={ui.generation} ref={canvas} board={snapshot.board} tickets={snapshot.tickets} cards={snapshot.cards}
       statuses={snapshot.config?.statuses || []} selection={ui.selection} query={ui.query} filters={ui.filters}
-      readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
+      relationships={relationships} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>
       <div id="formsRoot">
         <Inspector ticket={snapshot.tickets.get(ui.selected || '') || null} config={snapshot.config}

@@ -1,4 +1,5 @@
 import type { Schema, VersionInfo } from '../platform/tickets/types'
+import type { RelationshipMode } from './canvas/Edges'
 
 export interface ToolbarProps {
   storePath: string; readOnly: boolean; boards: string[]; board: string; query: string
@@ -7,6 +8,7 @@ export interface ToolbarProps {
   config: Schema | null; filters: ReadonlySet<string>; counts: string
   onQuery(value: string): void; onFilter(value: string): void; onBoard(value: string): void
   onNewBoard(): void; onArrange(): void; onFit(): void; onNew(): void
+  relationships?: RelationshipMode; onRelationships?(mode: RelationshipMode): void
 }
 /** The compact label: the server's version as the CLI prints it, `+dirty`
  * when the build tree was modified, `unknown` when the server did not answer.
@@ -47,6 +49,10 @@ export function Toolbar(p: ToolbarProps) {
       <button key={status} class="chip" style={{ color: `var(--s-${status})` }} aria-pressed={p.filters.has(status)} onClick={() => p.onFilter(status)}><i class="dot" />{status}</button>)}</div>
     <div class="spacer" /><span class="badge" id="counts">{p.counts}</span>
     <span class="badge warn" id="roBadge" hidden={!p.readOnly}>read-only</span>
+    <label class="relationship-control">Relationships <select id="relationshipMode" class="tool" value={p.relationships || 'selected'}
+      onChange={event => p.onRelationships?.(event.currentTarget.value as RelationshipMode)}>
+      <option value="all">All</option><option value="selected">Selected</option><option value="none">None</option>
+    </select></label>
     <button id="btnArrange" class="tool" title="Lay unplaced cards out in status lanes" disabled={p.readOnly} onClick={p.onArrange}>Arrange</button>
     <button id="btnFit" class="tool" title="Fit all cards in view" onClick={p.onFit}>Fit</button>
     <button id="btnNew" class="tool primary" title="New ticket (double-click the canvas)" disabled={p.readOnly} onClick={p.onNew}>New ticket</button>

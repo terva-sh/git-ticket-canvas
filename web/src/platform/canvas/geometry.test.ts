@@ -13,7 +13,7 @@ describe('autoPlace', () => {
       ['a', { x: 322, y: 0 }],
       ['b', { x: 0, y: 0 }],
       ['c', { x: 644, y: 0 }],
-      ['d', { x: 322, y: 132 }],
+      ['d', { x: 322, y: 340 }],
     ]);
     expect(items.map(({ id }) => id)).toEqual(['d', 'c', 'b', 'a']);
   });
@@ -27,14 +27,14 @@ describe('autoPlace', () => {
     expect(pinned).toEqual({ a: { x: 0, y: 0 } });
     expect([...autoPlace(items, {}, ['ready'])]).toEqual([
       ['a', { x: 0, y: 0 }],
-      ['b', { x: 0, y: 132 }],
+      ['b', { x: 0, y: 340 }],
     ]);
   });
 
   it('puts unknown statuses in lane zero alongside the first configured status', () => {
     const items = [{ id: 'b', status: 'draft' }, { id: 'a', status: 'custom' }];
     expect([...autoPlace(items, {}, ['draft', 'ready']).values()]).toEqual([
-      { x: 0, y: 0 }, { x: 0, y: 132 },
+      { x: 0, y: 0 }, { x: 0, y: 340 },
     ]);
   });
 
@@ -44,7 +44,7 @@ describe('autoPlace', () => {
       ['a', { id: 'a', status: 'draft' }],
     ]);
     expect([...autoPlace(items.values(), {}, [])]).toEqual([
-      ['a', { x: 0, y: 0 }], ['b', { x: 0, y: 132 }],
+      ['a', { x: 0, y: 0 }], ['b', { x: 0, y: 340 }],
     ]);
   });
 
@@ -122,8 +122,8 @@ describe('fitView', () => {
   });
 
   it('uses fixed card width, fallback height, inspector allowance, and padding', () => {
-    // Available area 368x240 equals the padded bounds at scale 1.
-    expect(fitView([{ x: 0, y: 0 }], { width: 748, height: 280 }))
+    // Available area 400x240 equals the padded 280 px card bounds at scale 1.
+    expect(fitView([{ x: 0, y: 0 }], { width: 780, height: 280 }))
       .toEqual({ x: 80, y: 80, k: 1 });
   });
 
@@ -132,30 +132,30 @@ describe('fitView', () => {
       Object.freeze({ x: -100, y: -50, height: 200 }),
       Object.freeze({ x: 200, y: 250, height: 300 }),
     ]);
-    // Bounds [-100, -50]..[448, 550], padded size 668x720.
-    expect(fitView(cards.values(), Object.freeze({ width: 1048, height: 760 })))
+    // Bounds [-100, -50]..[480, 550], padded size 700x720.
+    expect(fitView(cards.values(), Object.freeze({ width: 1080, height: 760 })))
       .toEqual({ x: 180, y: 130, k: 1 });
   });
 
   it('uses the tighter height constraint and preserves a measured zero height', () => {
     expect(fitView([{ x: 0, y: 0, height: 0 }], { width: 1380, height: 160 }))
-      .toEqual({ x: 396, y: 80, k: 1 });
+      .toEqual({ x: 380, y: 80, k: 1 });
   });
 
   it('caps fit zoom at 2 rather than the wheel limit of 2.5', () => {
     expect(fitView([{ x: 0, y: 0 }], { width: 2380, height: 2040 }))
-      .toEqual({ x: 772, y: 900, k: 2 });
+      .toEqual({ x: 740, y: 900, k: 2 });
   });
 
   it('clamps oversized bounds to the legacy minimum scale', () => {
     const result = fitView([{ x: 0, y: 0, height: 10000 }], { width: 1000, height: 800 });
     expect(result?.k).toBe(0.15);
-    expect(result?.x).toBeCloseTo(311.4);
+    expect(result?.x).toBeCloseTo(309);
     expect(result?.y).toBe(-350);
   });
 
   it('retains finite legacy fit math when the stage is smaller than its allowances', () => {
     expect(fitView([{ x: 0, y: 0 }], { width: 100, height: 20 }))
-      .toEqual({ x: -138.6, y: 1, k: 0.15 });
+      .toEqual({ x: -141, y: 1, k: 0.15 });
   });
 });

@@ -106,6 +106,7 @@ test.describe('live-update measurements', () => {
 
         // Preserve the existing pointer-motion guard's 30 samples, two frames,
         // and <100ms p95 / <250ms max thresholds for both body-size fixtures.
+        await page.locator('#relationshipMode').selectOption('all')
         const targetCard = card(page, tickets[0].id)
         const box = (await targetCard.boundingBox())!
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)

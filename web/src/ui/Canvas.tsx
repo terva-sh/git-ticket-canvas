@@ -16,6 +16,7 @@ export interface CanvasProps {
   cards: Cards
   statuses: readonly string[]
   selection: ReadonlySet<string>
+  relationships?: import('./canvas/Edges').RelationshipMode
   query: string
   filters: ReadonlySet<string>
   readOnly: boolean
@@ -122,13 +123,28 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     if ((gesture || pendingFrame) && local.mounted) redraw()
   }
 
+  function viewport() {
+    const element = stage.current!
+    const inspector = element.querySelector<HTMLElement>('#inspector.open')
+    const bounds = element.getBoundingClientRect()
+    if (inspector) {
+      const panel = inspector.getBoundingClientRect()
+      return panel.width >= bounds.width - 1
+        ? { width: element.clientWidth, height: Math.max(1, panel.top - bounds.top) }
+        : { width: Math.max(1, panel.left - bounds.left), height: element.clientHeight }
+    }
+    // Leave room for opening the inspector on desktop, not on narrow screens.
+    return { width: element.clientWidth > 700 ? Math.max(320, element.clientWidth - 400) : element.clientWidth,
+      height: element.clientHeight }
+  }
+
   function fit() {
     const element = stage.current
     if (!element) return
     cancel()
     const view = fitView([...positions()].map(([id, point]) => ({ ...point,
       height: measurements.elements.get(id)?.offsetHeight ?? measurements.heights.get(id),
-    })), { width: element.clientWidth, height: element.clientHeight })
+    })), viewport(), 0)
     if (view) { local.view = view; redraw() }
   }
 
@@ -174,8 +190,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       const point = positions().get(id)!
       const k = local.view.k
       local.view = {
-        x: stage.current.clientWidth / 2 - 380 / 2 - (point.x + CARD_WIDTH / 2) * k,
-        y: stage.current.clientHeight / 2 - (point.y + 60) * k,
+        x: viewport().width / 2 - (point.x + CARD_WIDTH / 2) * k,
+        y: viewport().height / 2 - (point.y + (measurements.heights.get(id) ?? 120) / 2) * k,
         k,
       }
       redraw()
@@ -191,15 +207,15 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       if (!stage.current) return
       cancel()
       const bounds = stage.current.getBoundingClientRect()
-      compose({ x: bounds.left + (stage.current.clientWidth - 360) / 2,
-        y: bounds.top + stage.current.clientHeight / 2 })
+      compose({ x: bounds.left + viewport().width / 2,
+        y: bounds.top + viewport().height / 2 })
     },
     cancel,
   }))
 
   function canvasTarget(target: EventTarget | null): Element | null {
     if (!(target instanceof Element) || !stage.current?.contains(target)) return null
-    if (target.closest('#inspector, #composer, #toolbar')) return null
+    if (target.closest('#inspector, #composer, #toolbar, button, input, select, textarea, summary, .card-label-disclosure')) return null
     // Unknown children are overlays too. Only the canvas's own elements start gestures.
     if (target !== stage.current && !target.closest('#scene, #grid, #hint')) return null
     return target
@@ -375,7 +391,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     }}>
     <canvas id="grid" ref={grid} />
     <div id="scene" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` }}>
-      <Edges tickets={props.tickets} positions={placed} heights={measurements.heights} matching={matching} ghost={ghost} />
+      <Edges tickets={props.tickets} positions={placed} heights={measurements.heights} matching={matching} ghost={ghost}
+        mode={props.relationships} selection={props.selection} />
       <div id="cards">{[...props.tickets.values()].map(ticket => {
         const point = placed.get(ticket.id)!
         return <CardView key={ticket.id} ticket={ticket} x={point.x} y={point.y} z={point.z} pinned={point.pinned}
@@ -383,7 +400,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
           target={gesture?.kind === 'link' && gesture.to === ticket.id} register={measurements.register} />
       })}</div>
     </div>
-    <div id="hint">drag canvas to pan · scroll to zoom · double-click to file a ticket · drag the right handle to link</div>
+    <div id="hint">drag canvas to pan · scroll to zoom · double-click to file a ticket · drag the right handle to link
+      {props.relationships !== 'none' && <div>Solid arrow: ticket → dependency · Dashed arrow: parent → child</div>}
+    </div>
     {props.children}
   </div>
 })

@@ -103,9 +103,11 @@ test('measured card height updates dependency edge anchors', async ({ page, app 
   const a = await app.create('Source', { x: 0, y: 0 }), b = await app.create('Dependent', { x: 350, y: 0 })
   await app.patch(b, [{ op: 'addDependency', id: a.id }])
   await page.goto(app.url)
+  await page.locator('#relationshipMode').selectOption('all')
   const edge = page.locator('#edgeLayer path[marker-end]'); await expect(edge).toHaveCount(1)
   const before = await edge.getAttribute('d')
   await card(page, a.id).evaluate(el => { el.style.height = '260px' })
   await expect(edge).not.toHaveAttribute('d', before!)
-  await expect(edge).toHaveAttribute('d', /^M248[, ]130/)
+  // The arrow now points from the dependent to its prerequisite.
+  await expect(edge).toHaveAttribute('d', /280,130$/)
 })
