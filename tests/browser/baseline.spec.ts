@@ -240,3 +240,34 @@ test('explicit prose blur still saves after a refresh without external edits', a
   await saved
   await expect.poll(async () => (await app.board()).tickets[0].body.description).toBe('Save deliberately')
 })
+
+test('toolbar labels the server build and its details match /api/version', async ({ page, app, request }) => {
+  const expected = await (await request.get(`${app.url}/api/version`)).json()
+  expect(expected.kind).toBe('version')
+  // Read-only and a phone-width viewport are the constrained cases; a build
+  // label that survives both survives the default layout too.
+  await page.setViewportSize({ width: 390, height: 700 })
+  await page.goto(await app.readOnlyURL())
+  const version = page.locator('#version'), summary = version.locator('> summary')
+  await expect(summary).toBeVisible()
+  const label = expected.modified ? `${expected.version}+dirty` : expected.version
+  await expect(summary).toHaveText(label)
+  expect(label).not.toBe('')
+  await expect(version).not.toHaveAttribute('open')
+  // Keyboard only: tab to the summary and toggle it with Enter.
+  await summary.focus()
+  await page.keyboard.press('Enter')
+  await expect(version).toHaveAttribute('open', '')
+  const cells = await version.locator('dd').allTextContents()
+  expect(cells.slice(0, 4)).toEqual([expected.version, expected.commit.slice(0, 12),
+    expected.modified ? 'yes' : 'no', expected.go])
+  // The disclosure stays inside the viewport and carries no store path.
+  const box = await version.locator('dl').boundingBox()
+  expect(box).not.toBeNull()
+  expect(box!.x).toBeGreaterThanOrEqual(0)
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390)
+  expect(await version.textContent()).not.toContain(app.root)
+  await page.keyboard.press('Enter')
+  await expect(version).not.toHaveAttribute('open')
+  await expect(page.locator('#roBadge')).toBeVisible()
+})

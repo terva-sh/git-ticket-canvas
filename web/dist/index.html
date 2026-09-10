@@ -60,7 +60,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 
 /* ---------- shell ---------- */
-#app { display: grid; grid-template-rows: auto 1fr; height: 100%; }
+#app { display: grid; grid-template-rows: auto 1fr; height: 100%; min-width: 0; }
+#toolbarRoot { min-width: 0; }
+#statusFilters { flex-wrap: wrap; }
+#toolbar .brand { overflow-wrap: anywhere; min-width: 0; }
 
 #toolbar {
   display: flex; align-items: center; gap: 10px;
@@ -88,6 +91,22 @@ input.tool, select.tool { color: var(--ink); }
 .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .badge { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
 .badge.warn { color: var(--p-high); }
+/* Server build identity. A native details keeps the label keyboard-reachable
+   and the body absolutely positioned, so opening it never reflows the toolbar. */
+.version { position: relative; margin-right: 4px; }
+.version > summary { list-style: none; cursor: pointer; padding: 2px 4px; border-radius: 5px; user-select: text; }
+.version > summary::-webkit-details-marker { display: none; }
+.version > summary:hover, .version[open] > summary { color: var(--ink); background: var(--panel-2); }
+.version > summary:focus-visible { outline: 2px solid var(--accent-soft); outline-offset: 1px; }
+.version-details {
+  position: absolute; left: 0; top: calc(100% + 6px); z-index: 30; margin: 0;
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 10px;
+  min-width: 220px; max-width: min(360px, calc(100vw - 24px)); padding: 8px 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 7px;
+  font-family: var(--mono); font-size: 11px; color: var(--ink-dim); box-shadow: 0 6px 20px rgba(0,0,0,.18);
+}
+.version-details dt { color: var(--ink-faint); }
+.version-details dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
 
 /* ---------- canvas ---------- */
 #stage { position: relative; overflow: hidden; cursor: grab; }
@@ -211,7 +230,7 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
 #composer .muted { margin-top: 6px; display: block; }
 [hidden] { display: none !important; }
 </style>
-  <script type="module" crossorigin src="./assets/index-BtzIgFi7.js"></script>
+  <script type="module" crossorigin src="./assets/index-uU6v41kT.js"></script>
 </head>
 <body>
 <div id="app"></div>

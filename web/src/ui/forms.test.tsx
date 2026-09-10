@@ -3,7 +3,7 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { Composer } from './Composer'
-import { Toolbar, type ToolbarProps } from './Toolbar'
+import { Toolbar, versionLabel, type ToolbarProps } from './Toolbar'
 import { FeedbackMessage } from './Feedback'
 import { Inspector } from './Inspector'
 import type { Schema, Ticket } from '../platform/tickets/types'
@@ -104,6 +104,32 @@ it('refreshes toolbar counts without changing search focus or local filters', ()
   expect(element('#counts').textContent).toBe('2 of 3')
   expect(element('#statusFilters button').getAttribute('aria-pressed')).toBe('true')
   for (const id of ['newBoard', 'btnNew', 'btnArrange']) expect(element<HTMLButtonElement>(`#${id}`).disabled).toBe(true)
+})
+it('labels the server build with CLI semantics and honest fallbacks', () => {
+  const p: ToolbarProps = { storePath: '/repo', readOnly: true, boards: ['A'], board: 'A', query: '', config: schema,
+    filters: new Set(), counts: '0 of 0', onQuery: vi.fn(), onFilter: vi.fn(), onBoard: vi.fn(),
+    onNewBoard: vi.fn(), onArrange: vi.fn(), onFit: vi.fn(), onNew: vi.fn() }
+  // In flight: no element at all rather than a blank label.
+  act(() => render(<Toolbar {...p} />, root))
+  expect(root.querySelector('#version')).toBeNull()
+  const released = { schemaVersion: 1, kind: 'version' as const, version: 'v1.2.3', commit: '0123456789abcdef', go: 'go1.25.0', modified: false }
+  for (const [info, label, modified] of [
+    [released, 'v1.2.3', 'no'],
+    [{ ...released, modified: true }, 'v1.2.3+dirty', 'yes'],
+    [{ ...released, version: 'devel', commit: 'unknown' }, 'devel', 'no'],
+    [null, 'unknown', 'unknown'],
+  ] as const) {
+    act(() => render(<Toolbar {...p} version={info} />, root))
+    expect(versionLabel(info)).toBe(label)
+    const summary = element<HTMLElement>('#version > summary')
+    expect(summary.textContent).toBe(label)
+    const cells = [...root.querySelectorAll('#version dd')].map(dd => dd.textContent)
+    expect(cells.slice(0, 4)).toEqual([info?.version ?? 'unknown', info ? info.commit.slice(0, 12) : 'unknown', modified, info?.go ?? 'unknown'])
+    // Read-only disables writes, never the disclosure; the body carries no path.
+    expect(element<HTMLDetailsElement>('#version').hasAttribute('disabled')).toBe(false)
+    expect(element('#version').textContent).not.toContain('/repo')
+  }
+  expect(element('#version').textContent).toContain('did not answer')
 })
 it('shows partial-success feedback as an error and expires only the current message', async () => {
   vi.useFakeTimers()

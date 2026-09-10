@@ -76,6 +76,21 @@ function streamFixture() {
     })
   }
 }
+it('fetches the build identity once and loads the board even when that fails', async () => {
+  const version = vi.spyOn(TicketClient.prototype, 'version').mockRejectedValue(new Error('offline'))
+  await mount()
+  expect(version).toHaveBeenCalledTimes(1)
+  expect(element('#version > summary').textContent).toBe('unknown')
+  await refresh()
+  expect(version).toHaveBeenCalledTimes(1)
+})
+it('shows the server version with the modified marker', async () => {
+  vi.spyOn(TicketClient.prototype, 'version').mockResolvedValue(
+    { schemaVersion: 1, kind: 'version', version: 'v0.1.0', commit: 'a1ee5a5000000000', go: 'go1.25.0', modified: true })
+  await mount()
+  expect(element('#version > summary').textContent).toBe('v0.1.0+dirty')
+  expect(element('#version dd:nth-of-type(2)').textContent).toBe('a1ee5a500000')
+})
 it('stream invalidation updates the board without waiting for a poll', async () => {
   const message = streamFixture(), read = await mount()
   const next = data(); next.tickets[0].title = 'Stream update'

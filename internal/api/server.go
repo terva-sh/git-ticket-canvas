@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
 	"github.com/terva-sh/git-ticket-canvas/internal/layout"
 	"github.com/terva-sh/git-ticket/ticket"
 )
@@ -26,6 +27,10 @@ type Server struct {
 	assets fs.FS
 	now    nowFunc
 	live   *coordinator
+	// version is the build identity GET /api/version serves. It is fixed at
+	// construction and never depends on the store, so the browser can label
+	// the server even while the board is unavailable.
+	version buildinfo.Info
 	// readOnly refuses every write at the edge. It exists so the canvas can be
 	// pointed at a store somebody else is writing without the browser being
 	// able to touch it.
@@ -37,11 +42,14 @@ type Options struct {
 	Actor    ticket.Actor
 	Assets   fs.FS
 	ReadOnly bool
+	// Version is the executable's build identity, from buildinfo.Read(). A
+	// zero value becomes the devel/unknown fallback rather than blank fields.
+	Version buildinfo.Info
 }
 
 // New returns a Server over an open store.
 func New(st *ticket.Store, opts Options) *Server {
-	return &Server{
+	s := &Server{
 		store:    st,
 		layout:   layout.New(st.Path()),
 		actor:    opts.Actor,
@@ -49,7 +57,12 @@ func New(st *ticket.Store, opts Options) *Server {
 		now:      st.Now,
 		readOnly: opts.ReadOnly,
 		live:     newCoordinator(),
+		version:  opts.Version,
 	}
+	if s.version.IsZero() {
+		s.version = buildinfo.Parse(nil)
+	}
+	return s
 }
 
 // Handler returns the router.
@@ -57,6 +70,7 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/board", s.handleBoard)
 	mux.HandleFunc("GET /api/schema", s.handleSchema)
+	mux.HandleFunc("GET /api/version", s.handleVersion)
 	mux.HandleFunc("GET /api/events", s.handleEvents)
 	mux.HandleFunc("POST /api/tickets", s.withStore((*Server).handleCreate))
 	mux.HandleFunc("PATCH /api/tickets/{id}", s.withStore((*Server).handlePatch))
@@ -351,6 +365,14 @@ func (s *Server) schemaFor(cfg ticket.Config) schemaBody {
 		Transitions:    transitions,
 		ReasonRequired: required,
 	}
+}
+
+// handleVersion answers with the same envelope as --version --json. It reads
+// no store state on purpose: a snapshot that failed to build must not hide
+// which build is running.
+func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "private, no-cache")
+	writeJSON(w, http.StatusOK, s.version)
 }
 
 func (s *Server) handleSchema(w http.ResponseWriter, r *http.Request) {

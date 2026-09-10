@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/terva-sh/git-ticket-canvas/internal/api"
+	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
 	"github.com/terva-sh/git-ticket/ticket"
 )
 
@@ -73,7 +74,7 @@ func run() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	srv := api.New(st, api.Options{Actor: actor, Assets: assets, ReadOnly: *readOnly})
+	srv := api.New(st, api.Options{Actor: actor, Assets: assets, ReadOnly: *readOnly, Version: buildinfo.Read()})
 	if err := srv.Start(ctx); err != nil {
 		return err
 	}

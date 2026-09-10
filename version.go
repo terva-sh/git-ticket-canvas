@@ -4,59 +4,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"runtime"
 	"runtime/debug"
-	"strings"
+
+	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
 )
 
-// versionInfo is the standalone CLI version response, not a canvas API DTO.
-type versionInfo struct {
-	SchemaVersion int    `json:"schemaVersion"`
-	Kind          string `json:"kind"`
-	Version       string `json:"version"`
-	Commit        string `json:"commit"`
-	Go            string `json:"go"`
-	Modified      bool   `json:"modified"`
-}
+// versionInfo is the standalone CLI version response. It is the same value
+// GET /api/version serves, so the browser and the terminal agree.
+type versionInfo = buildinfo.Info
 
-// parseBuildVersion follows the metadata conventions in git-ticket/cli/version.go.
-// The Go toolchain supplies these values; no link-time version stamping is needed.
+// parseBuildVersion keeps the CLI's name for buildinfo.Parse.
 func parseBuildVersion(info *debug.BuildInfo) versionInfo {
-	result := versionInfo{
-		SchemaVersion: 1,
-		Kind:          "version",
-		Version:       "devel",
-		Commit:        "unknown",
-		Go:            runtime.Version(),
-	}
-	if info == nil {
-		return result
-	}
-	if info.GoVersion != "" {
-		result.Go = info.GoVersion
-	}
-	if info.Main.Version != "" && info.Main.Version != "(devel)" {
-		result.Version = strings.TrimSuffix(info.Main.Version, "+dirty")
-	}
-	for _, setting := range info.Settings {
-		switch setting.Key {
-		case "vcs.revision":
-			if setting.Value != "" {
-				result.Commit = setting.Value
-			}
-		case "vcs.modified":
-			result.Modified = setting.Value == "true"
-		}
-	}
-	return result
+	return buildinfo.Parse(info)
 }
 
 func writeVersion(w io.Writer, asJSON bool) error {
-	info, _ := debug.ReadBuildInfo()
-	return parseBuildVersion(info).write(w, asJSON)
+	return writeVersionInfo(w, buildinfo.Read(), asJSON)
 }
 
-func (v versionInfo) write(w io.Writer, asJSON bool) error {
+func writeVersionInfo(w io.Writer, v versionInfo, asJSON bool) error {
 	if asJSON {
 		return json.NewEncoder(w).Encode(v)
 	}

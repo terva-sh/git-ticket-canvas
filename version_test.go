@@ -12,50 +12,27 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
 )
 
+// TestParseBuildVersion pins the CLI to buildinfo.Parse. The parser's own
+// cases live in internal/buildinfo; this checks the CLI never diverges.
 func TestParseBuildVersion(t *testing.T) {
-	defaults := versionInfo{SchemaVersion: 1, Kind: "version", Version: "devel", Commit: "unknown", Go: runtime.Version()}
-	for _, tt := range []struct {
-		name string
-		info *debug.BuildInfo
-		want versionInfo
-	}{
-		{name: "missing metadata", want: defaults},
-		{name: "empty metadata", info: &debug.BuildInfo{}, want: defaults},
-		{name: "development module", info: &debug.BuildInfo{Main: debug.Module{Version: "(devel)"}}, want: defaults},
+	for _, info := range []*debug.BuildInfo{
+		nil,
+		{Main: debug.Module{Version: "(devel)"}},
 		{
-			name: "release",
-			info: &debug.BuildInfo{
-				GoVersion: "go1.25.0", Main: debug.Module{Version: "v1.2.3"},
-				Settings: []debug.BuildSetting{{Key: "vcs.revision", Value: "0123456789abcdef"}, {Key: "vcs.modified", Value: "false"}},
-			},
-			want: versionInfo{SchemaVersion: 1, Kind: "version", Version: "v1.2.3", Commit: "0123456789abcdef", Go: "go1.25.0"},
-		},
-		{
-			name: "dirty release",
-			info: &debug.BuildInfo{
-				GoVersion: "go1.25.1", Main: debug.Module{Version: "v1.2.3+dirty"},
-				Settings: []debug.BuildSetting{{Key: "vcs.modified", Value: "true"}, {Key: "vcs.revision", Value: "abcdef"}},
-			},
-			want: versionInfo{SchemaVersion: 1, Kind: "version", Version: "v1.2.3", Commit: "abcdef", Go: "go1.25.1", Modified: true},
-		},
-		{
-			name: "pseudo version",
-			info: &debug.BuildInfo{Main: debug.Module{Version: "v0.0.0-20260909000000-0123456789ab+dirty"}, Settings: []debug.BuildSetting{{Key: "vcs.modified", Value: "true"}}},
-			want: versionInfo{SchemaVersion: 1, Kind: "version", Version: "v0.0.0-20260909000000-0123456789ab", Commit: "unknown", Go: runtime.Version(), Modified: true},
-		},
-		{
-			name: "ignore unrelated and empty settings",
-			info: &debug.BuildInfo{Settings: []debug.BuildSetting{{Key: "vcs.revision", Value: ""}, {Key: "vcs.modified", Value: "invalid"}, {Key: "GOARCH", Value: "arm64"}}},
-			want: defaults,
+			GoVersion: "go1.25.1", Main: debug.Module{Version: "v1.2.3+dirty"},
+			Settings: []debug.BuildSetting{{Key: "vcs.modified", Value: "true"}, {Key: "vcs.revision", Value: "abcdef"}},
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := parseBuildVersion(tt.info); got != tt.want {
-				t.Fatalf("parseBuildVersion() = %+v, want %+v", got, tt.want)
-			}
-		})
+		if got, want := parseBuildVersion(info), buildinfo.Parse(info); got != want {
+			t.Fatalf("parseBuildVersion(%+v) = %+v, want %+v", info, got, want)
+		}
+	}
+	if got, want := parseBuildVersion(nil), (versionInfo{SchemaVersion: 1, Kind: "version", Version: "devel", Commit: "unknown", Go: runtime.Version()}); got != want {
+		t.Fatalf("fallback = %+v, want %+v", got, want)
 	}
 }
 
@@ -64,7 +41,7 @@ func TestVersionOutput(t *testing.T) {
 	for _, modified := range []bool{false, true} {
 		v.Modified = modified
 		var human bytes.Buffer
-		if err := v.write(&human, false); err != nil {
+		if err := writeVersionInfo(&human, v, false); err != nil {
 			t.Fatal(err)
 		}
 		suffix := ""
@@ -76,7 +53,7 @@ func TestVersionOutput(t *testing.T) {
 			t.Errorf("human output = %q, want %q", human.String(), want)
 		}
 		var machine bytes.Buffer
-		if err := v.write(&machine, true); err != nil {
+		if err := writeVersionInfo(&machine, v, true); err != nil {
 			t.Fatal(err)
 		}
 		boolText := "false"
@@ -89,7 +66,7 @@ func TestVersionOutput(t *testing.T) {
 		}
 	}
 	var fallback bytes.Buffer
-	if err := parseBuildVersion(nil).write(&fallback, false); err != nil {
+	if err := writeVersionInfo(&fallback, parseBuildVersion(nil), false); err != nil {
 		t.Fatal(err)
 	}
 	if want := "git-ticket-canvas devel (unknown, " + runtime.Version() + ")\n"; fallback.String() != want {
@@ -104,7 +81,7 @@ func (w versionErrorWriter) Write([]byte) (int, error) { return 0, w.err }
 func TestVersionWriteError(t *testing.T) {
 	want := errors.New("write failed")
 	for _, asJSON := range []bool{false, true} {
-		if err := parseBuildVersion(nil).write(versionErrorWriter{want}, asJSON); !errors.Is(err, want) {
+		if err := writeVersionInfo(versionErrorWriter{want}, parseBuildVersion(nil), asJSON); !errors.Is(err, want) {
 			t.Errorf("write(asJSON=%v) = %v, want %v", asJSON, err, want)
 		}
 	}
@@ -159,7 +136,7 @@ func TestExecutableHelpAndVersionWithoutStore(t *testing.T) {
 			t.Fatalf("incomplete version: %+v", v)
 		}
 		var expected bytes.Buffer
-		if err := v.write(&expected, false); err != nil {
+		if err := writeVersionInfo(&expected, v, false); err != nil {
 			t.Fatal(err)
 		}
 		if stdout != expected.String() {

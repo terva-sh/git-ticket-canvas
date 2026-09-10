@@ -34,6 +34,10 @@ export interface Schema {
   milestones: string[]; series: string[]; actors: Actor[] | null; actor: Actor
   transitions: Record<string, string[] | null>; reasonRequired: Record<string, string[]>
 }
+/** GET /api/version: the same envelope as `git-ticket-canvas --version --json`. */
+export interface VersionInfo {
+  schemaVersion: number; kind: 'version'; version: string; commit: string; go: string; modified: boolean
+}
 export interface BoardResponse {
   layout: Board; boards: string[]; tickets: Ticket[]; config: Schema
   storePath: string; readOnly: boolean

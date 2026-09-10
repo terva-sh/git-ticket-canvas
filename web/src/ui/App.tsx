@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import { TicketClient, ApiError } from '../platform/tickets/client'
 import { TicketStore, LayoutWriter } from '../platform/tickets/store'
 import { LiveUpdates, type LiveStatus } from '../platform/tickets/live'
-import type { CardChanges, Op, Ticket } from '../platform/tickets/types'
+import type { CardChanges, Op, Ticket, VersionInfo } from '../platform/tickets/types'
 import { Canvas, type CanvasHandle } from './Canvas'
 import { Toolbar } from './Toolbar'
 import { Inspector } from './Inspector'
@@ -14,8 +14,12 @@ interface InterfaceState {
   composer: ComposerPosition | null; composerKey: number; generation: number
 }
 export function App() {
-  const [store] = useState(() => new TicketStore(new TicketClient()))
+  const [client] = useState(() => new TicketClient())
+  const [store] = useState(() => new TicketStore(client))
   const [snapshot, setSnapshot] = useState(store.state)
+  // undefined while the one-time fetch is in flight, null once it failed.
+  // The label never renders blank: it waits, then shows a version or unknown.
+  const [version, setVersion] = useState<VersionInfo | null | undefined>(undefined)
   const published = useRef(store.state), publications = useRef(0)
   const [ui, setUI] = useState<InterfaceState>({ selected: null, selection: new Set(), query: '', filters: new Set(),
     composer: null, composerKey: 0, generation: 0 })
@@ -171,6 +175,11 @@ export function App() {
     live.current = updates
     store.onWriteSettled = () => updates.request()
     updates.start()
+    // Build identity is fixed for the life of the process, so one read is
+    // enough. It is independent of the board: a failure here must not stop
+    // loading, and a board failure must not hide which build is running.
+    client.version().then(info => { if (mounted.current) setVersion(info) },
+      () => { if (mounted.current) setVersion(null) })
     const visible = () => { if (!document.hidden) updates.request() }
     const keyboard = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement
@@ -202,7 +211,7 @@ export function App() {
       document.removeEventListener('visibilitychange', visible)
       document.removeEventListener('keydown', keyboard)
     }
-  }, [store])
+  }, [store, client])
   const matches = (ticket: Ticket) => {
     if (ui.filters.size && !ui.filters.has(ticket.status)) return false
     const query = ui.query.trim().toLowerCase()
@@ -217,7 +226,7 @@ export function App() {
   return <>
     <div id="syncStatus" role="status" class="sync-status" hidden={!syncMessage}
       data-connection={sync.connection} data-stale={sync.stale} data-degraded={sync.degraded}>{syncMessage}</div>
-    <div id="toolbarRoot" data-store-publications={publications.current}><Toolbar storePath={snapshot.storePath} readOnly={snapshot.readOnly}
+    <div id="toolbarRoot" data-store-publications={publications.current}><Toolbar storePath={snapshot.storePath} readOnly={snapshot.readOnly} version={version}
       boards={snapshot.boards} board={snapshot.board} config={snapshot.config} query={ui.query} filters={ui.filters}
       counts={`${[...snapshot.tickets.values()].filter(matches).length} of ${snapshot.tickets.size}`}
       onQuery={query => setUI(current => ({ ...current, query }))}

@@ -1,5 +1,5 @@
 import { syncHeaders, type SyncMetadata } from './sync'
-import type { Board, BoardResponse, CreateRequest, DeleteResponse, ErrorBody, LayoutRequest, PatchRequest, Schema, TicketResponse } from './types'
+import type { Board, BoardResponse, CreateRequest, DeleteResponse, ErrorBody, LayoutRequest, PatchRequest, Schema, TicketResponse, VersionInfo } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, public readonly body: ErrorBody) {
@@ -57,6 +57,7 @@ export class TicketClient {
     return { status: 200, data: await this.decode<BoardResponse>(response), etag: response.headers.get('ETag'), ...metadata }
   }
   schema() { return this.request<Schema>('GET', '/api/schema') }
+  version() { return this.request<VersionInfo>('GET', '/api/version') }
   create(body: CreateRequest) { return this.request<TicketResponse>('POST', '/api/tickets', body) }
   patch(id: string, body: PatchRequest) { return this.request<TicketResponse>('PATCH', `/api/tickets/${encodeURIComponent(id)}`, body) }
   layout(body: LayoutRequest) { return this.request<Board>('PUT', '/api/layout', body) }
