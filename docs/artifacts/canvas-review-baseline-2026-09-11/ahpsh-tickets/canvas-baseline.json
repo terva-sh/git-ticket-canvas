@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "fixture": {
+    "archive": "docs/artifacts/canvas-review-baseline-2026-09-11/ahpsh-tickets/ahpsh-tickets.tgz",
+    "sha256": "a6162422b117d113e77b17323fbb7d736df19ae68016051e62605a2c6dd240ab",
+    "ticketCount": 30,
+    "layoutAdapter": {
+      "sourceSchema": 3,
+      "targetSchema": 2,
+      "removedFields": [
+        "pens",
+        "ruleOrder",
+        "inbox"
+      ]
+    }
+  },
+  "viewport": {
+    "width": 2048,
+    "height": 1152,
+    "deviceScaleFactor": 1
+  },
+  "board": "default",
+  "relationships": "all",
+  "selectedTicket": "TKT-01M24GA0PMGWEM80RBS502FGVY",
+  "cards": 30,
+  "relationshipsRendered": 41,
+  "appVersion": {
+    "schemaVersion": 1,
+    "kind": "version",
+    "version": "devel",
+    "commit": "unknown",
+    "go": "go1.26.2",
+    "modified": false
+  },
+  "output": "canvas-baseline.png"
+}
