@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M26SB170M9TGNXHK8W7W5YSM
 title: Filter the canvas by label with include and exclude states
 type: task
-status: draft
-status_reason: null
+status: ready
+status_reason: The user selected this for the next work after reviewing the merged idea tickets.
 priority: normal
 due_on: null
 labels:
@@ -21,7 +21,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-10T23:09:41Z
-updated_at: 2026-09-10T23:19:13Z
+updated_at: 2026-09-11T05:28:02Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -47,3 +47,19 @@ Two things still to decide. Where the label chips live, given that a store with 
 - [ ] The three states are distinguishable without hovering, and the control reports its state to a screen reader.
 - [ ] The card count in the toolbar reflects the label filters, as it does for the status filters.
 - [ ] Label filters and status filters combine by the documented rule, with a test for each combination.
+
+## Notes
+
+**agent:terva/mieli** at 2026-09-11T05:23:42Z
+
+draft to ready: The user selected this for the next work after reviewing the merged idea tickets.
+
+**agent:terva/mieli** at 2026-09-11T05:28:02Z
+
+The user decided the two open questions the Description left.
+
+Placement: one `Labels` button in the toolbar opens a dropdown or popover holding the chips. The button summarizes the active filters, so the current state is readable without opening the popover. This keeps the status row intact and does not commit a second permanent toolbar row.
+
+Scope: the chip list covers every label in the store, not only the labels the current board uses. The control then stays stable as tickets and boards change, at the cost of showing labels that match nothing on this board.
+
+The combining rule in the Description is unchanged and was already decided: includes intersect, excludes win over includes, and label filters AND with status filters.

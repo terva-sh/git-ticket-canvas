@@ -1,7 +1,7 @@
 ---
 schema: 3
 id: TKT-01M26XAVP3G516TPKSH1AW51BT
-title: Color cards from ordered labels with board overrides
+title: Give labels project-wide colors and inherit them on cards
 type: task
 status: draft
 status_reason: null
@@ -22,7 +22,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-11T00:19:30Z
-updated_at: 2026-09-11T00:19:30Z
+updated_at: 2026-09-11T05:22:40Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -34,25 +34,24 @@ extensions: {}
 
 ## Description
 
-Give labels project-wide colors and let cards use those colors without losing the status signal. The current ticket model exposes labels as an ordered `string[]`, while the board card layout stores position and display fields. The canvas card currently has no body-color override.
+Give labels project-wide colors and let cards use those colors without losing the status signal. The ticket model exposes labels as an ordered `string[]`, and the canvas card has no body-color override today.
 
 Add these rules:
 
 - Each project-wide label definition can have a color. The setting applies wherever that label appears, on every board.
-- Users can reorder a ticket's labels in the inspector. Persist that order and use it everywhere labels are displayed. The first label is the primary label for color inheritance.
-- If the first label has a color, the card body inherits that color. Do not scan later labels for a replacement color.
+- If the ticket's first label has a color, the card body inherits that color. Do not scan later labels for a replacement color.
 - If the first label has no color, or the ticket has no labels, the card body falls back to the status color.
-- A card can set its own explicit color. Store that override in the board layout, so the same ticket can have different overrides on different boards. The explicit card color wins over inherited label color and status fallback.
-- Keep the top strip of every card colored by status. The chosen or inherited color applies to the rest of the card body.
-- Offer a shared accessible palette plus an advanced custom color for both label colors and card overrides. Provide a way to clear a color and return to inheritance or status fallback.
+- Keep the top strip of every card colored by status. The inherited or fallback color applies to the rest of the card body.
+- Offer a shared accessible palette plus an advanced custom color. Provide a way to clear a color and return to the status fallback.
 
-The implementation should preserve colors and label order through reloads and board changes. It should define how contrast is checked for card text and controls, since arbitrary custom colors can make the current card text unreadable.
+Colors must survive reloads and board changes. Define how contrast is checked for card text and controls, since an arbitrary custom color can make the current card text unreadable.
+
+Two features were split out of this ticket. TKT-01M27EPDKKW6HGKNKS7A98EQER (Reorder a ticket's labels in the inspector) makes label order editable, which decides which label is first here. TKT-01M27EPDKTCF2GWG0BNZYP933V (Override a card's color per board) adds a per-board explicit card color that overrides this inheritance. This ticket assumes the existing array order and has no card-level override.
 
 ## Acceptance criteria
 
 - [ ] Users can assign, clear, and edit a project-wide color for each label with a shared palette and an advanced custom color option.
-- [ ] Users can reorder labels in the ticket inspector, and the persisted order appears consistently in every label display.
 - [ ] A card body uses only its first label's color for inheritance, then the status color when that label has no color or the ticket has no labels.
-- [ ] A board-specific explicit card color overrides inherited and fallback colors, survives reload, and can differ for the same ticket on different boards.
-- [ ] The top strip remains the ticket's status color while the card body uses the explicit, inherited, or fallback color.
+- [ ] A label color applies on every board wherever that label appears, and survives a reload and a board switch.
+- [ ] The top strip remains the ticket's status color while the card body uses the inherited or fallback color.
 - [ ] Text and controls remain readable for palette and custom colors, with a documented contrast rule and coverage for the fallback paths.

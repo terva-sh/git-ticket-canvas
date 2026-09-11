@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M2441T0PTXRFK6VC4FM1PET7
 title: Route automatic tickets to label-matching canvas pens
 type: task
-status: in-progress
-status_reason: null
+status: ready
+status_reason: Nobody is working this. The claim from the checkpoint session was released and the ticket moved back to ready so the board does not report active work that has stopped. Its three children remain in draft, so the pen work cannot finish until a person promotes them.
 priority: normal
 due_on: null
 labels:
@@ -145,17 +145,10 @@ references:
     path: tests/browser/refresh-support.ts
   - ref: build:frontend-assets
     path: web/dist/index.html
-claim:
-  actor: agent:terva/mieli
-  branch: null
-  worktree: null
-  commit: null
-  session: 13ff7f81-766b-496c-a0e6-4743345e1b86
-  claimed_at: 2026-09-10T20:53:39Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-09T22:19:10Z
-updated_at: 2026-09-10T23:17:45Z
+updated_at: 2026-09-11T05:22:01Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -536,6 +529,10 @@ Recorded in session 20260910-222105-a66a0903 with terva 0.134.6-0.20260910010245
 **agent:terva/mieli** at 2026-09-10T23:17:45Z
 
 Checkpoint review at the user's request: docs/pen-checkpoint-verification.md records implemented foundations, the partially verified committed sampling probe, repaired refresh instrumentation, regenerated assets and passing checks. Checked only definition-of-done item 2 after just check and 53 passing embedded browser tests with five opt-in skips; all end-to-end acceptance criteria remain unchecked. This supersedes historical statements that no build/commit is authorized: the user explicitly requested the checkpoint and approved the test-hook fix and asset regeneration. Three draft children now track sampling verification, opt-in integration and the separately approved activation gate; blocks_on children prevents premature parent closure. No default activation, push or release. Runtime identity and extension versions are recorded in the checkpoint document.
+
+**agent:terva/mieli** at 2026-09-11T05:22:01Z
+
+in-progress to ready: Nobody is working this. The claim from the checkpoint session was released and the ticket moved back to ready so the board does not report active work that has stopped. Its three children remain in draft, so the pen work cannot finish until a person promotes them.
 
 ## Summary
 
