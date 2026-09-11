@@ -110,6 +110,28 @@ input.tool, select.tool { color: var(--ink); }
 }
 .version-details dt { color: var(--ink-faint); }
 .version-details dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+/* Label filters. A store can hold thirty labels, which will not fit the status
+   row, so the chips live in a popover built the same way as the version panel:
+   a native details, absolutely positioned, so opening it never reflows. */
+.label-filter { position: relative; }
+.label-filter > summary { list-style: none; }
+.label-filter > summary::-webkit-details-marker { display: none; }
+.label-filter[open] > summary { color: var(--ink); border-color: var(--ink-faint); }
+.label-filter-body {
+  position: absolute; left: 0; top: calc(100% + 6px); z-index: 30;
+  display: grid; gap: 8px; width: max-content; max-width: min(420px, calc(100vw - 24px));
+  padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 7px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.18);
+}
+.label-filter-head { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+.label-filter-body .chip-row { flex-wrap: wrap; max-height: 320px; overflow-y: auto; }
+.label-filter-empty { margin: 0; font-size: 11px; color: var(--ink-faint); }
+/* The three states differ by border, colour, and a leading mark, so none of
+   them needs a hover or a tooltip to be told apart. */
+.label-chip .mark { font-family: var(--mono); width: 7px; text-align: center; }
+.label-chip[data-state="off"] .mark { color: var(--ink-faint); }
+.label-chip[data-state="include"] { color: var(--ink); border-color: currentColor; background: var(--accent-soft); }
+.label-chip[data-state="exclude"] { color: var(--p-high); border-color: currentColor; text-decoration: line-through; }
 
 /* ---------- canvas ---------- */
 #stage { position: relative; overflow: hidden; cursor: grab; }
@@ -252,7 +274,7 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
 #composer .muted { margin-top: 6px; display: block; }
 [hidden] { display: none !important; }
 </style>
-  <script type="module" crossorigin src="./assets/index-B83_nc-p.js"></script>
+  <script type="module" crossorigin src="./assets/index-6cnCsMnb.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-3zWs_XiM.css">
 </head>
 <body>

@@ -6,13 +6,17 @@ import { captureMembers } from '../platform/canvas/frames'
 import type { Point, View } from '../platform/canvas/geometry'
 import type { Card, CardChanges, Cards, Frame, Frames, Ticket } from '../platform/tickets/types'
 import './FrameCanvas.css'
-import { CardView, matches } from './canvas/CardView'
+import { matchesTicket } from '../platform/tickets/filters'
+import type { LabelFilters } from '../platform/tickets/filters'
+import { CardView } from './canvas/CardView'
 import { CARD_WIDTH, Edges } from './canvas/Edges'
 import type { Placement } from './canvas/Edges'
 import { drawGrid } from './canvas/grid'
 import { useMeasurements } from './canvas/useMeasurements'
 import { ControlMeasurements } from './canvas/controlMeasurements'
 import { SampledFrame } from './canvas/SampledFrame'
+
+const empty: LabelFilters = new Map()
 
 export interface CanvasProps {
   samplingProbe?: import('./canvas/committedSampling').CommittedSampling
@@ -37,6 +41,7 @@ export interface CanvasProps {
   relationships?: import('./canvas/Edges').RelationshipMode
   query: string
   filters: ReadonlySet<string>
+  labelFilters?: LabelFilters
   readOnly: boolean
   onSelect: (id: string, additive: boolean) => void
   onLayout: (board: string, cards: CardChanges) => Promise<unknown>
@@ -488,7 +493,10 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   }, [view, measurements.viewportRevision])
 
   const placed = positions()
-  const matching = new Set([...props.tickets.values()].filter(t => matches(t, props.query, props.filters)).map(t => t.id))
+  // The same predicate the toolbar counts with, so a dimmed card and the count
+  // can never disagree about what the filters mean.
+  const matching = new Set([...props.tickets.values()].filter(ticket => matchesTicket(ticket,
+    { statuses: props.filters, labels: props.labelFilters || empty, query: props.query })).map(t => t.id))
   const gesture = local.gesture
   const ghost = gesture?.kind === 'link' ? { from: gesture.from, point: gesture.point } : null
   return <div id="stage" ref={stage} data-canvas-frame={local.frameCount}

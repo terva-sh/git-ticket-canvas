@@ -2,15 +2,6 @@ import { memo } from 'preact/compat'
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { Ticket } from '../../platform/tickets/types'
 
-export function matches(ticket: Ticket, query: string, filters: ReadonlySet<string>): boolean {
-  if (filters.size && !filters.has(ticket.status)) return false
-  const q = query.trim().toLowerCase()
-  if (!q) return true
-  return [ticket.id, ticket.title, ticket.type, ticket.status, ticket.priority, ticket.milestone,
-    ...(ticket.labels || []), ...(ticket.assignees || []), ticket.body?.description]
-    .filter(Boolean).join(' ').toLowerCase().includes(q)
-}
-
 interface CardViewProps {
   ticket: Ticket
   x: number

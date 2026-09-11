@@ -9,6 +9,7 @@ import type { CardChanges, Cards, Frame, Op, Ticket, VersionInfo } from '../plat
 import { FrameHistory, applyFrameOperation, assertFrameOperation, createFrame, moveFrame, resizeFrame, updateFrame, deleteFrame, setMembership } from '../platform/canvas/frames'
 import type { FrameOperation, FrameState, Point } from '../platform/canvas/frames'
 import { sameJSON } from '../platform/tickets/reconcile'
+import { cycleLabel, labelUniverse, matchesTicket, type LabelFilters } from '../platform/tickets/filters'
 import { FramePanel, FrameMembership } from './FramesPanel'
 import { Canvas, type CanvasHandle } from './Canvas'
 import { Toolbar } from './Toolbar'
@@ -19,6 +20,7 @@ import { FeedbackMessage, type Feedback } from './Feedback'
 
 interface InterfaceState {
   selected: string | null; selection: Set<string>; query: string; filters: Set<string>
+  labelFilters: LabelFilters
   composer: ComposerPosition | null; composerKey: number; generation: number
 }
 export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publicationBridge?: PublicationBridge; samplingProbe?: CommittedSampling }>) {
@@ -34,7 +36,7 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
   const [version, setVersion] = useState<VersionInfo | null | undefined>(undefined)
   const published = useRef(store.state), publications = useRef(0)
   const [ui, setUI] = useState<InterfaceState>({ selected: null, selection: new Set(), query: '', filters: new Set(),
-    composer: null, composerKey: 0, generation: 0 })
+    labelFilters: new Map(), composer: null, composerKey: 0, generation: 0 })
   const [frameUI, setFrameUI] = useState<{ selected: string | null; draft: Frame | null; key: number }>({ selected: null, draft: null, key: 0 })
   const frameLatest = useRef(frameUI); frameLatest.current = frameUI
   const histories = useRef(new Map<string, FrameHistory>())
@@ -333,12 +335,8 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       document.removeEventListener('keydown', keyboard)
     }
   }, [store, client])
-  const matches = (ticket: Ticket) => {
-    if (ui.filters.size && !ui.filters.has(ticket.status)) return false
-    const query = ui.query.trim().toLowerCase()
-    return !query || [ticket.id, ticket.title, ticket.type, ticket.status, ticket.priority, ticket.milestone,
-      ...ticket.labels, ...ticket.assignees, ticket.body.description].filter(Boolean).join(' ').toLowerCase().includes(query)
-  }
+  const matches = (ticket: Ticket) =>
+    matchesTicket(ticket, { statuses: ui.filters, labels: ui.labelFilters, query: ui.query })
   const syncMessage = sync.readFailed ? snapshot.config
     ? 'Refresh failed. Showing the last accepted board; retrying.' : 'Board unavailable. Retrying.'
     : sync.stale ? 'Store data is incomplete or invalid. Showing the last valid board; retrying.'
@@ -358,6 +356,9 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       relationships={relationships} onRelationships={setRelationships}
       onNewFrame={() => canvas.current?.newFrame()} onUndoFrame={() => { void frameHistoryAction(false) }} onRedoFrame={() => { void frameHistoryAction(true) }}
       framePending={!!framePreview} undoFrame={history.undoEntry} redoFrame={history.redoEntry}
+      labels={labelUniverse(snapshot.config?.labels, snapshot.tickets.values())} labelFilters={ui.labelFilters}
+      onLabelFilter={label => setUI(current => ({ ...current, labelFilters: cycleLabel(current.labelFilters, label) }))}
+      onClearLabelFilters={() => setUI(current => ({ ...current, labelFilters: new Map() }))}
       onQuery={query => setUI(current => ({ ...current, query }))}
       onFilter={status => setUI(current => {
         const filters = new Set(current.filters); filters.has(status) ? filters.delete(status) : filters.add(status)
@@ -373,7 +374,7 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       publicationReady={() => mounted.current && !busy.current && !frameRequest.current && published.current === store.state}
       frames={displayed.frames} selectedFrame={frameUI.selected} frameCreating={!!frameUI.draft} layoutBusy={!!framePreview}
       onSelectFrame={selectFrame} onNewFrame={newFrameDraft} onFrameMove={frameMove} onFrameResize={frameResize}
-      statuses={snapshot.config?.statuses || []} selection={ui.selection} query={ui.query} filters={ui.filters}
+      statuses={snapshot.config?.statuses || []} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters}
       relationships={relationships} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>
       <div id="formsRoot">

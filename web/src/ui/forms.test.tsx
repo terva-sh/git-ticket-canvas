@@ -3,7 +3,8 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { Composer } from './Composer'
-import { Toolbar, versionLabel, type ToolbarProps } from './Toolbar'
+import { Toolbar, versionLabel, labelSummary, type ToolbarProps } from './Toolbar'
+import type { LabelFilters } from '../platform/tickets/filters'
 import { FeedbackMessage } from './Feedback'
 import { Inspector } from './Inspector'
 import type { Schema, Ticket } from '../platform/tickets/types'
@@ -104,6 +105,59 @@ it('refreshes toolbar counts without changing search focus or local filters', ()
   expect(element('#counts').textContent).toBe('2 of 3')
   expect(element('#statusFilters button').getAttribute('aria-pressed')).toBe('true')
   for (const id of ['newBoard', 'btnNew', 'btnArrange']) expect(element<HTMLButtonElement>(`#${id}`).disabled).toBe(true)
+})
+const toolbarProps = (extra: Partial<ToolbarProps> = {}): ToolbarProps => ({
+  storePath: '/repo', readOnly: false, boards: ['A'], board: 'A', query: '', config: schema,
+  filters: new Set(), counts: '2 of 2', onQuery: vi.fn(), onFilter: vi.fn(), onBoard: vi.fn(),
+  onNewBoard: vi.fn(), onArrange: vi.fn(), onFit: vi.fn(), onNew: vi.fn(), ...extra,
+})
+const chip = (label: string) => element<HTMLButtonElement>(`.label-chip[data-label="${label}"]`)
+
+it('offers every store label as a chip and cycles it through include and exclude', () => {
+  const onLabelFilter = vi.fn()
+  const p = toolbarProps({ labels: ['canvas', 'ui'], labelFilters: new Map(), onLabelFilter })
+  act(() => render(<Toolbar {...p} />, root))
+  expect([...root.querySelectorAll('.label-chip')].map(c => c.getAttribute('data-label'))).toEqual(['canvas', 'ui'])
+  act(() => chip('ui').click())
+  expect(onLabelFilter).toHaveBeenCalledWith('ui')
+  // The parent owns the state, so each render reflects what it was handed.
+  act(() => render(<Toolbar {...p} labelFilters={new Map([['ui', 'include']]) as LabelFilters} />, root))
+  expect(chip('ui').dataset.state).toBe('include')
+  act(() => render(<Toolbar {...p} labelFilters={new Map([['ui', 'exclude']]) as LabelFilters} />, root))
+  expect(chip('ui').dataset.state).toBe('exclude')
+  act(() => render(<Toolbar {...p} />, root))
+  expect(chip('ui').dataset.state).toBe('off')
+})
+it('distinguishes the three chip states without hovering and names each one', () => {
+  const filters = new Map([['ui', 'include'], ['canvas', 'exclude']]) as LabelFilters
+  act(() => render(<Toolbar {...toolbarProps({ labels: ['canvas', 'ui', 'idea'], labelFilters: filters })} />, root))
+  expect(chip('ui').getAttribute('aria-label')).toBe('ui, included')
+  expect(chip('canvas').getAttribute('aria-label')).toBe('canvas, excluded')
+  expect(chip('idea').getAttribute('aria-label')).toBe('idea, not filtered')
+  // A visible mark, not only colour, so the state survives a monochrome screen.
+  expect([chip('ui'), chip('canvas'), chip('idea')].map(c => c.querySelector('.mark')!.textContent)).toEqual(['+', '\u2212', '\u00b7'])
+})
+it('summarizes the active label filters on the closed button', () => {
+  expect(labelSummary(undefined)).toBe('Labels')
+  expect(labelSummary(new Map())).toBe('Labels')
+  expect(labelSummary(new Map([['ui', 'include']]) as LabelFilters)).toBe('Labels: 1 in')
+  expect(labelSummary(new Map([['ui', 'exclude']]) as LabelFilters)).toBe('Labels: 1 out')
+  const both = new Map([['ui', 'include'], ['canvas', 'include'], ['idea', 'exclude']]) as LabelFilters
+  expect(labelSummary(both)).toBe('Labels: 2 in, 1 out')
+  act(() => render(<Toolbar {...toolbarProps({ labels: ['ui'], labelFilters: both })} />, root))
+  expect(element('#labelFilter > summary').textContent).toBe('Labels: 2 in, 1 out')
+})
+it('clears the label filters only when some are set, and says so when the store has none', () => {
+  const onClearLabelFilters = vi.fn()
+  act(() => render(<Toolbar {...toolbarProps({ labels: ['ui'], labelFilters: new Map(), onClearLabelFilters })} />, root))
+  expect(element<HTMLButtonElement>('#clearLabelFilters').disabled).toBe(true)
+  const set = new Map([['ui', 'include']]) as LabelFilters
+  act(() => render(<Toolbar {...toolbarProps({ labels: ['ui'], labelFilters: set, onClearLabelFilters })} />, root))
+  act(() => element<HTMLButtonElement>('#clearLabelFilters').click())
+  expect(onClearLabelFilters).toHaveBeenCalledTimes(1)
+  act(() => render(<Toolbar {...toolbarProps({ labels: [], labelFilters: new Map() })} />, root))
+  expect(root.querySelector('#labelChips')).toBeNull()
+  expect(element('.label-filter-empty').textContent).toContain('no labels yet')
 })
 it('labels the server build with CLI semantics and honest fallbacks', () => {
   const p: ToolbarProps = { storePath: '/repo', readOnly: true, boards: ['A'], board: 'A', query: '', config: schema,

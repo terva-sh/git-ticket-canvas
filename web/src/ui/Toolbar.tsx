@@ -1,4 +1,5 @@
 import type { Schema, VersionInfo } from '../platform/tickets/types'
+import type { LabelFilters, LabelState } from '../platform/tickets/filters'
 import type { RelationshipMode } from './canvas/Edges'
 
 export interface ToolbarProps {
@@ -11,6 +12,52 @@ export interface ToolbarProps {
   onNewFrame?(): void; onUndoFrame?(): void; onRedoFrame?(): void
   framePending?: boolean; undoFrame?: { label: string; blockedReason?: string }; redoFrame?: { label: string; blockedReason?: string }
   relationships?: RelationshipMode; onRelationships?(mode: RelationshipMode): void
+  /** Every label the store offers, configured or carried by a ticket. */
+  labels?: readonly string[]; labelFilters?: LabelFilters
+  onLabelFilter?(label: string): void; onClearLabelFilters?(): void
+}
+
+const stateWords: Record<LabelState | 'off', string> = {
+  include: 'included', exclude: 'excluded', off: 'not filtered',
+}
+/** What the button says with the popover shut, so the active filters are
+ * readable without opening it. */
+export function labelSummary(filters: LabelFilters | undefined): string {
+  let include = 0, exclude = 0
+  for (const state of filters?.values() || []) if (state === 'include') include++; else exclude++
+  if (!include && !exclude) return 'Labels'
+  const parts = []
+  if (include) parts.push(`${include} in`)
+  if (exclude) parts.push(`${exclude} out`)
+  return `Labels: ${parts.join(', ')}`
+}
+
+/** One chip per label, cycling unselected to include to exclude. A ticket
+ * carries many labels, so this is three-state where a status chip is a
+ * checkbox. The state rides in the accessible name rather than aria-pressed,
+ * which is binary and would report an exclusion as simply not pressed. */
+function LabelFilter(p: ToolbarProps) {
+  const filters = p.labelFilters
+  const active = !!filters?.size
+  return <details class="label-filter" id="labelFilter">
+    <summary class="tool" aria-label={`Filter by label. ${labelSummary(filters)}`}>{labelSummary(filters)}</summary>
+    <div class="label-filter-body">
+      <div class="label-filter-head">
+        <span class="badge">Click to require a label, again to exclude it</span>
+        <button type="button" class="tool" id="clearLabelFilters" disabled={!active}
+          onClick={() => p.onClearLabelFilters?.()}>Clear</button>
+      </div>
+      {p.labels?.length
+        ? <div class="chip-row" id="labelChips">{p.labels.map(label => {
+          const state = filters?.get(label) || 'off'
+          return <button key={label} type="button" class="chip label-chip" data-label={label} data-state={state}
+            aria-label={`${label}, ${stateWords[state]}`} onClick={() => p.onLabelFilter?.(label)}>
+            <i class="mark" aria-hidden="true">{state === 'include' ? '+' : state === 'exclude' ? '\u2212' : '\u00b7'}</i>{label}
+          </button>
+        })}</div>
+        : <p class="label-filter-empty">This store has no labels yet.</p>}
+    </div>
+  </details>
 }
 /** The compact label: the server's version as the CLI prints it, `+dirty`
  * when the build tree was modified, `unknown` when the server did not answer.
@@ -49,6 +96,7 @@ export function Toolbar(p: ToolbarProps) {
     <input id="search" class="tool" type="search" placeholder="Filter  /" autoComplete="off" value={p.query} onInput={e => p.onQuery(e.currentTarget.value)} />
     <div class="chip-row" id="statusFilters">{p.config?.statuses.map(status =>
       <button key={status} class="chip" style={{ color: `var(--s-${status})` }} aria-pressed={p.filters.has(status)} onClick={() => p.onFilter(status)}><i class="dot" />{status}</button>)}</div>
+    <LabelFilter {...p} />
     <div class="spacer" /><span class="badge" id="counts">{p.counts}</span>
     <span class="badge warn" id="roBadge" hidden={!p.readOnly}>read-only</span>
     <label class="relationship-control">Relationships <select id="relationshipMode" class="tool" value={p.relationships || 'selected'}
