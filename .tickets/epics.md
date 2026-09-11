@@ -6,4 +6,4 @@ tickets, and the next fix pass overwrites it.
 
 | Epic | Title | Status |
 |---|---|---|
-| [TKT-01M26YEEBGPYAFDNF6TTM2JVD7](draft/TKT-01M26YEEBGPYAFDNF6TTM2JVD7.md) | Build reproducible canvas fixtures and visual test suites | draft |
+| [TKT-01M26YEEBGPYAFDNF6TTM2JVD7](tickets/TKT-01M26YEEBGPYAFDNF6TTM2JVD7.md) | Build reproducible canvas fixtures and visual test suites | ready |

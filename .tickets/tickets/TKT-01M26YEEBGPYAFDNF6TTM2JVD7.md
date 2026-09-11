@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M26YEEBGPYAFDNF6TTM2JVD7
 title: Build reproducible canvas fixtures and visual test suites
 type: epic
-status: draft
-status_reason: null
+status: ready
+status_reason: "The user asked for the promotion. Six of its nine children are done: the fixture helper, the deterministic capture, the visual checks, relationship clutter, compact card density, and the lane-width measurement. Three remain in draft: edge routing, row pitch, and lane depth."
 priority: normal
 due_on: null
 labels:
@@ -26,7 +26,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-11T00:38:56Z
-updated_at: 2026-09-11T00:38:56Z
+updated_at: 2026-09-11T20:13:44Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -66,3 +66,9 @@ The reference screenshot is currently available in the conversation but not as a
 3. Store the reference image and capture metadata as versioned artifacts.
 4. Add visual or structural assertions for relationship density and compact-card presentation.
 5. Document how to run the fixture suite locally and how to update a baseline intentionally.
+
+## Notes
+
+**agent:terva/mieli** at 2026-09-11T20:13:44Z
+
+draft to ready: The user asked for the promotion. Six of its nine children are done: the fixture helper, the deterministic capture, the visual checks, relationship clutter, compact card density, and the lane-width measurement. Three remain in draft: edge routing, row pitch, and lane depth.
