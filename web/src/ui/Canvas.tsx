@@ -547,6 +547,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
           frameTitle={Object.values(props.frames || {}).find(frame => frame.members.includes(ticket.id))?.title}
           frameMember={!!props.selectedFrame && !!props.frames?.[props.selectedFrame]?.members.includes(ticket.id)}
           target={gesture?.kind === 'link' && gesture.to === ticket.id} register={measurements.register}
+          density={props.density}
           incarnation={props.samplingPublication?.tickets.find(item => item.id === ticket.id)?.incarnation} />
       })}</div>
     </div>

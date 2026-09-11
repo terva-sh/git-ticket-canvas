@@ -1,5 +1,6 @@
 import { memo } from 'preact/compat'
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
+import type { Density } from '../../platform/canvas/geometry'
 import type { Ticket } from '../../platform/tickets/types'
 
 interface CardViewProps {
@@ -13,12 +14,15 @@ interface CardViewProps {
   target: boolean
   frameTitle?: string
   frameMember?: boolean
+  /** How much of the ticket to show. Defaults to the full presentation. */
+  density?: Density
   incarnation?: symbol
   register: (id: string, element: HTMLDivElement, incarnation?: symbol) => (() => void)
 }
 
 // Memoization keeps metadata out of the per-frame pan and link updates.
-export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, selected, dimmed, target, frameTitle, frameMember, incarnation, register }: CardViewProps) {
+export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, selected, dimmed, target, frameTitle, frameMember, density = 'full', incarnation, register }: CardViewProps) {
+  const compact = density === 'compact'
   const element = useRef<HTMLDivElement>(null)
   // Refresh regression diagnostic; unlike DOM mutation counts this sees renders.
   const renders = useRef(0)
@@ -35,13 +39,18 @@ export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, sel
   const labelsId = `labels-${t.id}`
   const ac = t.body?.acceptanceCriteria || []
   const done = ac.filter(item => item.checked).length
-  const classes = ['card', !pinned && 'unpinned', selected && 'selected', dimmed && 'dimmed',
+  // Compact drops the rows that identify a ticket you have already found, and
+  // keeps the ones you scan a board with. Labels carry more of that load once
+  // priority, ownership and the id line are gone, so compact shows three chips
+  // where full shows two, with the rest behind the same disclosure.
+  const shownLabels = compact ? 3 : 2
+  const classes = ['card', compact && 'compact', !pinned && 'unpinned', selected && 'selected', dimmed && 'dimmed',
     frameMember && 'frame-member', target && 'link-target', t.status === 'done' && 'done', t.status === 'archived' && 'archived'].filter(Boolean).join(' ')
   return <div ref={element} class={classes} data-id={t.id} data-render-count={renders.current}
     style={{ transform: `translate(${x}px, ${y}px)`, zIndex: z, '--status': `var(--s-${t.status})` }}>
     <div class="card-title">{t.title}</div>
     <div class="card-state"><span class="pill status">{t.status}</span>
-      <span class={`card-priority prio-${t.priority || 'normal'}`}>{t.priority || 'normal'} priority</span></div>
+      {!compact && <span class={`card-priority prio-${t.priority || 'normal'}`}>{t.priority || 'normal'} priority</span>}</div>
     <div class="card-alerts">
       <span class={t.readiness?.blocked ? 'blocked' : ''}>{t.readiness?.blocked
         ? blockers ? `Blocked by ${blockers}` : 'Blocked'
@@ -51,24 +60,24 @@ export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, sel
     {!!labels.length && <div class="card-labels" onKeyDown={event => {
       if (event.key === 'Escape' && labelsOpen) { event.stopPropagation(); setLabelsOpen(false) }
     }}>
-      {labels.slice(0, 2).map(label => <span key={label} class="pill label" title={label}>{label}</span>)}
-      {labels.length > 2 && <button class="pill label-more" aria-expanded={labelsOpen} aria-controls={labelsId}
-        aria-label={`Show all ${labels.length} labels`} onClick={() => setLabelsOpen(open => !open)}>+{labels.length - 2}</button>}
-      {labels.length > 2 && <div id={labelsId} class="card-label-disclosure" hidden={!labelsOpen}>
+      {labels.slice(0, shownLabels).map(label => <span key={label} class="pill label" title={label}>{label}</span>)}
+      {labels.length > shownLabels && <button class="pill label-more" aria-expanded={labelsOpen} aria-controls={labelsId}
+        aria-label={`Show all ${labels.length} labels`} onClick={() => setLabelsOpen(open => !open)}>+{labels.length - shownLabels}</button>}
+      {labels.length > shownLabels && <div id={labelsId} class="card-label-disclosure" hidden={!labelsOpen}>
         <span>All labels</span>{labels.map(label => <span key={label} class="pill">{label}</span>)}
       </div>}
     </div>}
-    {(!!t.assignees?.length || t.claim) && <div class="card-ownership">
+    {!compact && (!!t.assignees?.length || t.claim) && <div class="card-ownership">
       {!!t.assignees?.length && <span>Assigned: {t.assignees.join(', ')}</span>}
       {t.claim && <span>Claimed: {t.claim.actor}</span>}
     </div>}
-    {t.milestone && <div class="card-ownership">Milestone: {t.milestone}</div>}
+    {!compact && t.milestone && <div class="card-ownership">Milestone: {t.milestone}</div>}
     {!!ac.length && <div class="card-progress"><span>AC {done}/{ac.length}</span>
       <div class="progress" aria-hidden="true"><i style={{ width: `${done / ac.length * 100}%` }} /></div>
     </div>}
-    {frameTitle && <div class="card-frame-membership">Frame: {frameTitle}</div>}
-    <div class="card-head"><span class="card-id">{t.short || t.id}</span><span class="card-type">{t.type}</span>
-      <span class="card-placement">{pinned ? 'Manual' : 'Automatic'}</span></div>
+    {!compact && frameTitle && <div class="card-frame-membership">Frame: {frameTitle}</div>}
+    {!compact && <div class="card-head"><span class="card-id">{t.short || t.id}</span><span class="card-type">{t.type}</span>
+      <span class="card-placement">{pinned ? 'Manual' : 'Automatic'}</span></div>}
     <div class="handle" title="Drag to another card to make that ticket depend on this one" />
   </div>
 })

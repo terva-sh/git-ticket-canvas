@@ -171,6 +171,78 @@ test.describe('dense canvas scene', () => {
     expect((await survey()).positions, 'card positions back at full density').toEqual(full.positions)
   })
 
+  test('compact trims every card to what a board is scanned by', async ({ dense, page }) => {
+    await loadScene(page, dense.url)
+
+    const boxes = () => page.evaluate(() => Object.fromEntries([...document.querySelectorAll('#cards .card')]
+      .map(node => [(node as HTMLElement).dataset.id!,
+        { w: (node as HTMLElement).offsetWidth, h: (node as HTMLElement).offsetHeight }])))
+    const rows = () => page.evaluate(id => [...document.querySelector(`.card[data-id="${id}"]`)!
+      .querySelectorAll('[class]')]
+      .map(node => node.getAttribute('class'))
+      .filter((name): name is string => !!name && name.startsWith('card-')), SCENE.selectedTicket)
+    const ink = (cards: Record<string, { w: number; h: number }>) =>
+      Object.values(cards).reduce((total, box) => total + box.w * box.h, 0)
+
+    const full = await boxes()
+    expect(await rows(), 'rows on the reference card at full density').toEqual(SCENE.cardMetadataRows)
+
+    await page.locator('#cardDensity').selectOption('compact')
+    await expect.poll(() => page.locator('#cards .card').first()
+      .evaluate(card => (card as HTMLElement).offsetWidth)).toBe(SCENE.compactCardWidth)
+    const compact = await boxes()
+
+    expect(await rows(), 'rows on the reference card at compact density')
+      .toEqual(SCENE.compactCardMetadataRows)
+
+    // Narrower is not the claim. A narrower card that wraps its way back to the
+    // same height has bought nothing, so assert that no card grew and that the
+    // board as a whole spends meaningfully less area. Measured on this scene:
+    // median height 226 to 201, shortest 204 to 160, and an area ratio of 0.55.
+    // The threshold sits well above that, because CI renders with other fonts.
+    const taller = Object.entries(compact).filter(([id, box]) => box.h > full[id].h)
+    expect(taller, 'cards that grew in compact').toEqual([])
+    expect(ink(compact) / ink(full), 'compact card area against full').toBeLessThan(0.7)
+
+    // Selection and the link target are states the ticket names, and both are
+    // classes on a card that compact restyles, so drive them rather than
+    // assuming the rules still apply. Two cards on the left, clear of the
+    // inspector, which opens over the right side on selection.
+    const pair = await page.evaluate(() => [...document.querySelectorAll('#cards .card')]
+      .filter(card => card.getBoundingClientRect().right < 800)
+      .slice(0, 2).map(card => (card as HTMLElement).dataset.id!))
+    expect(pair, 'two left-hand cards to link between').toHaveLength(2)
+    const source = page.locator(`.card[data-id="${pair[0]}"]`)
+    const target = page.locator(`.card[data-id="${pair[1]}"]`)
+    await source.click()
+    await expect(source, 'selected state in compact').toHaveClass(/selected/)
+
+    const handle = (await source.locator('.handle').boundingBox())!
+    const drop = (await target.boundingBox())!
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(drop.x + drop.width / 2, drop.y + drop.height / 2, { steps: 8 })
+    await expect(target, 'link-target state in compact').toHaveClass(/link-target/)
+    // Release on empty canvas, so the gesture ends without writing a dependency.
+    await page.mouse.move(40, SCENE.viewport.height - 60, { steps: 8 })
+    await page.mouse.up()
+    await expect(target).not.toHaveClass(/link-target/)
+    expect(await page.locator('#edges .relationship').count(),
+      'the cancelled link wrote no dependency').toBe(SCENE.expectedRelationships)
+
+    // The label disclosure has to stay an overlay. It sits under a card that is
+    // 100px narrower now, and a popover that pushed the rows below it down
+    // would undo the height this mode just bought.
+    const crowded = await page.evaluate(() => (document.querySelector('#cards .card:has(.label-more)') as HTMLElement)?.dataset.id ?? null)
+    expect(crowded, 'a compact card with more labels than it shows').not.toBeNull()
+    const card = page.locator(`.card[data-id="${crowded}"]`)
+    const before = await card.evaluate(node => (node as HTMLElement).offsetHeight)
+    await card.locator('.label-more').click()
+    await expect(card.locator('.card-label-disclosure')).toBeVisible()
+    expect(await card.evaluate(node => (node as HTMLElement).offsetHeight),
+      'card height with the disclosure open').toBe(before)
+  })
+
   test('names one relationship at a time, by selection and by hover', async ({ dense, page }) => {
     await stubBuildIdentity(page)
     await loadScene(page, dense.url)

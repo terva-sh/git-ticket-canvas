@@ -15,9 +15,13 @@ const ticket: Ticket = { id: 'a', short: 'a', title: 'Readable title', revision:
   body: { description: '', plan: '', summary: '', acceptanceCriteria: [{ index: 1, text: 'First', checked: true },
     { index: 2, text: 'Second', checked: false }], definitionOfDone: [], notes: [], comments: [] },
   readiness: { ready: false, blocked: false } }
-function card(t = ticket) {
-  act(() => render(<CardView ticket={t} x={0} y={0} z={1} pinned selected={false} dimmed={false} target={false} register={vi.fn()} />, root))
+function card(t = ticket, density: 'full' | 'compact' = 'full') {
+  act(() => render(<CardView ticket={t} x={0} y={0} z={1} pinned selected={false} dimmed={false} target={false}
+    density={density} register={vi.fn()} />, root))
 }
+const metadataRows = () => [...root.querySelectorAll('[class]')]
+  .map(node => node.getAttribute('class'))
+  .filter((name): name is string => !!name && name.startsWith('card-'))
 it('renders title first, two labels plus disclosure, textual priority and AC counts', () => {
   card()
   expect(root.querySelector('.card')?.firstElementChild?.textContent).toBe('Readable title')
@@ -32,6 +36,41 @@ it('renders title first, two labels plus disclosure, textual priority and AC cou
   expect(root.querySelector('.card-priority')?.textContent).toBe('high priority')
   expect(root.querySelector('.card-alerts')?.textContent).not.toContain('Overdue')
 })
+it('drops identity and ownership rows in compact, and keeps what a board is scanned by', () => {
+  const owned = { ...ticket, assignees: ['mieli'], milestone: 'v0.2.0',
+    readiness: { ready: false, blocked: true, blocking: ['b'] } }
+  card(owned)
+  expect(metadataRows(), 'rows at full density').toEqual([
+    'card-title', 'card-state', 'card-priority prio-high', 'card-alerts', 'card-labels', 'card-label-disclosure',
+    'card-ownership', 'card-ownership', 'card-progress', 'card-head', 'card-id', 'card-type', 'card-placement',
+  ])
+
+  card(owned, 'compact')
+  expect(root.querySelector('.card')?.className).toContain('compact')
+  // Title, status, the blocker and overdue line, labels and AC progress. The
+  // ticket id goes with them: compact is for finding a card, and the inspector
+  // is where you identify the one you found.
+  // `card-label-disclosure` is the overflow popover, which is present but
+  // hidden at both densities. It is not a row the card spends height on.
+  expect(metadataRows(), 'rows at compact density').toEqual([
+    'card-title', 'card-state', 'card-alerts', 'card-labels', 'card-label-disclosure', 'card-progress',
+  ])
+  expect(root.querySelector('.card-title')?.textContent).toBe('Readable title')
+  expect(root.querySelector('.pill.status')?.textContent).toBe('done')
+  expect(root.querySelector('.card-alerts')?.textContent).toContain('Blocked by 1')
+  expect(root.querySelector('.card-progress')?.textContent).toBe('AC 1/2')
+
+  // Labels carry more of the scanning load once the other rows are gone, so
+  // compact shows three chips where full shows two. The rest stay behind the
+  // same disclosure rather than being dropped.
+  expect(root.querySelectorAll('.card-labels > .label')).toHaveLength(3)
+  const more = root.querySelector<HTMLButtonElement>('.label-more')!
+  expect(more.textContent).toBe('+1')
+  act(() => more.click())
+  expect(root.querySelector<HTMLDivElement>('.card-label-disclosure')!.hidden).toBe(false)
+  expect(root.querySelector('.card-label-disclosure')?.textContent).toContain('performance')
+})
+
 it('omits empty AC progress and shows blocked and overdue text for open work', () => {
   card({ ...ticket, status: 'ready', labels: [], readiness: { ready: false, blocked: true, blocking: ['b'] },
     body: { ...ticket.body, acceptanceCriteria: [] } })

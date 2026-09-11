@@ -30,7 +30,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-11T00:32:54Z
-updated_at: 2026-09-11T18:56:13Z
+updated_at: 2026-09-11T19:14:51Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -51,10 +51,10 @@ Use the screenshot's 30-card fit-to-view board as a density regression fixture. 
 ## Acceptance criteria
 
 - [x] The canvas exposes a visible density or detail control with full and compact presentations.
-- [ ] Compact cards retain readable titles, status, selection and link-target states, and the metadata needed to identify blockers or labels during scanning.
-- [ ] Secondary metadata remains available through the inspector or an explicit expand, hover, or focus interaction.
-- [ ] The full presentation remains available and its current inspector and relationship behavior does not regress.
-- [ ] A 30-card fit-to-view board remains distinguishable and usable in compact mode, including cards connected by dependency and parent edges.
+- [x] Compact cards retain readable titles, status, selection and link-target states, and the metadata needed to identify blockers or labels during scanning.
+- [x] Secondary metadata remains available through the inspector or an explicit expand, hover, or focus interaction.
+- [x] The full presentation remains available and its current inspector and relationship behavior does not regress.
+- [x] A 30-card fit-to-view board remains distinguishable and usable in compact mode, including cards connected by dependency and parent edges.
 
 ## Implementation plan
 
@@ -146,3 +146,21 @@ New baseline `dc699217`, with a history entry. The only difference is the `Cards
 Remaining: `CardView`'s compact subset, which is title, status pill, blocker and overdue alerts, AC progress and the first 3 to 5 label chips, and a check that the label disclosure still overlays rather than growing the card.
 
 Gates: `just check` clean, 471 frontend tests, 75 tooling tests, 64 browser tests with 6 skipped, and the pixel gate green.
+
+**agent:terva/mieli** at 2026-09-11T19:14:44Z
+
+Step 5 is done and uncommitted. Compact is now shorter as well as narrower, which is the claim the whole ticket rests on.
+
+`CardView` takes `density`. Compact keeps the title, the status pill, the blocker and overdue line, the labels and AC progress. It drops the priority text, the assignee and claim rows, the milestone, the frame membership line and the whole `card-head`, which is the id, the type and the Manual or Automatic marker. Dropping the id is deliberate: compact is for finding a card, and the inspector is where you identify the one you found.
+
+Labels go the other way. Compact shows three chips where full shows two, because once priority, ownership and the id line are gone the labels carry the scanning load on their own. The rest stay behind the same disclosure rather than being dropped, which is the user's "first 3 to 5, does not need to be all".
+
+Measured on the 30-card scene, full against compact: rows on a card 10 to 5, median height 226 to 201, shortest 204 to 160, total height 6850 to 5859, and total card area at 0.55 of full. The browser case asserts the direction rather than these numbers, because CI renders with other fonts: no card grew, and the area ratio is under 0.7.
+
+Viewing the capture caught a defect every test had passed over. At 72px wide the chips inherited `overflow-wrap: anywhere` from full mode, so `maintenance` rendered as `maintenan` over `ce`, and `deployment` as `deploymen` over `t`. A chip that wraps inside itself is worse than a cut one and costs height as well. Compact chips are now one line each with an ellipsis, and the full text stays in the title attribute and in the disclosure. This is the second time on this ticket that looking at the image found something the assertions could not.
+
+Criteria 2 through 5 are ticked, with the evidence spread across three places. The row subset and the chip counts are in `readability.test.tsx` at both densities. The rest is in the browser case: the reference card's rows at each density, no card growing, the area ratio, the label disclosure opening without changing card height, and selection and link-target driven as real gestures rather than read off the stylesheet. The link gesture releases over empty canvas and the test then checks the edge count is still 41, so the cancel wrote nothing. Criterion 5 also rests on looking at the compact 30-card board rather than on counts.
+
+Full mode is untouched, and the pixel baseline passing unchanged is the evidence: every compact rule is scoped to `.card.compact`, and the capture stays in full mode, so `dc699217` still matches.
+
+Gates: `just check` clean, 472 frontend tests, 75 tooling tests, 65 browser tests with 6 skipped, and the pixel gate green.

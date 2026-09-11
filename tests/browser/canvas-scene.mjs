@@ -37,6 +37,14 @@ export const SCENE = {
     'card-title', 'card-state', 'card-priority prio-normal', 'card-alerts',
     'card-labels', 'card-progress', 'card-head', 'card-id', 'card-type', 'card-placement',
   ],
+  // The same card in compact. Priority goes, and so do the id, type and
+  // placement of the `card-head` line: compact is for finding a card, and the
+  // inspector is where you identify the one you found. The reference ticket
+  // carries two labels, which is under the three compact shows, so no
+  // disclosure appears here at either density.
+  compactCardMetadataRows: [
+    'card-title', 'card-state', 'card-alerts', 'card-labels', 'card-progress',
+  ],
   selectedTitle: 'Prepare the first live event and future themes',
 }
 

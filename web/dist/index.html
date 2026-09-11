@@ -154,6 +154,22 @@ input.tool, select.tool { color: var(--ink); }
   border-left: 3px solid var(--status, var(--s-draft));
 }
 .card.unpinned { border-style: dashed; }
+/* Compact. The card is narrower, so the rows that survive have to give back
+   vertical space too, or a 180px card only wraps its way back to full height.
+   Labels wrap here because three chips do not fit one 180px row, which is the
+   one place compact spends height rather than saving it. */
+.card.compact { padding: 11px; }
+.card.compact .card-title { font-size: 14px; line-height: 1.35; margin-bottom: 8px; }
+.card.compact .card-alerts { margin: 6px 0; }
+.card.compact .card-labels { flex-wrap: wrap; gap: 4px; margin: 7px 0; }
+/* One line per chip, cut with an ellipsis. Full mode breaks a long label
+   anywhere to keep it whole, which at 72px turns `maintenance` into `maintenan`
+   over `ce`. The full text stays in the title attribute and in the disclosure. */
+.card.compact .card-labels > .label {
+  max-width: 72px; overflow-wrap: normal; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.card.compact .card-progress { margin-top: 8px; }
 .card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), 0 8px 22px -10px rgba(0,0,0,.6); }
 .card.dimmed { opacity: .18; }
 .card.link-target { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
@@ -287,7 +303,7 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
 #composer .muted { margin-top: 6px; display: block; }
 [hidden] { display: none !important; }
 </style>
-  <script type="module" crossorigin src="./assets/index-BTZKLUKS.js"></script>
+  <script type="module" crossorigin src="./assets/index-BAhjZiCK.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-3zWs_XiM.css">
 </head>
 <body>
