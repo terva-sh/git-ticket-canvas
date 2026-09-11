@@ -1,6 +1,22 @@
 # Release usage: README-release.md. Development details: README-git-ticket-canvas.md
 set positional-arguments
 
+# Forwarding arguments: declare `*args` with no default and forward with "$@".
+# Measured, because two plausible alternatives are both wrong:
+#   *args="" with "$@"  hands the command one empty argument when you pass none.
+#                       Harmless where the command takes only forwarded args, and
+#                       wrong where the recipe carries its own filter: playwright
+#                       given a spec path plus "" ran all 71 tests instead of 7.
+#   {{args}}            splits a quoted argument. `-g "one relationship at a time"`
+#                       reached playwright as `-g one` plus four stray filters and
+#                       matched 3 tests instead of 1.
+# `*args` with "$@" passes nothing when empty and keeps quoted arguments whole.
+#
+# Do not put a bare -- before a filter. just forwards it literally: `just
+# web-test -- geometry` sent vitest `--` and ran all 30 files rather than 1, and
+# the same habit made playwright run the whole suite. A leading dash needs no
+# escaping, so `just browser-test-embedded --list` works as written.
+
 # List available recipes.
 default:
     @just --list
@@ -15,11 +31,11 @@ install DIR="": web-build
     bash scripts/install-local.sh "$@"
 
 # Rebuild and run; forward arguments unchanged to git-ticket-canvas.
-run *args="": build
+run *args: build
     exec ./git-ticket-canvas "$@"
 
 # Run all Go tests with the race detector and coverage; accepts Go test flags.
-test *args="":
+test *args:
     go test -race -cover "$@" ./...
 
 # Format Go source files in place.
@@ -44,17 +60,16 @@ browser-setup:
     npx playwright install chromium
 
 # Rebuild assets and test the bundled frontend against isolated Go servers.
-browser-test *args="":
+browser-test *args:
     npm run test:browser -- "$@"
 
 # Compare the dense canvas against the reviewed baseline image. Local only: CI
 # renders with Alpine Chromium and font-noto, this machine with Playwright's
 # Chromium, and the two disagree on text. See docs/canvas-baseline.md.
-# `{{args}}` rather than "$@": with no arguments the latter passes one empty
-# string, Playwright reads it as a filter matching every file, and the recipe
-# quietly runs the whole suite instead of this spec.
-canvas-visual *args="":
-    CANVAS_VISUAL=1 npm exec -- playwright test tests/browser/canvas-density.spec.ts {{args}}
+# This recipe carries its own spec path, so it is the one where a phantom empty
+# argument does real damage. See the forwarding rule at the top of this file.
+canvas-visual *args:
+    CANVAS_VISUAL=1 npm exec -- playwright test tests/browser/canvas-density.spec.ts "$@"
 
 # Install the locked frontend dependencies.
 web-setup:
@@ -65,7 +80,7 @@ web-build:
     npm run build
 
 # Run platform, component, and import-boundary tests.
-web-test *args="":
+web-test *args:
     npm run test:unit -- "$@"
 
 # Test the dist verifier's rejection and cleanup paths.
@@ -77,7 +92,7 @@ dist-verify:
     node scripts/verify-dist.mjs
 
 # Test existing embedded assets without npm's rebuild prehook.
-browser-test-embedded *args="":
+browser-test-embedded *args:
     npm exec -- playwright test "$@"
 
 # Build/install clean HEAD with only Go on PATH. Requires Python 3.12+ and Git.
@@ -103,11 +118,11 @@ web-typecheck:
     npm run typecheck
 
 # Start Vite on loopback; /api proxies to GIT_TICKET_CANVAS_API_URL or localhost:7777.
-web-dev *args="":
+web-dev *args:
     npm run dev -- "$@"
 
 # Start the Go API for Vite, using committed assets; accepts application flags.
-api-dev *args="":
+api-dev *args:
     go build -o git-ticket-canvas .
     exec ./git-ticket-canvas "$@"
 
