@@ -3,6 +3,8 @@ import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { delimiter, join, relative } from 'node:path'
+// @ts-expect-error one JavaScript module serves the specs and the capture script
+import { unpackCanvasFixture } from './canvas-fixture.mjs'
 
 async function stop(child: ChildProcess) {
   if (!child.pid || child.exitCode !== null || child.signalCode !== null) return
@@ -91,7 +93,13 @@ async function snapshot(root: string, dir = root): Promise<Record<string, string
   return result
 }
 
-export const test = base.extend<{ app: App }>({
+/** A server on the committed 30-ticket AHPSH fixture, for the dense scene. */
+interface Dense {
+  url: string
+  root: string
+}
+
+export const test = base.extend<{ app: App; dense: Dense }>({
   app: async ({ request }, use) => {
     const root = await mkdtemp(join(tmpdir(), 'git-ticket-canvas-browser-store-'))
     const servers: ChildProcess[] = []
@@ -135,6 +143,20 @@ export const test = base.extend<{ app: App }>({
     } finally {
       await Promise.all(servers.map(stop))
       await rm(root, { recursive: true, force: true })
+    }
+  },
+  // The archive unpacks into a fresh directory per call, so the two workers
+  // `playwright.config` sets cannot delete each other's store mid-run.
+  dense: async ({}, use) => {
+    const fixture = await unpackCanvasFixture()
+    const servers: ChildProcess[] = []
+    try {
+      const server = await start(fixture.store, false)
+      servers.push(server.child)
+      await use({ url: server.url, root: fixture.store })
+    } finally {
+      await Promise.all(servers.map(stop))
+      await fixture.cleanup()
     }
   },
 })

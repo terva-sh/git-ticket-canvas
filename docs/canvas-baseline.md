@@ -47,6 +47,36 @@ The helper is plain `.mjs` on purpose. `tests/browser` is not in the `tsconfig.j
 
 `just tooling-test` covers it: two concurrent callers getting separate stores, cleanup, a double cleanup, a pinned path, a pinned path replacing stale content, and a bad archive.
 
+## The visual suite
+
+`tests/browser/canvas-density.spec.ts` is the regression gate for the dense scene. It holds two tests, and they are split on purpose.
+
+The structural test runs everywhere, including CI. It asserts the board, the relationship mode, 30 cards, 41 relationships, the inspector open on the reference ticket, the stubbed toolbar, the right-side cluster as counts, and the metadata rows a full card presents. Each assertion carries its own message, so a dropped edge fails as `rendered relationships` rather than as a picture with some pixels moved. The edge counts are checked twice, against the recorded numbers and against the store: 30 dependency edges are the 30 dependency links in the fixture, and 11 parent edges are the 11 tickets with a parent. A fixture swap that changes what the scene means therefore fails too.
+
+The pixel test is opt-in and local:
+
+```sh
+just canvas-visual
+```
+
+It skips unless `CANVAS_VISUAL` is set, and the skip message says why. CI runs `just parity-check` inside `golang:1.25-alpine` with distro Chromium and `font-noto`, while a developer machine runs Playwright's pinned Chromium. The two render text differently, and Playwright's per-platform suffix is `-linux` for both, so one committed image cannot serve both and a CI pixel gate would fail over fonts rather than over the canvas.
+
+There is one baseline image, not two. `snapshotPathTemplate` in `playwright.config.ts` resolves the snapshot to `canvas-baseline.png`, the artifact above, so the gate compares against the image a person reviewed. Playwright's default would have written a second copy beside the spec, byte-identical on the day it was made and free to drift after. On a mismatch it keeps the expected, actual and diff images, an error context and a trace under `test-results`, which `.gitignore` already excludes.
+
+## Changing the baseline on purpose
+
+Regenerate the image with the capture, never with `--update-snapshots`:
+
+```sh
+npm run capture:canvas-baseline
+```
+
+Then add an entry to `baseline-history.json`, newest first, saying what changed in the picture and what made it intentional. `tests/tooling/canvas-baseline.test.mjs` holds the line: the committed PNG must match the newest history entry, `canvas-baseline.json` must record the same bytes in `pngSha256`, and every entry needs a ticket, a date and a reason of at least 80 characters.
+
+That is also what stops the shortcut. `playwright --update-snapshots` writes the PNG and cannot write the metadata beside it, so the checksums disagree and the tooling test names the capture command. Verified by truncating the image: both checks failed with that message, and restoring it returned the suite to green.
+
+The two child tickets will change these numbers on purpose. `TKT-01M26Y32BZHJFXFGRYZ37TWYFP` (Reduce relationship clutter in the all-edges view) moves `rightHalf.edgesTouching` in `tests/browser/canvas-scene.mjs`, and `TKT-01M26Y3D0BAX6KGND8PYXXR918` (Add a compact card density mode for large boards) moves `cardMetadataRows`. Both already depend on this suite. Editing those constants with a new baseline entry is the intended workflow, and leaving them untouched while the render changes is the failure the gate is for.
+
 ## How the capture stays build-independent
 
 The toolbar renders the build version beside the brand. `versionLabel(version)` carries the commit SHA on a git-described build, so without help the image changes on every commit and a visual gate blames whatever landed in it.

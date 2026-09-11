@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "comment": "Every canvas baseline, newest first. The first entry must match the committed canvas-baseline.png and the pngSha256 in canvas-baseline.json. tests/tooling/canvas-baseline.test.mjs enforces that, so a baseline cannot change without someone writing down why.",
+  "baselines": [
+    {
+      "sha256": "1688493a9730949f88f777dceb874d551670b09571f527e91886a6ef4f42dc4c",
+      "recordedOn": "2026-09-11",
+      "ticket": "TKT-01M26YFC1Y1XTK2RW2XYN4FFGW",
+      "reason": "The capture now finishes CSS transitions before the shot. Selecting a card starts a .16s inspector slide and a .12s handle fade, and no wait in the scene waited for either, so earlier baselines could be taken mid-transition. The inspector and the selected card's handle therefore sit at their end state in this image. Verified across eight consecutive runs and three build configurations."
+    },
+    {
+      "sha256": "ad4291f6651cf8211107002b25520b19b238581b7c3caf79e92d75df8161dd9a",
+      "recordedOn": "2026-09-11",
+      "ticket": "TKT-01M27GQJPMBKCGRD9T0ES3WV7C",
+      "reason": "Superseded. First baseline with the build version and store path served as constants, so the toolbar reads `baseline` rather than a commit SHA and a temporary directory. It agreed across two captures and was still caught later by the animation race, which two samples cannot detect."
+    },
+    {
+      "sha256": "75fd5785ba7cafc07acd3acff6ca6f3d1cc7a49c4d70e55f156dfb27339e85cc",
+      "recordedOn": "2026-09-11",
+      "ticket": "TKT-01M26YFRD2YJS7116WT5ACZYGW",
+      "reason": "Superseded. The first capture of the dense scene. It predates the version stub, so its toolbar carries a real build, and it predates the Labels filter button, which added a toolbar control and pushed the card count and relationship selector onto a second row."
+    }
+  ]
+}

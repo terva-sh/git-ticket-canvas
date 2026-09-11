@@ -47,6 +47,15 @@ browser-setup:
 browser-test *args="":
     npm run test:browser -- "$@"
 
+# Compare the dense canvas against the reviewed baseline image. Local only: CI
+# renders with Alpine Chromium and font-noto, this machine with Playwright's
+# Chromium, and the two disagree on text. See docs/canvas-baseline.md.
+# `{{args}}` rather than "$@": with no arguments the latter passes one empty
+# string, Playwright reads it as a filter matching every file, and the recipe
+# quietly runs the whole suite instead of this spec.
+canvas-visual *args="":
+    CANVAS_VISUAL=1 npm exec -- playwright test tests/browser/canvas-density.spec.ts {{args}}
+
 # Install the locked frontend dependencies.
 web-setup:
     npm ci
