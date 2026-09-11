@@ -539,7 +539,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     </div>
     {props.frameCreating && <div id="frameDrawHint" role="status">Draw on empty canvas to capture card centers, or enter bounds in the frame panel. Escape cancels.</div>}
     <div id="hint">drag canvas to pan · scroll to zoom · double-click to file a ticket · drag the right handle to link
-      {props.relationships !== 'none' && <div>Solid arrow: ticket → dependency · Dashed arrow: parent → child</div>}
+      {props.relationships !== 'none' && <div>Solid arrow: ticket → dependency · Dashed warm arrow: parent → child · hover or select to name one edge</div>}
     </div>
     {props.children}
   </div>

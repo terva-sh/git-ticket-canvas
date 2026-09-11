@@ -75,7 +75,9 @@ Then add an entry to `baseline-history.json`, newest first, saying what changed 
 
 That is also what stops the shortcut. `playwright --update-snapshots` writes the PNG and cannot write the metadata beside it, so the checksums disagree and the tooling test names the capture command. Verified by truncating the image: both checks failed with that message, and restoring it returned the suite to green.
 
-The two child tickets will change these numbers on purpose. `TKT-01M26Y32BZHJFXFGRYZ37TWYFP` (Reduce relationship clutter in the all-edges view) moves `rightHalf.edgesTouching` in `tests/browser/canvas-scene.mjs`, and `TKT-01M26Y3D0BAX6KGND8PYXXR918` (Add a compact card density mode for large boards) moves `cardMetadataRows`. Both already depend on this suite. Editing those constants with a new baseline entry is the intended workflow, and leaving them untouched while the render changes is the failure the gate is for.
+The child tickets change the picture on purpose, and not always the counts. `TKT-01M26Y32BZHJFXFGRYZ37TWYFP` (Reduce relationship clutter in the all-edges view) landed a new baseline while every number here held: same 30 cards, same 41 edges, same cluster counts, because it changed what edges paint rather than where anything sits. I had predicted it would move `rightHalf.edgesTouching`, and it did not. `TKT-01M26Y3D0BAX6KGND8PYXXR918` (Add a compact card density mode for large boards) is the one that should move `cardMetadataRows` in `tests/browser/canvas-scene.mjs`.
+
+That is the division the gate is built on. A change that only repaints needs a new baseline entry and leaves the constants alone. A change that moves or restructures cards fails a structural assertion first, and editing that constant is how you say the move was intended.
 
 ## How the capture stays build-independent
 

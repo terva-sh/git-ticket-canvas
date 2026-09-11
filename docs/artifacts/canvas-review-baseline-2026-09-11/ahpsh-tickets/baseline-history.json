@@ -3,6 +3,12 @@
   "comment": "Every canvas baseline, newest first. The first entry must match the committed canvas-baseline.png and the pngSha256 in canvas-baseline.json. tests/tooling/canvas-baseline.test.mjs enforces that, so a baseline cannot change without someone writing down why.",
   "baselines": [
     {
+      "sha256": "79faddf42df8b55535e1d08dfec7f7a2383f0154914ac4c9582991b70ff59472",
+      "recordedOn": "2026-09-11",
+      "ticket": "TKT-01M26Y32BZHJFXFGRYZ37TWYFP",
+      "reason": "Relationship clutter. The scene previously drew a text label on all 41 edges, each reading either `depends on` or `parent of`, which the dash pattern already said. Labels now appear only on the emphasised edges, which here are the six touching the selected ticket, and the other 35 fade to 0.28 rather than hide. Parent edges also changed colour to --edge-parent with their own arrow marker, so kind survives at fit-to-view scale. Card positions and both counts are unchanged: still 30 cards and 41 edges."
+    },
+    {
       "sha256": "1688493a9730949f88f777dceb874d551670b09571f527e91886a6ef4f42dc4c",
       "recordedOn": "2026-09-11",
       "ticket": "TKT-01M26YFC1Y1XTK2RW2XYN4FFGW",

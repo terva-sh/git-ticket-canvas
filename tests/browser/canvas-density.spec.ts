@@ -29,6 +29,30 @@ function countKinds(edges: Edge[]): Record<string, number> {
   return counts
 }
 
+/**
+ * A point on an edge's hit path where that path is the topmost element. Cards
+ * render after the edge layer and sit over it, so an edge's midpoint is often
+ * covered, and hovering it would land on a card instead. Walking the path and
+ * asking `elementFromPoint` also proves an edge is pointable at all in a scene
+ * this dense, which is the thing the hover behaviour depends on.
+ */
+async function exposedEdgePoint(page: Page, selector: string) {
+  return page.evaluate(query => {
+    for (const path of [...document.querySelectorAll(query)] as SVGPathElement[]) {
+      const length = path.getTotalLength()
+      const ctm = path.getScreenCTM()
+      if (!length || !ctm) continue
+      for (let step = 1; step < 20; step++) {
+        const point = path.getPointAtLength(length * step / 20).matrixTransform(ctm)
+        if (document.elementFromPoint(point.x, point.y) !== path) continue
+        const owner = path.closest('.relationship') as SVGGElement
+        return { x: point.x, y: point.y, from: owner.dataset.from!, to: owner.dataset.to! }
+      }
+    }
+    return null
+  }, selector)
+}
+
 test.describe('dense canvas scene', () => {
   test('renders the reference scene, card for card and edge for edge', async ({ dense, page }) => {
     await stubBuildIdentity(page)
@@ -76,6 +100,72 @@ test.describe('dense canvas scene', () => {
     // Last, because it is the assertion most likely to be made obsolete by a
     // toolbar change, and the ones above say more about what broke.
     await assertStableChrome(page)
+  })
+
+  test('names one relationship at a time, by selection and by hover', async ({ dense, page }) => {
+    await stubBuildIdentity(page)
+    await loadScene(page, dense.url)
+
+    // Forty-one edges and not one label, which is the clutter this removed.
+    await expect(page.locator('#edges .relationship')).toHaveCount(SCENE.expectedRelationships)
+    await expect(page.locator('#edges .edge-label')).toHaveCount(0)
+    await expect(page.locator('#edges .relationship.faded')).toHaveCount(0)
+
+    await selectReference(page)
+    const touching = await page.locator(`#edges .relationship[data-from="${SCENE.selectedTicket}"], `
+      + `#edges .relationship[data-to="${SCENE.selectedTicket}"]`).count()
+    expect(touching, 'the reference ticket has relationships to name').toBeGreaterThan(0)
+    await expect(page.locator('#edges .relationship[data-emphasised=true]')).toHaveCount(touching)
+    await expect(page.locator('#edges .edge-label')).toHaveCount(touching)
+    // The rest fade rather than disappear.
+    await expect(page.locator('#edges .relationship.faded'))
+      .toHaveCount(SCENE.expectedRelationships - touching)
+
+    // Hover a real point on a faded edge, which also proves the transparent hit
+    // path receives pointer events through `#edges { pointer-events: none }`.
+    const point = await exposedEdgePoint(page, '#edges .relationship.faded .edge-hit')
+    expect(point, 'a faded edge with a point no card covers').not.toBeNull()
+    await page.mouse.move(point!.x, point!.y)
+    const emphasised = page.locator('#edges .relationship[data-emphasised=true]')
+    await expect(emphasised).toHaveCount(1)
+    await expect(emphasised).toHaveAttribute('data-from', point!.from)
+    await expect(page.locator('#edges .edge-label')).toHaveCount(1)
+  })
+
+  test('an edge does not swallow the canvas pan', async ({ dense, page }) => {
+    await stubBuildIdentity(page)
+    await loadScene(page, dense.url)
+    // Enabling pointer events on edges could have stolen pointerdown from the
+    // stage. canvasTarget accepts anything inside #scene, so a press on an edge
+    // should still start a pan. Measure it rather than trust the reading.
+    const point = await exposedEdgePoint(page, '#edges .relationship .edge-hit')
+    expect(point, 'an edge with a point no card covers').not.toBeNull()
+    const transform = () => page.locator('#scene').evaluate(node => node.style.transform)
+    const before = await transform()
+    await page.mouse.move(point!.x, point!.y)
+    await page.mouse.down()
+    await page.mouse.move(point!.x + 120, point!.y + 60, { steps: 4 })
+    await page.mouse.up()
+    expect(await transform(), 'pressing an edge still pans the canvas').not.toBe(before)
+  })
+
+  test('selected and none modes still focus and hide', async ({ dense, page }) => {
+    await stubBuildIdentity(page)
+    await loadScene(page, dense.url)
+    await selectReference(page)
+    const touching = await page.locator(`#edges .relationship[data-from="${SCENE.selectedTicket}"], `
+      + `#edges .relationship[data-to="${SCENE.selectedTicket}"]`).count()
+
+    await page.locator('#relationshipMode').selectOption('selected')
+    // Selected renders the selection's edges only, and every one of them is
+    // emphasised, so nothing fades and the mode keeps its meaning.
+    await expect(page.locator('#edges .relationship')).toHaveCount(touching)
+    await expect(page.locator('#edges .relationship.faded')).toHaveCount(0)
+    await expect(page.locator('#edges .edge-label')).toHaveCount(touching)
+
+    await page.locator('#relationshipMode').selectOption('none')
+    await expect(page.locator('#edges .relationship')).toHaveCount(0)
+    await expect(page.locator('#edges .edge-label')).toHaveCount(0)
   })
 
   test('matches the committed visual baseline', async ({ dense, page }) => {

@@ -20,6 +20,9 @@
   --accent: #6aa3f0;
   --accent-soft: #2a3a52;
   --edge: #8194b0;
+  /* Parent edges carry a warm colour as well as the dash, so kind survives at
+     fit-to-view scale where a 5px dash pattern does not. */
+  --edge-parent: #c08f5e;
   --danger: #e2686a;
 
   --s-draft: #7d8798;
@@ -45,7 +48,7 @@
     --bg: #f4f5f7; --grid: #eef0f3; --grid-strong: #e5e8ed;
     --panel: #ffffff; --panel-2: #f7f8fa; --line: #d9dce3; --line-soft: #e6e9ee;
     --ink: #1a1d23; --ink-dim: #5b626f; --ink-faint: #868d9a;
-    --accent: #2f6fd0; --accent-soft: #dbe7fa; --edge: #5d7393;
+    --accent: #2f6fd0; --accent-soft: #dbe7fa; --edge: #5d7393; --edge-parent: #8a5a24;
     --danger: #ad303e; --p-high: #805000; --p-urgent: #ad303e;
     --s-ready: #245fae; --s-done: #237044; --s-in-progress: #805000;
   }
@@ -176,6 +179,15 @@ input.tool, select.tool { color: var(--ink); }
 .card-progress { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--ink-dim); margin-top: 12px; }
 .card-progress .progress { flex: 1; margin: 0; }
 .edge-label { fill: var(--ink-dim); font: 11px var(--sans); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+/* #edges is pointer-events: none so the canvas keeps its gestures. Each edge
+   re-enables them on a wide transparent path, which is the only hover target.
+   A pointer-down there still reaches the stage and starts a pan, because
+   canvasTarget accepts anything inside #scene. */
+.edge-hit { pointer-events: stroke; }
+/* Deliberately no transition on edge opacity or width. A finite transition here
+   would make the baseline capture depend on when the shot lands, which is the
+   bug TKT-01M26YFC1Y spent a session finding. */
+.relationship.emphasised .edge-label { fill: var(--ink); }
 .relationship-control { font-size: 11px; color: var(--ink-dim); }
 button:focus-visible, summary:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .card-meta { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-top: 7px; }
@@ -274,7 +286,7 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
 #composer .muted { margin-top: 6px; display: block; }
 [hidden] { display: none !important; }
 </style>
-  <script type="module" crossorigin src="./assets/index-6cnCsMnb.js"></script>
+  <script type="module" crossorigin src="./assets/index-DZGLSqJB.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-3zWs_XiM.css">
 </head>
 <body>

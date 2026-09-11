@@ -20,10 +20,31 @@ Acceptance progress includes `AC completed/total` and is absent with no criteria
 Relationships default to Selected. No selection means no edges. Selected shows
 immediate dependency and parent/child edges incident to any selected card. All
 shows every relationship; None hides them. Dependency arrows point from a ticket
-to its prerequisite. Dashed parent arrows point toward the child. Text labels and
-a canvas legend explain the directions. A live dependency-drag preview remains
-visible even in None mode. The existing creation gesture still makes the drop
-target depend on the handle's source; its tooltip now says so explicitly.
+to its prerequisite. Dashed parent arrows point toward the child. A canvas legend
+explains the directions. A live dependency-drag preview remains visible even in
+None mode. The existing creation gesture still makes the drop target depend on
+the handle's source; its tooltip now says so explicitly.
+
+TKT-01M26Y32BZHJFXFGRYZ37TWYFP changed how edges carry their text. Every edge
+used to draw a label reading `depends on` or `parent of`, which is 41 labels on
+the reference board and one bit each, since the dash pattern already said it.
+A label now appears only on an emphasised edge. An edge is emphasised when the
+pointer is on it, and otherwise when the selection holds one of its endpoints,
+with hover winning outright. Everything else drops to 0.28 opacity, which still
+reads as a line: the point is to say which edge is which, not to hide the rest.
+A filtered-out edge stays at 0.12, because excluded outranks not-this-one.
+
+Parent edges also carry `--edge-parent`, a warm colour with its own arrow marker,
+so kind survives at fit-to-view scale where a 5 px dash pattern does not. Each
+edge keeps its `<title>`, so the screen-reader text is unchanged, and the
+inspector still lists dependencies and parent with navigation. Edges are not
+focusable: reaching a relationship by keyboard goes through the card and the
+inspector rather than through 41 new tab stops.
+
+Hovering needs pointer events, which `#edges` disables for the layer. Each edge
+re-enables them on a wide transparent hit path. A press there still starts a
+canvas pan, because `canvasTarget` accepts any target inside `#scene`, and a
+browser test drags from a point on an edge and asserts the scene transform moved.
 
 Filtering, label disclosure and relationship visibility do not change coordinates
 or write board data. Existing manual positions stay intact. Automatic status lanes

@@ -54,10 +54,62 @@ it('shows immediate selected relationships with direction and type, or all or no
   expect(root.querySelector('[data-kind=dependency]')?.getAttribute('data-from')).toBe('a')
   expect(root.querySelector('[data-kind=dependency]')?.getAttribute('data-to')).toBe('b')
   expect(root.querySelector('[data-kind=parent]')?.getAttribute('data-from')).toBe('p')
-  expect(root.querySelector('[data-kind=parent] path')?.getAttribute('marker-end')).toBe('url(#arrow)')
+  // `path` alone would match the transparent hover target, which carries no marker.
+  expect(root.querySelector('[data-kind=parent] path:not(.edge-hit)')?.getAttribute('marker-end')).toBe('url(#arrowParent)')
+  expect(root.querySelector('[data-kind=parent] path:not(.edge-hit)')?.getAttribute('stroke')).toBe('var(--edge-parent)')
+  expect(root.querySelector('[data-kind=dependency] path:not(.edge-hit)')?.getAttribute('marker-end')).toBe('url(#arrow)')
   expect(root.textContent).toContain('depends on'); expect(root.textContent).toContain('parent of')
   show('all'); expect(root.querySelectorAll('.relationship')).toHaveLength(3)
   show('none'); expect(root.querySelectorAll('.relationship')).toHaveLength(0)
   show('selected', new Set()); expect(root.querySelectorAll('.relationship')).toHaveLength(0)
   show('selected', new Set(['a', 'b'])); expect(root.querySelectorAll('.relationship')).toHaveLength(3)
+})
+it('names one relationship at a time and fades the rest without hiding them', () => {
+  const tickets = new Map<string, Ticket>([
+    ['a', { ...ticket, dependencies: ['b'], parent: 'p' }],
+    ['b', { ...ticket, id: 'b', dependencies: ['c'] }],
+    ['c', { ...ticket, id: 'c' }], ['p', { ...ticket, id: 'p' }],
+  ])
+  const positions = new Map([...tickets.keys()].map((id, i) => [id, { x: i * 340, y: 0, z: 1, pinned: true }]))
+  const show = (selection = new Set<string>(), matching = new Set(tickets.keys())) => act(() => render(<Edges
+    tickets={tickets} positions={positions} heights={new Map()} matching={matching} ghost={null}
+    mode="all" selection={selection} />, root))
+  const kinds = (selector: string) => [...root.querySelectorAll(selector)].map(node => node.getAttribute('data-kind'))
+
+  // Nothing emphasised: three edges at full strength, and no labels at all.
+  show()
+  expect(root.querySelectorAll('.relationship')).toHaveLength(3)
+  expect(root.querySelectorAll('.edge-label')).toHaveLength(0)
+  expect([...root.querySelectorAll('.relationship')].map(node => node.getAttribute('opacity'))).toEqual(['1', '1', '1'])
+
+  // A selection names its own edges. The rest fade but stay rendered, and keep
+  // the accessible name a screen reader reads.
+  show(new Set(['a']))
+  expect(kinds('.relationship[data-emphasised=true]')).toEqual(['parent', 'dependency'])
+  expect(root.querySelectorAll('.edge-label')).toHaveLength(2)
+  const faded = [...root.querySelectorAll('.relationship.faded')]
+  expect(faded).toHaveLength(1)
+  expect(faded[0].getAttribute('opacity')).toBe('0.28')
+  expect(faded[0].querySelector('.edge-label')).toBeNull()
+  expect(faded[0].querySelector('title')?.textContent).toContain('depends on')
+
+  // Hovering wins over the selection, including on an edge the selection faded.
+  const hit = root.querySelector('.relationship[data-from=b] .edge-hit')!
+  act(() => { hit.dispatchEvent(new Event('pointerenter')) })
+  expect(root.querySelectorAll('.relationship[data-emphasised=true]')).toHaveLength(1)
+  expect(root.querySelector('.relationship[data-emphasised=true]')?.getAttribute('data-from')).toBe('b')
+  expect(root.querySelectorAll('.edge-label')).toHaveLength(1)
+  expect(root.querySelectorAll('.relationship.faded')).toHaveLength(2)
+
+  // Leaving hands emphasis back to the selection rather than clearing it.
+  act(() => { hit.dispatchEvent(new Event('pointerleave')) })
+  expect(kinds('.relationship[data-emphasised=true]')).toEqual(['parent', 'dependency'])
+
+  // A filtered-out edge stays faint even when hovered. Filtered means excluded,
+  // which outranks not-this-one.
+  show(new Set(['a']), new Set(['a', 'b', 'p']))
+  const filtered = root.querySelector('.relationship[data-to=c]')!
+  expect(filtered.getAttribute('opacity')).toBe('0.12')
+  act(() => { filtered.querySelector('.edge-hit')!.dispatchEvent(new Event('pointerenter')) })
+  expect(root.querySelector('.relationship[data-to=c]')?.getAttribute('opacity')).toBe('0.12')
 })
