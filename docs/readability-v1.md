@@ -99,6 +99,27 @@ which uses its own `LANE_W` rather than the card width, so every automatic card
 stays where it is and compact only opens space between cards. Manual positions are
 untouched, and nothing about a density change writes board data.
 
+That a 180 px card sits in a 300 px lane is deliberate. TKT-01M28ZMK8YJDW9CHSSC8BGZWB5
+(Size automatic status lanes for the active card density) measured it rather than
+assuming either way, and closed as no change. On the 30-card reference board,
+arranged, a compact-sized lane pitch cuts the horizontal span from 1790 px to
+1190 px and moves the fit scale from 0.121 to 0.121. Both densities are
+height-bound and not marginally: the arranged board is 8361 px tall against
+1190 px wide, because `autoPlace` stacks a status into one column at a flat
+340 px row pitch and the deepest lane holds 25 of the 30 cards. Narrowing lanes
+therefore buys nothing a person can see, and `LANE_W` stays at 300 px for both
+densities.
+
+The row pitch is the one that would respond, which is the opposite of what the
+ticket was filed on. The tallest card is 249 px at full and 220 px at compact
+against that flat 340, and a pitch of the tallest card plus 20 raises the fit
+scale to 0.150 at full and 0.168 at compact. Compact gains more because its cards
+are shorter. Nothing implements that, and anything that does has to be checked
+against cards overlapping their neighbours, since the pitch was raised from 132 px
+to 340 px in the first place to fit the taller card hierarchy. The measurement
+also holds only while a board is height-bound, which is true whenever any status
+is deep. A store with many shallow lanes would flip the binding dimension.
+
 The gates for this are split. `readability.test.tsx` covers the row subset and the
 chip counts at both densities. The dense-scene browser suite toggles density and
 asserts the reference card's rows, unchanged card positions across the toggle and
