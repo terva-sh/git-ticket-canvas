@@ -14,15 +14,16 @@ labels:
   - readability
 assignees: []
 milestone: null
-parent: null
+parent: TKT-01M26YEEBGPYAFDNF6TTM2JVD7
 origin: null
-dependencies: []
+dependencies:
+  - TKT-01M26YG1VHJXCXXQPXPDBTSS47
 blocks_on: none
 references: []
 claim: null
 archive: null
 created_at: 2026-09-11T00:32:54Z
-updated_at: 2026-09-11T00:32:54Z
+updated_at: 2026-09-11T00:40:02Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
