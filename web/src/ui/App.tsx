@@ -251,7 +251,12 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
     if (store.state.readOnly) { toast('read-only', true); return }
     const ticket = store.state.tickets.get(to)
     if (!ticket) return
+    const version = generation.current
     await patch(ticket, [{ op: 'addDependency', id: from }])
+    // Relationships default to Selected, which draws an edge only around a
+    // selected card. The link gesture selects nothing, so without this the drop
+    // saves an edge nobody can see and reads as a link that did not take.
+    if (version === generation.current) select(to)
     toast(`${ticket.short} now waits on ${store.state.tickets.get(from)?.short || from}`)
   }
   function switchBoard(name: string) {

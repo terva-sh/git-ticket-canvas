@@ -99,6 +99,61 @@ test('read-only dependency gestures send no mutation and do not pin cards', asyn
   expect((await app.board()).tickets.find(ticket => ticket.id === b.id)?.dependencies).toEqual([])
   await expect(page.locator('#ghost')).toHaveCount(0)
 })
+// The drop calls onLink(prerequisite, dependent), so the target waits on the
+// source. The edge is drawn from the dependent to the prerequisite it needs.
+const dependency = (page: Page, dependent: string, prerequisite: string) =>
+  page.locator(`.relationship[data-kind="dependency"][data-from="${dependent}"][data-to="${prerequisite}"]`)
+
+test('a dependency drag shows the edge and saves it without a reload', async ({ page, app }) => {
+  const a = await app.create('Prerequisite', { x: 0, y: 0 }), b = await app.create('Dependent', { x: 350, y: 0 })
+  await page.goto(app.url)
+  await page.locator('#relationshipMode').selectOption('all')
+  await expect(card(page, b.id)).toBeVisible()
+  await card(page, a.id).locator('.handle').dragTo(card(page, b.id))
+  await expect(dependency(page, b.id, a.id)).toHaveCount(1)
+  expect((await app.board()).tickets.find(ticket => ticket.id === b.id)?.dependencies).toEqual([a.id])
+})
+
+// Relationships default to Selected, which draws an edge only when one of its
+// endpoints is selected. A drop that leaves nothing selected saves a dependency
+// the user cannot see, on this load or any later one.
+test('a dependency drag leaves the new edge visible in the default relationship mode', async ({ page, app }) => {
+  const a = await app.create('Prerequisite', { x: 0, y: 0 }), b = await app.create('Dependent', { x: 350, y: 0 })
+  await page.goto(app.url)
+  await expect(page.locator('#relationshipMode')).toHaveValue('selected')
+  await expect(card(page, b.id)).toBeVisible()
+  await card(page, a.id).locator('.handle').dragTo(card(page, b.id))
+  await expect(dependency(page, b.id, a.id)).toHaveCount(1)
+})
+
+test('a dependency created by dragging is still there after a reload', async ({ page, app }) => {
+  const a = await app.create('Prerequisite', { x: 0, y: 0 }), b = await app.create('Dependent', { x: 350, y: 0 })
+  await page.goto(app.url)
+  await page.locator('#relationshipMode').selectOption('all')
+  await expect(card(page, b.id)).toBeVisible()
+  await card(page, a.id).locator('.handle').dragTo(card(page, b.id))
+  await expect(dependency(page, b.id, a.id)).toHaveCount(1)
+  await page.reload()
+  await page.locator('#relationshipMode').selectOption('all')
+  await expect(dependency(page, b.id, a.id)).toHaveCount(1)
+})
+
+test('a failed dependency save reports the error and draws no edge', async ({ page, app }) => {
+  const a = await app.create('Prerequisite', { x: 0, y: 0 }), b = await app.create('Dependent', { x: 350, y: 0 })
+  await page.route('**/api/tickets/**', route =>
+    route.request().method() === 'PATCH'
+      ? route.fulfill({ status: 500, contentType: 'application/json', body: '{"code":"internal","message":"disk full"}' })
+      : route.continue())
+  await page.goto(app.url)
+  await page.locator('#relationshipMode').selectOption('all')
+  await expect(card(page, b.id)).toBeVisible()
+  await card(page, a.id).locator('.handle').dragTo(card(page, b.id))
+  await expect(page.locator('#toast')).toHaveClass(/err/)
+  await expect(page.locator('#toast')).toContainText('disk full')
+  await expect(dependency(page, b.id, a.id)).toHaveCount(0)
+  expect((await app.board()).tickets.find(ticket => ticket.id === b.id)?.dependencies).toEqual([])
+})
+
 test('measured card height updates dependency edge anchors', async ({ page, app }) => {
   const a = await app.create('Source', { x: 0, y: 0 }), b = await app.create('Dependent', { x: 350, y: 0 })
   await app.patch(b, [{ op: 'addDependency', id: a.id }])
