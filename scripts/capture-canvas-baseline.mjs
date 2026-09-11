@@ -141,6 +141,47 @@ async function pageReady(page, url) {
   await page.locator('#edges .relationship').first().waitFor({ state: 'attached' })
 }
 
+// The toolbar renders the build version, which carries the commit SHA on a
+// git-described build, so the image would change on every commit.
+//
+// Serve a constant version to the page rather than rewriting the DOM after it
+// renders. The toolbar re-renders on selection, live updates, and every store
+// publication, and each of those restores whatever the app actually fetched.
+// Measured: rewriting textContent left two builds differing at dd482d9a and
+// 68685d99, while the same build twice agreed, so the real value came back
+// before the screenshot.
+const stubbedVersion = {
+  schemaVersion: 1, kind: 'version', version: 'baseline',
+  commit: 'baseline', go: 'baseline', modified: false,
+}
+const expectedVersionLabel = 'baseline'
+
+async function stubBuildIdentity(page) {
+  await page.route('**/api/version', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(stubbedVersion),
+  }))
+}
+
+// The store path is deterministic by construction, because the capture unpacks
+// the fixture at a path it chooses. Assert it rather than rewrite it, so that
+// giving the capture a per-run directory fails here instead of silently making
+// every future baseline unreproducible.
+async function assertStableChrome(page, store) {
+  const seen = await page.evaluate(() => ({
+    version: document.querySelector('#version > summary')?.textContent ?? null,
+    storePath: document.querySelector('#storePath')?.textContent ?? null,
+  }))
+  if (seen.version !== expectedVersionLabel) {
+    throw new Error(`toolbar version reads ${JSON.stringify(seen.version)}, expected `
+      + `${JSON.stringify(expectedVersionLabel)}. The build version would vary the baseline.`)
+  }
+  if (!seen.storePath || !seen.storePath.startsWith(store)) {
+    throw new Error(`toolbar store path reads ${JSON.stringify(seen.storePath)}, expected it to `
+      + `start with ${JSON.stringify(store)}. A per-run store path would vary the baseline.`)
+  }
+  return seen
+}
+
 async function main() {
   const fixtureBytes = await readFile(fixture)
   const fixtureChecksum = createHash('sha256').update(fixtureBytes).digest('hex')
@@ -170,7 +211,9 @@ async function main() {
       viewport: { width, height }, deviceScaleFactor: 1, colorScheme: 'dark',
     })
     const page = await context.newPage()
+    await stubBuildIdentity(page)
     await pageReady(page, server.url)
+    const chrome = await assertStableChrome(page, temporary)
     const board = await page.evaluate(async () => (await fetch('/api/board?board=default')).json())
     const version = await page.evaluate(async () => (await fetch('/api/version')).json())
     await mkdir(dirname(output), { recursive: true })
@@ -189,7 +232,12 @@ async function main() {
       selectedTicket,
       cards: await page.locator('#cards .card').count(),
       relationshipsRendered: await page.locator('#edges .relationship').count(),
+      // The build that produced the image, for provenance. It varies per build
+      // and is deliberately not what the page rendered.
       appVersion: version,
+      // What the toolbar actually showed. Held constant so the PNG can be
+      // compared byte for byte across builds.
+      renderedChrome: chrome,
       output: 'canvas-baseline.png',
     }
     await mkdir(dirname(metadataPath), { recursive: true })

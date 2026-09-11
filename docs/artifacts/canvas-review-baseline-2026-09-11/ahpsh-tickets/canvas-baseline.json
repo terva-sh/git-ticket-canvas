@@ -27,10 +27,14 @@
   "appVersion": {
     "schemaVersion": 1,
     "kind": "version",
-    "version": "devel",
-    "commit": "unknown",
-    "go": "go1.26.2",
+    "version": "baseline",
+    "commit": "baseline",
+    "go": "baseline",
     "modified": false
+  },
+  "renderedChrome": {
+    "version": "baseline",
+    "storePath": "/tmp/git-ticket-canvas-reference-store-2026-09-11-warricksothr-arkham-halloween-photo-scavenger-hunt/.tickets"
   },
   "output": "canvas-baseline.png"
 }
