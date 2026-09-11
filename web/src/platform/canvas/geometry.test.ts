@@ -32,7 +32,7 @@ describe('autoPlace', () => {
       ['a', { x: 322, y: 0 }],
       ['b', { x: 0, y: 0 }],
       ['c', { x: 644, y: 0 }],
-      ['d', { x: 322, y: 340 }],
+      ['d', { x: 322, y: 269 }],
     ]);
     expect(items.map(({ id }) => id)).toEqual(['d', 'c', 'b', 'a']);
   });
@@ -41,19 +41,19 @@ describe('autoPlace', () => {
     const pinned = Object.freeze({ a: Object.freeze({ x: 0, y: 0 }) });
     const items = [{ id: 'a', status: 'ready' }, { id: 'b', status: 'ready' }];
     expect([...autoPlace(items, pinned, ['ready'])]).toEqual([
-      ['b', { x: 0, y: 340 }],
+      ['b', { x: 0, y: 269 }],
     ]);
     expect(pinned).toEqual({ a: { x: 0, y: 0 } });
     expect([...autoPlace(items, {}, ['ready'])]).toEqual([
       ['a', { x: 0, y: 0 }],
-      ['b', { x: 0, y: 340 }],
+      ['b', { x: 0, y: 269 }],
     ]);
   });
 
   it('puts unknown statuses in lane zero alongside the first configured status', () => {
     const items = [{ id: 'b', status: 'draft' }, { id: 'a', status: 'custom' }];
     expect([...autoPlace(items, {}, ['draft', 'ready']).values()]).toEqual([
-      { x: 0, y: 0 }, { x: 0, y: 340 },
+      { x: 0, y: 0 }, { x: 0, y: 269 },
     ]);
   });
 
@@ -63,7 +63,7 @@ describe('autoPlace', () => {
       ['a', { id: 'a', status: 'draft' }],
     ]);
     expect([...autoPlace(items.values(), {}, [])]).toEqual([
-      ['a', { x: 0, y: 0 }], ['b', { x: 0, y: 340 }],
+      ['a', { x: 0, y: 0 }], ['b', { x: 0, y: 269 }],
     ]);
   });
 
@@ -75,23 +75,32 @@ describe('autoPlace', () => {
     const items = 'abcdefg'.split('').map(id => ({ id, status: 'ready' }));
     expect([...autoPlace(items, {}, ['ready'])]).toEqual([
       ['a', { x: 0, y: 0 }],
-      ['b', { x: 0, y: 340 }],
-      ['c', { x: 0, y: 680 }],
-      ['d', { x: 0, y: 1020 }],
-      ['e', { x: 0, y: 1360 }],
-      ['f', { x: 0, y: 1700 }],
+      ['b', { x: 0, y: 269 }],
+      ['c', { x: 0, y: 538 }],
+      ['d', { x: 0, y: 807 }],
+      ['e', { x: 0, y: 1076 }],
+      ['f', { x: 0, y: 1345 }],
       ['g', { x: 322, y: 0 }],
     ]);
   });
 
-  it('accumulates lane origins past a wrapped lane, counting an empty lane as one column', () => {
-    // Lane 0 wraps to two columns, lane 1 is empty, so lane 2 starts at
-    // 2 x 322 for the wrapped lane plus 322 for the empty one.
+  it('gives a status with no tickets no lane, and accumulates the rest', () => {
+    // Lane 0 wraps to two columns and `ready` holds nothing, so `done` starts
+    // at 2 x 322 rather than paying 322 for an empty lane in between. This is
+    // what makes lane position depend on which statuses hold tickets: file one
+    // `ready` ticket and `done` moves right by a column.
     const items = [...'abcdefg'].map(id => ({ id, status: 'draft' }));
     items.push({ id: 'z', status: 'done' });
-    const placed = autoPlace(items, {}, ['draft', 'ready', 'done']);
+    const statuses = ['draft', 'ready', 'done'];
+    const placed = autoPlace(items, {}, statuses);
     expect(placed.get('g'), 'the second column of lane 0').toEqual({ x: 322, y: 0 });
-    expect(placed.get('z'), 'lane 2 behind a wrapped lane and an empty one')
+    expect(placed.get('z'), '`done` sits against the wrapped lane, not behind an empty one')
+      .toEqual({ x: 644, y: 0 });
+
+    const filled = autoPlace([...items, { id: 'y', status: 'ready' }], {}, statuses);
+    expect(filled.get('y'), 'the first `ready` ticket takes the column `done` had')
+      .toEqual({ x: 644, y: 0 });
+    expect(filled.get('z'), '`done` moves right when `ready` fills')
       .toEqual({ x: 966, y: 0 });
   });
 

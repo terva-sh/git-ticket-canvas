@@ -95,7 +95,15 @@ test('pointer group movement restores automatic ownership without shifting nonme
   const c = await app.create('Automatic nonmember C')
   await page.goto(app.url)
   await expect(page.locator('.card')).toHaveCount(3)
-  const id = await createFrame(page, 'Automatic group', -20, -40, 400, 700)
+  // The frame has to take the first two automatic rows and miss the third, so
+  // size it from where the third card actually sits. A literal height encodes
+  // the row pitch: 700 worked at a pitch of 340 and captured all three cards
+  // when the pitch moved to 269.
+  const rowOf = (card: string) => page.locator(`.card[data-id="${card}"]`).evaluate(node =>
+    Number((node as HTMLElement).style.transform.match(/translate\(-?[\d.]+px,\s*(-?[\d.]+)px\)/)![1]))
+  const secondRow = await rowOf(b.id)
+  const thirdRow = await rowOf(c.id)
+  const id = await createFrame(page, 'Automatic group', -20, -40, 400, thirdRow + 20)
   expect((await layout(page)).frames[id].members.sort()).toEqual([a.id, b.id].sort())
   const originalNonmember = await page.locator(`.card[data-id="${c.id}"]`).getAttribute('style')
   await page.locator('#btnFit').click()
@@ -111,7 +119,7 @@ test('pointer group movement restores automatic ownership without shifting nonme
   let data = await layout(page)
   expect(data.frames[id].x).toBe(30)
   expect(data.cards[a.id]).toEqual({ x: 50, y: 40 })
-  expect(data.cards[b.id]).toEqual({ x: 50, y: 380 })
+  expect(data.cards[b.id]).toEqual({ x: 50, y: secondRow + 40 })
   expect(data.cards[c.id]).toBeUndefined()
   expect(await page.locator(`.card[data-id="${c.id}"]`).getAttribute('style')).toBe(originalNonmember)
   await saved(page, () => page.locator('#btnFrameUndo').click())

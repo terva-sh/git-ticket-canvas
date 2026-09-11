@@ -109,12 +109,12 @@ test.describe('arranged canvas geometry', () => {
     const full = await boxes(page)
     expect(full.length, 'cards on the arranged board').toBe(SCENE.expectedCards)
 
-    // The fixture is 5 `draft` in lane 0 and 25 `done` in lane 5, so the
-    // arranged board is two occupied lanes with four empty ones between them.
-    // An empty lane still holds a column, which is what keeps lane 5 at
-    // 5 x 322 rather than moving as statuses fill and empty.
+    // The fixture is 5 `draft` and 25 `done`, and the five statuses between
+    // them hold nothing, so they get no lanes. `done` therefore starts at 322,
+    // hard against the draft lane, rather than at 5 x 322. The cost of that is
+    // in the geometry unit tests: filing one `ready` ticket moves `done`.
     const columns = [...new Set(full.map(card => card.x))].sort((a, b) => a - b)
-    expect(columns, 'the x of every column').toEqual([0, 1610, 1932, 2254, 2576, 2898])
+    expect(columns, 'the x of every column').toEqual([0, 322, 644, 966, 1288, 1610])
 
     // Column-major fill, six deep, so the `done` lane is five columns: four
     // full and one holding the twenty-fifth card.
@@ -122,7 +122,7 @@ test.describe('arranged canvas geometry', () => {
     expect(depth, 'cards per column').toEqual([5, 6, 6, 6, 6, 1])
     expect(Math.max(...depth), 'the deepest column against the cap of 6').toBeLessThanOrEqual(6)
     const rows = [...new Set(full.map(card => card.y))].sort((a, b) => a - b)
-    expect(rows, 'the y of every row').toEqual([0, 340, 680, 1020, 1360, 1700])
+    expect(rows, 'the y of every row').toEqual([0, 269, 538, 807, 1076, 1345])
 
     expect(overlaps(full), 'overlapping cards at full density').toEqual([])
 
@@ -130,21 +130,22 @@ test.describe('arranged canvas geometry', () => {
     // from the rendered text, and CI renders with other fonts, so spanY and
     // the scale get ranges while the placement numbers are exact.
     const fullExtent = extent(full)
-    expect(fullExtent.spanX, 'arranged spanX at full density').toBe(3178)
-    expect(fullExtent.spanY, 'arranged spanY at full density').toBeGreaterThan(1900)
-    expect(fullExtent.spanY, 'arranged spanY at full density').toBeLessThan(2050)
-    expect(fullExtent.aspect, 'arranged aspect at full density').toBeGreaterThan(1.5)
+    expect(fullExtent.spanX, 'arranged spanX at full density').toBe(1890)
+    expect(fullExtent.spanY, 'arranged spanY at full density').toBeGreaterThan(1500)
+    expect(fullExtent.spanY, 'arranged spanY at full density').toBeLessThan(1700)
+    expect(fullExtent.aspect, 'arranged aspect at full density').toBeGreaterThan(1.1)
     const fullScale = await fitScale(page)
-    expect(fullScale, 'fit scale at full density').toBeGreaterThan(0.42)
+    expect(fullScale, 'fit scale at full density').toBeGreaterThan(0.55)
 
-    // A cap of 6 lands this board on the knee. Measured: 0.4997 by width
-    // against 0.5000 by height, which is 0.0003 apart, and compact tips it to
-    // height. So which dimension binds is not worth asserting, and the balance
-    // is: neither dimension wastes the other. That is the property the cap was
-    // chosen for, and a cap that stops holding it fails here.
+    // Wrapping alone left this board on the knee, 0.4997 by width against
+    // 0.5000 by height, too close to assert. Dropping the empty lanes and
+    // tightening the pitch moved it clear: 0.820 by width against 0.605 by
+    // height. So the binding is worth asserting again, and it says where the
+    // slack now is. Whatever comes next should spend width, not height.
     const bound = await binding(page, fullExtent.spanX, fullExtent.spanY)
-    const balance = Math.min(bound.byWidth, bound.byHeight) / Math.max(bound.byWidth, bound.byHeight)
-    expect(balance, 'how close the two fit terms are at full density').toBeGreaterThan(0.9)
+    expect(bound.binds, 'the dimension the arranged fit is bound by').toBe('height')
+    expect(bound.byWidth / bound.byHeight, 'how much width slack is left')
+      .toBeGreaterThan(1.2)
 
     await setDensity(page, 'compact', SCENE.compactCardWidth)
     await refit(page)
@@ -153,18 +154,19 @@ test.describe('arranged canvas geometry', () => {
 
     // Compact narrows every card inside the same lane, so the span loses
     // exactly the 100 px the last column gives back and nothing reflows.
-    expect(compactExtent.spanX, 'arranged spanX at compact density').toBe(3078)
+    expect(compactExtent.spanX, 'arranged spanX at compact density').toBe(1790)
     expect(compactExtent.spanY, 'compact is no taller than full')
       .toBeLessThanOrEqual(fullExtent.spanY)
     expect(overlaps(compact), 'overlapping cards at compact density').toEqual([])
     const compactScale = await fitScale(page)
     expect(compactScale, 'fit scale at compact density').toBeGreaterThanOrEqual(fullScale)
 
-    // Measured locally at this viewport: spanX 3178, spanY 1926, aspect 1.65,
-    // fit 0.500 at full; spanX 3078, spanY 1901, aspect 1.62, fit 0.506 after
-    // refitting compact. Unwrapped, the same board is 1890 x 8409 at aspect
-    // 0.22 and fits at 0.120. The annotation carries the fit budget, so a run
-    // that disagrees says whether the board changed or the stage did.
+    // Measured locally at this viewport: spanX 1890, spanY 1571, aspect 1.20,
+    // fit 0.605 at full; spanX 1790, spanY 1546, aspect 1.16, fit 0.614 after
+    // refitting compact. The same board was 1890 x 8409 at 0.120 before
+    // wrapping, and 3178 x 1926 at 0.500 with wrapping alone. The annotation
+    // carries the fit budget, so a run that disagrees says whether the board
+    // changed or the stage did.
     testAnnotation(fullExtent, fullScale, compactExtent, compactScale, bound)
   })
 

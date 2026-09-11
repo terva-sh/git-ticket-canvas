@@ -50,7 +50,8 @@ browser test drags from a point on an edge and asserts the scene transform moved
 
 Filtering, label disclosure and relationship visibility do not change coordinates
 or write board data. Existing manual positions stay intact. Automatic status lanes
-use 340 px row spacing instead of 132 px to accommodate the taller hierarchy.
+use 269 px row spacing, raised from 132 px for the taller hierarchy and later
+tightened from 340 px. Lane depth below carries the measurement.
 This changes derived automatic positions and explicit Arrange results, not saved
 manual coordinates. Extremely long cards or densely placed manual cards can still
 overlap; v1 does not introduce collision-aware layout or rearrange a user's board.
@@ -111,17 +112,24 @@ therefore buys nothing a person can see, and `LANE_W` stays at 300 px for both
 densities. Lane wrapping has since changed the shape those numbers describe, and
 the conclusion survives it: see Lane depth below.
 
-The row pitch is the one that would respond, which is the opposite of what the
-ticket was filed on. The tallest card is 249 px at full and 220 px at compact
-against that flat 340, and a pitch of the tallest card plus 20 raises the fit
-scale to 0.150 at full and 0.168 at compact. Compact gains more because its cards
-are shorter. Nothing implements that, and anything that does has to be checked
-against cards overlapping their neighbours, since the pitch was raised from 132 px
-to 340 px in the first place to fit the taller card hierarchy. Those two numbers
-were measured on an unwrapped board and no longer describe this one, so
-TKT-01M290E5VQE9CWSQF3WCG71806 (Size automatic row pitch for the active card
-density) has to re-measure before it decides anything. A tighter pitch now buys
-less: the board it would shorten is no longer the dimension under pressure.
+The row pitch responds too, and it is now 269 px rather than 340. That is the
+tallest observed full-density card, 249 px, plus 20. One number for both
+densities: a pitch that varied with density would vary placement with density,
+and the board would sit still on the toggle and reflow at the next unrelated
+store update. TKT-01M290E5VQE9CWSQF3WCG71806 (Size automatic row pitch for the
+active card density) closed with that as its ruling, against its own title.
+
+It spends clearance to get there. The old 340 sat 91 px above the tallest card
+and 269 sits 20 px above it, so a card taller than 269 overlaps the row below.
+The reference board's tallest card is not the tallest that can exist, and the
+overlap check in `canvas-arrange.spec.ts` is what stands between that and an
+unreadable board. On this board it first fires at a pitch of 230.
+
+Height-aware packing would go tighter still, to 0.6307 at full and 0.7174 at
+compact against 0.605 and 0.614 for the static pitch. It is ruled out of the
+derivation path anyway, because measured heights differ by density, so a packed
+board reflows on a density toggle by construction. It could only live behind an
+explicit Arrange, which is a different design.
 
 ### Lane depth
 
@@ -133,9 +141,18 @@ Measured on the 30-card reference board at the 2048x1152 reference viewport:
 
 | board | span | aspect | fit |
 | --- | --- | --- | --- |
-| unwrapped, full | 1890 x 8409 | 0.22 | 0.120 |
-| wrapped, full | 3178 x 1926 | 1.65 | 0.500 |
-| wrapped, compact | 3078 x 1901 | 1.62 | 0.506 |
+| unwrapped, pitch 340, empty lanes kept | 1890 x 8409 | 0.22 | 0.120 |
+| wrapped, pitch 340, empty lanes kept | 3178 x 1926 | 1.65 | 0.500 |
+| wrapped, pitch 269, empty lanes kept | 3178 x 1571 | 2.02 | 0.500 |
+| wrapped, pitch 340, empty lanes dropped | 1890 x 1926 | 0.98 | 0.500 |
+| wrapped, pitch 269, empty lanes dropped | 1890 x 1571 | 1.20 | 0.605 |
+| the same at compact | 1790 x 1546 | 1.16 | 0.614 |
+
+The middle rows are the point. After wrapping, the tighter pitch alone changes
+the fit scale by nothing and dropping the empty lanes alone changes it by
+0.0003. Together they are worth a fifth of the board. A balanced board only
+moves when both dimensions shrink, so either change measured on its own reads
+as worthless, and the pair had to land as one decision.
 
 The cap is a count, not a measurement of a card, so a density change still
 re-derives nothing. Six rows at the resulting scale is about one stage height,
@@ -146,10 +163,12 @@ bottom the way it did before wrapping, and the sort by id keeps it deterministic
 Row-major produces a board that looks just as reasonable and orders the tickets
 differently, so the choice is asserted rather than implied.
 
-An empty lane still occupies one column. On this board that spends 1288 px on the
-four empty lanes between `draft` and `done`, and it is what keeps a lane's x off
-the question of which statuses happen to hold tickets. Skipping empty lanes would
-move every lane right of a status the moment that status got its first ticket.
+A status with no tickets gets no lane. That was refused twice before it landed,
+because it ties a lane's x to which statuses hold tickets: file the first
+`ready` ticket and `done` moves right by a column, in front of whoever filed it.
+The geometry unit tests assert that movement rather than leaving it as a
+footnote. It was accepted once the measurement showed the pair is worth a fifth
+of the board, and it is still the least comfortable part of this layout.
 
 A lane's origin accumulates the widths of the lanes before it, so occupancy is
 counted in a first pass. A lane's width is not known until every ticket has been
@@ -157,24 +176,30 @@ seen. Pinned tickets are counted in that pass and consume their slot in the
 second, including across a column boundary, so pinning one card never reflows the
 rest of its lane.
 
-Two things measured differently from the estimate that chose the cap. The fit
-budget is 1648x1023, not the window: `Canvas.viewport` reserves 400 px for an
-inspector that is not open, and `fitView` gives up 40 px of height. And the
-wrapped board lands on the knee rather than to one side of it, at 0.4997 by width
-against 0.5000 by height, with compact tipping it to height. The suite asserts
-that balance instead of which dimension binds, because 0.0003 is not a property
-any test should hold to.
+The fit budget is 1648x1023, not the window: `Canvas.viewport` reserves 400 px
+for an inspector that is not open, and `fitView` gives up 40 px of height. The
+estimate that chose the cap assumed the window, and the suite measures the
+budget so a later disagreement says whether the board changed or the stage did.
 
-That balance also answers the question the cap left open. Dropping the empty
-lanes was rejected while the board was height-bound by four to one, on the
-grounds that width it freed was width nobody was waiting on. Width is now half of
-what binds, so the argument no longer holds and dropping empty lanes is worth
-re-measuring.
+Wrapping alone left the board on the knee, 0.4997 by width against 0.5000 by
+height, which is too close to assert anything about. Dropping the empty lanes
+and tightening the pitch moved it clear: 0.820 by width against 0.605 by height,
+so height binds with a third of the width in hand. The suite asserts that, and
+it says where the next change should look. Spending height buys nothing now.
+
+The cap is worth re-reading against that. With empty lanes dropped and the pitch
+at 269, a cap of 5 reaches 0.719 at full and 0.732 at compact, against 0.605 and
+0.614 for 6. That is not a reason to change it. Twenty-five cards divide into
+five columns of five exactly, so a cap of 5 saves a row of height at no cost in
+width on this board and this board only. At 26 cards it costs a column. The
+optimum cap tracks the deepest lane's count, a fixed cap cannot, and a cap that
+read the count would reflow the board on a create.
 
 One board shape backs all of this, and this store puts 25 of its 30 tickets in
 one status. A store spread across seven statuses is nearly square before wrapping
-and could be made worse by a cap of six. Measure a second shape before treating
-six as settled.
+and could be made worse by a cap of six. It also loses the other half of this
+change, since a board with every status occupied has no empty lanes to drop.
+Measure a second shape before treating six as settled.
 
 Lane wrapping and the pen placement path in `placement.ts` do not interact. Pens
 allocate positions inside label-matching regions through `allocatePlacement` and
@@ -194,11 +219,11 @@ passes unchanged and is the evidence that full did not regress.
 
 `canvas-arrange.spec.ts` gates the arranged board. It presses Arrange, then
 asserts the column positions, the depth of each column against the cap, no card
-overlapping another at either density, the span and aspect above, that the two
-fit terms stay within 10% of each other, and that a density toggle sends no
-request at all. It records the measured numbers as a test annotation, so a run
-that disagrees says which one moved. `geometry.test.ts` holds the fill order and
-the pinned slot reservation, which need no browser.
+overlapping another at either density, the span and aspect above, that height
+binds with width to spare, and that a density toggle sends no request at all.
+It records the measured numbers as a test annotation, so a run that disagrees
+says which one moved. `geometry.test.ts` holds the fill order, the dropped empty
+lane, and the pinned slot reservation, which need no browser.
 
 ## Inspector
 

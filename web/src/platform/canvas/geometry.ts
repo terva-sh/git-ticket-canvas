@@ -57,7 +57,25 @@ export function cardWidthFor(density: Density): number {
 }
 const LANE_W = 300;
 const LANE_GAP = 22;
-const ROW_PITCH = 340;
+
+/**
+ * How far down one row sits from the one above it. The tallest card on the
+ * reference board is 249 px at full density and 220 px at compact, so 269 is
+ * the tallest observed card plus 20.
+ *
+ * One number for both densities, because a pitch that varied with density
+ * would make placement vary with density, and derived positions recompute on
+ * every accepted store update. The board would sit still on the toggle and
+ * reflow at the next unrelated update.
+ *
+ * This spends most of the clearance the old 340 carried, from 91 px above the
+ * tallest card to 20. A card taller than 269 overlaps the row below it, and
+ * the reference board's tallest card is not the tallest card that can exist: a
+ * long title with many labels and a blocker line will beat it. The overlap
+ * check in `canvas-arrange.spec.ts` is what stands between that and a board
+ * nobody can read, and it first fires at a pitch of 230 on this board.
+ */
+const ROW_PITCH = 269;
 
 /**
  * How deep one column of a status lane goes before the next ticket starts a
@@ -70,10 +88,13 @@ const ROW_PITCH = 340;
  * then reflow it at the next unrelated update.
  *
  * Measured on the 30-card reference board, 25 `done` and 5 `draft`, at the
- * 2048x1152 reference viewport: the fit scale goes 0.120 to 0.494, and the
- * span from 1890x8409 to 3178x1949. A cap of 4 reaches 0.520 and turns the
- * board width-bound, which buys 5% for two more columns. At 0.49 six rows of
- * 340 px is about one stage height, which is what the number means.
+ * 2048x1152 reference viewport: wrapping alone took the fit scale from 0.120
+ * to 0.500 and the span from 1890x8409 to 3178x1926. With empty lanes dropped
+ * and the tighter row pitch it reaches 0.605, at 1890x1571.
+ *
+ * A cap of 7 was measured as well and it does not combine: at pitch 269 it
+ * reaches 0.522, and dropping empty lanes on top adds nothing, because cap 7
+ * is bound by height.
  *
  * One board shape backs that, and this store puts 25 of 30 tickets in a single
  * status. A store spread evenly across seven statuses is nearly square before
@@ -90,10 +111,15 @@ const LANE_CAP = 6;
  *
  * Two passes, because a lane's width is known only after every ticket is seen
  * and the origin of each lane is the accumulated width of the lanes before it.
- * An empty lane still occupies one column, so occupied lanes keep the x they
- * had before wrapping existed. Skipping empty lanes would tie lane position to
- * which statuses hold tickets, and filing the first `ready` ticket would then
- * shift every lane to its right.
+ *
+ * A status with no tickets gets no lane. That ties a lane's x to which
+ * statuses hold tickets, so filing the first `ready` ticket shifts every lane
+ * to its right, and a person watching sees the board reflow on a create. That
+ * cost was refused twice while it bought nothing. It was accepted once the
+ * measurement showed it buys a fifth of the board, but only together with the
+ * tighter row pitch: on this board, dropping empty lanes alone moves the fit
+ * scale from 0.4997 to 0.5000, because the freed width hands the binding
+ * straight to height.
  *
  * Reserve a stable lane slot per ticket, even when it has a manual position.
  * Pinning a frame's members must not relocate unrelated automatic cards, and
@@ -115,9 +141,9 @@ export function autoPlace(
   }
   const origins = new Map<number, number>();
   let x = 0;
-  for (let lane = 0; lane <= Math.max(-1, ...occupancy.keys()); lane++) {
+  for (const lane of [...occupancy.keys()].sort((a, b) => a - b)) {
     origins.set(lane, x);
-    x += Math.max(1, Math.ceil((occupancy.get(lane) ?? 0) / LANE_CAP)) * (LANE_W + LANE_GAP);
+    x += Math.ceil(occupancy.get(lane)! / LANE_CAP) * (LANE_W + LANE_GAP);
   }
 
   const filled = new Map<number, number>();
