@@ -67,6 +67,47 @@ describe('autoPlace', () => {
     ]);
   });
 
+  it('wraps a lane deeper than the cap into further columns, column-major', () => {
+    // Seven `ready` tickets against a cap of six. Ids sort a..g, so the fill
+    // order is visible in the output: six down the first column, then the
+    // seventh at the top of a second. Row-major would put b beside a instead,
+    // which reads as a reasonable board and orders the tickets differently.
+    const items = 'abcdefg'.split('').map(id => ({ id, status: 'ready' }));
+    expect([...autoPlace(items, {}, ['ready'])]).toEqual([
+      ['a', { x: 0, y: 0 }],
+      ['b', { x: 0, y: 340 }],
+      ['c', { x: 0, y: 680 }],
+      ['d', { x: 0, y: 1020 }],
+      ['e', { x: 0, y: 1360 }],
+      ['f', { x: 0, y: 1700 }],
+      ['g', { x: 322, y: 0 }],
+    ]);
+  });
+
+  it('accumulates lane origins past a wrapped lane, counting an empty lane as one column', () => {
+    // Lane 0 wraps to two columns, lane 1 is empty, so lane 2 starts at
+    // 2 x 322 for the wrapped lane plus 322 for the empty one.
+    const items = [...'abcdefg'].map(id => ({ id, status: 'draft' }));
+    items.push({ id: 'z', status: 'done' });
+    const placed = autoPlace(items, {}, ['draft', 'ready', 'done']);
+    expect(placed.get('g'), 'the second column of lane 0').toEqual({ x: 322, y: 0 });
+    expect(placed.get('z'), 'lane 2 behind a wrapped lane and an empty one')
+      .toEqual({ x: 966, y: 0 });
+  });
+
+  it('keeps a pinned slot reserved across a column boundary', () => {
+    // Pin the sixth ticket, the last slot of the first column. The seventh
+    // must stay at the top of the second column rather than sliding up into
+    // the hole, or pinning one card reflows the lane around it.
+    const items = 'abcdefg'.split('').map(id => ({ id, status: 'ready' }));
+    const loose = autoPlace(items, {}, ['ready']);
+    const pinned = autoPlace(items, { f: { x: -900, y: -900 } }, ['ready']);
+    expect(pinned.has('f'), 'a pinned ticket gets no automatic position').toBe(false);
+    for (const id of 'abcdeg') {
+      expect(pinned.get(id), `${id} after pinning f`).toEqual(loose.get(id));
+    }
+  });
+
   it('returns a fresh empty map for an empty board', () => {
     const first = autoPlace([], {}, []);
     expect(first.size).toBe(0);

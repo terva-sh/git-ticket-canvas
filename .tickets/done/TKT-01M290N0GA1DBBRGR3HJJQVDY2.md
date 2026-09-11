@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M290N0GA1DBBRGR3HJJQVDY2
 title: Wrap a deep status lane into more than one column
 type: task
-status: ready
-status_reason: The attribution and the wrap-against-drop decision are recorded, with criteria 1 and 2 ticked. The implementation needs a fresh context window, so it goes back on the queue rather than sitting in-progress unheld.
+status: done
+status_reason: null
 priority: normal
 due_on: null
 labels:
@@ -26,7 +26,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-11T19:55:57Z
-updated_at: 2026-09-11T22:15:50Z
+updated_at: 2026-09-11T22:37:14Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -64,13 +64,13 @@ Whether wrapping interacts with the pen placement path in `placement.ts`, which 
 
 - [x] The 25-deep lane on the reference board is attributed: how many of those cards carry a configured status, and how many fell into lane 0 through the indexOf fallback.
 - [x] The column strategy is chosen and recorded, including what decides the column count and why it does not read card width or height.
-- [ ] Fill order within a wrapped lane is chosen, recorded, and asserted by a test.
-- [ ] Pinning a card still does not move unrelated automatic cards, asserted by a test rather than by inspection.
-- [ ] A test records the arranged span, aspect ratio and fit scale at both densities, so a later change says which number moved.
-- [ ] No card overlaps another on the 30-card reference board at either density.
-- [ ] Manual card positions are unchanged by any density change, and no density change writes board data.
-- [ ] The relationship between lane wrapping and the pen placement path in placement.ts is stated, even if the answer is that they do not interact yet.
-- [ ] docs/readability-v1.md records the outcome.
+- [x] Fill order within a wrapped lane is chosen, recorded, and asserted by a test.
+- [x] Pinning a card still does not move unrelated automatic cards, asserted by a test rather than by inspection.
+- [x] A test records the arranged span, aspect ratio and fit scale at both densities, so a later change says which number moved.
+- [x] No card overlaps another on the 30-card reference board at either density.
+- [x] Manual card positions are unchanged by any density change, and no density change writes board data.
+- [x] The relationship between lane wrapping and the pen placement path in placement.ts is stated, even if the answer is that they do not interact yet.
+- [x] docs/readability-v1.md records the outcome.
 
 ## Implementation plan
 
@@ -161,3 +161,58 @@ Nothing is implemented. Criterion 2 is ticked for the decision and its record; t
 **agent:terva/mieli** at 2026-09-11T22:15:47Z
 
 in-progress to ready: The attribution and the wrap-against-drop decision are recorded, with criteria 1 and 2 ticked. The implementation needs a fresh context window, so it goes back on the queue rather than sitting in-progress unheld.
+
+**agent:terva/mieli** at 2026-09-11T22:36:33Z
+
+Implemented at a cap of 6. Two numbers in the decision note above are wrong, and the correction is the interesting part.
+
+`autoPlace` now counts occupancy in a first pass, gives each lane `ceil(occupancy / 6)` columns, accumulates lane origins, and fills column-major. An empty lane keeps its one column, so occupied lanes sit exactly where they did before wrapping existed.
+
+Measured on the reference board at the reference viewport, by the browser rather than by arithmetic:
+
+| board | span | aspect | fit |
+| --- | --- | --- | --- |
+| unwrapped, full | 1890 x 8409 | 0.22 | 0.120 |
+| wrapped, full | 3178 x 1926 | 1.65 | 0.500 |
+| wrapped, compact | 3078 x 1901 | 1.62 | 0.506 |
+
+The fit budget is 1648 x 1023, not the 2048 x 1023 stage the estimate assumed. `Canvas.viewport` reserves 400 px for an inspector that is not open, and `fitView` takes another 40 px of height. The estimate got 0.494 from the wrong width and the wrong height and landed within 1% of the right answer, which is luck rather than method.
+
+The board lands on the knee, not beside it: 0.4997 by width against 0.5000 by height, three ten-thousandths apart, and compact tips it to height. So I did not assert which dimension binds, because no test should hold a property that thin. The suite asserts the balance between the two terms instead, which is what the cap was chosen for.
+
+That balance retires the wrap-against-drop argument above. Dropping empty lanes was rejected because the board was height-bound by four to one and the width it freed was width nobody was waiting on. Width is now half of what binds, and the render shows why it matters: 1288 px of the 3178 is the void between the `draft` lane and the `done` lane, about a third of the board, with edges stretched across it. Filed as a follow-up rather than taken here.
+
+Two things from the plan that did not hold. Point 5 expected the existing `geometry.test.ts` cases to need rewriting against new origins; none did, because every lane in them is under the cap and a one-column lane keeps `lane * 322`. And the deep-lane fixture never needed a second board shape to implement, only to settle the constant, which is still open.
+
+Proved each new guard by making it fail. Moving the `continue` before the slot counter failed three tests, including one in `useMeasurements` I did not know covered placement. A row pitch of 200 made the overlap check name five colliding pairs. Registering the request listener before the arrange caught `PUT /api/layout`, so an empty list means no write rather than a listener watching nothing.
+
+Gates: `just check`, `just browser-test` 67 passed 6 skipped, `just canvas-visual` 7 passed. The pixel baseline is unchanged, because the reference scene is not arranged.</text>
+</invoke>
+
+**agent:terva/mieli** at 2026-09-11T22:37:11Z
+
+Task worklog for this ticket, from the session task board.
+
+### Tasks
+
+- [x] task-52 Fill order within a wrapped lane is chosen, recorded, and asserted by a test. — Column-major fill implemented in autoPlace and asserted in geometry.test.ts ('wraps a lane deeper than the cap into further columns, column-major'): six down column one, the seventh at x 322 y 0. 475 web tests pass.
+- [x] task-53 Pinning a card still does not move unrelated automatic cards, asserted by a test rather than by inspection. — geometry.test.ts 'keeps a pinned slot reserved across a column boundary' pins slot 6 of 7 and asserts every other card keeps its unpinned position. Proved by making it fail: moving the `continue` before the counter increment failed 3 tests (both pinned cases plus useMeasurements' position guard); restored, 475 pass.
+- [x] task-54 A test records the arranged span, aspect ratio and fit scale at both densities, so a later change says which number moved. — tests/browser/canvas-arrange.spec.ts records span, aspect and fit at both densities against a measured fit budget. Run: full 3178x1926 aspect 1.65 fit 0.500; compact 3078x1901 aspect 1.62 fit 0.506; budget 1648x1023, by width 0.4997, by height 0.5000. Unwrapped the same board is 1890x8409 aspect 0.22 fit 0.120.
+- [x] task-55 No card overlaps another on the 30-card reference board at either density. — canvas-arrange.spec.ts checks every card pair at full and compact: no overlaps. Proved by making it fail: ROW_PITCH 200 produced 5 overlapping pairs by name; restored to 340, both tests pass.
+- [x] task-56 Manual card positions are unchanged by any density change, and no density change writes board data. — canvas-arrange.spec.ts 'a density change on an arranged board moves no card and writes nothing': every card's translate is identical across full to compact to full, and the request listener records no non-GET request. Proved the listener works by registering it before the arrange, which caught PUT /api/layout; moved back after, both tests pass.
+- [x] task-57 The relationship between lane wrapping and the pen placement path in placement.ts is stated, even if the answer is that they do not interact yet. — Stated in docs/readability-v1.md under Lane depth: no module in the pen chain (placement.ts, snapshots.ts, publications.ts, scene.ts) imports autoPlace or the lane constants, CARD_WIDTH is the only shared symbol, and no UI module calls the pen path in production. Verified by grep over web/src excluding tests.
+- [x] task-58 docs/readability-v1.md records the outcome. — docs/readability-v1.md gains a Lane depth subsection: the cap and its reasoning, the measured span/aspect/fit table, column-major fill, empty lanes keeping a column, accumulating origins, the pinned reservation, the two corrections to the estimate, the pens relationship, and the second-shape caveat. The lane-width and row-pitch paragraphs are marked as pre-wrap measurements.
+
+## Summary
+
+`autoPlace` wraps a status lane at six cards and starts another column to its right. Fill order is column-major, lane origins accumulate, an empty lane still holds one column, and a pinned ticket consumes its slot across a column boundary. The cap is a count, so it reads no card width or height and a density change still re-derives nothing.
+
+On the 30-card reference board the arranged span goes from 1890 x 8409 to 3178 x 1926, the aspect from 0.22 to 1.65, and the fit scale from 0.120 to 0.500. Compact sits at 3078 x 1901 and 0.506. Every number was measured in the browser.
+
+The estimate that chose the cap was right by accident. It assumed a 2048 px stage, and the real fit budget is 1648 x 1023, because the stage reserves 400 px for a closed inspector and `fitView` takes 40 px of height. It also predicted the board would stay height-bound; it lands on the knee at 0.4997 by width against 0.5000 by height, and compact tips it to height. The suite asserts the balance between the two terms rather than which one binds.
+
+That balance re-opens the option this ticket had rejected. TKT-01M299VRP0Z2YBAE90DPP4XMV6 (Drop empty status lanes from an arranged board) is filed as a draft, because 1288 px of the 3178 is now the void between the two occupied lanes and width is half of what binds.
+
+Gates: `just check`, `just browser-test` 67 passed and 6 skipped, `just canvas-visual` 7 passed with the pixel baseline unchanged. New guards: `tests/browser/canvas-arrange.spec.ts` for column positions, depth against the cap, overlaps, span, aspect, fit balance and the no-write density toggle; three cases in `geometry.test.ts` for fill order, accumulated origins and the pinned slot across a boundary. Each was proved by making it fail.
+
+Left open: the cap of 6 rests on one board shape that puts 25 of 30 tickets in a single status, and a store spread across seven statuses could be made worse by it. `docs/readability-v1.md` says so under Lane depth, and TKT-01M290E5VQE9CWSQF3WCG71806 has to re-measure the row pitch against this geometry rather than the unwrapped one.

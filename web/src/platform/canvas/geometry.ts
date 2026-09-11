@@ -57,23 +57,79 @@ export function cardWidthFor(density: Density): number {
 }
 const LANE_W = 300;
 const LANE_GAP = 22;
+const ROW_PITCH = 340;
 
-/** Reserve a stable lane slot per ticket, even when it has a manual position.
- * Pinning a frame's members must not relocate unrelated automatic cards. */
+/**
+ * How deep one column of a status lane goes before the next ticket starts a
+ * new column to its right. A lane of 25 tickets is otherwise 8409 px tall
+ * against 1890 px wide, and a viewport is the other way round.
+ *
+ * Six is a count, so it reads neither card width nor card height. That is the
+ * point: derived positions recompute on every accepted store update, so a cap
+ * that varied with density would leave the board alone on a density toggle and
+ * then reflow it at the next unrelated update.
+ *
+ * Measured on the 30-card reference board, 25 `done` and 5 `draft`, at the
+ * 2048x1152 reference viewport: the fit scale goes 0.120 to 0.494, and the
+ * span from 1890x8409 to 3178x1949. A cap of 4 reaches 0.520 and turns the
+ * board width-bound, which buys 5% for two more columns. At 0.49 six rows of
+ * 340 px is about one stage height, which is what the number means.
+ *
+ * One board shape backs that, and this store puts 25 of 30 tickets in a single
+ * status. A store spread evenly across seven statuses is nearly square before
+ * wrapping and could be made worse by this cap. Measure a second shape before
+ * treating 6 as settled.
+ */
+const LANE_CAP = 6;
+
+/**
+ * Lay every ticket out in status lanes, wrapping a lane deeper than `LANE_CAP`
+ * into further columns. Fill order is column-major: down to the cap, then
+ * right. A status stays readable top to bottom, and the id sort keeps it
+ * deterministic.
+ *
+ * Two passes, because a lane's width is known only after every ticket is seen
+ * and the origin of each lane is the accumulated width of the lanes before it.
+ * An empty lane still occupies one column, so occupied lanes keep the x they
+ * had before wrapping existed. Skipping empty lanes would tie lane position to
+ * which statuses hold tickets, and filing the first `ready` ticket would then
+ * shift every lane to its right.
+ *
+ * Reserve a stable lane slot per ticket, even when it has a manual position.
+ * Pinning a frame's members must not relocate unrelated automatic cards, and
+ * that has to hold across a column boundary too.
+ */
 export function autoPlace(
   items: Iterable<PlacementItem>,
   pinned: PinnedPositions,
   statuses: readonly string[],
 ): Map<string, Point> {
   const positions = new Map<string, Point>();
-  const lanes = new Map<number, number>();
   const sorted = [...items].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const laneOf = (item: PlacementItem) => Math.max(0, statuses.indexOf(item.status));
+
+  const occupancy = new Map<number, number>();
   for (const item of sorted) {
-    const lane = Math.max(0, statuses.indexOf(item.status));
-    const row = lanes.get(lane) ?? 0;
-    lanes.set(lane, row + 1);
+    const lane = laneOf(item);
+    occupancy.set(lane, (occupancy.get(lane) ?? 0) + 1);
+  }
+  const origins = new Map<number, number>();
+  let x = 0;
+  for (let lane = 0; lane <= Math.max(-1, ...occupancy.keys()); lane++) {
+    origins.set(lane, x);
+    x += Math.max(1, Math.ceil((occupancy.get(lane) ?? 0) / LANE_CAP)) * (LANE_W + LANE_GAP);
+  }
+
+  const filled = new Map<number, number>();
+  for (const item of sorted) {
+    const lane = laneOf(item);
+    const slot = filled.get(lane) ?? 0;
+    filled.set(lane, slot + 1);
     if (isPinned(item.id, pinned)) continue;
-    positions.set(item.id, { x: lane * (LANE_W + LANE_GAP), y: row * 340 });
+    positions.set(item.id, {
+      x: origins.get(lane)! + Math.floor(slot / LANE_CAP) * (LANE_W + LANE_GAP),
+      y: (slot % LANE_CAP) * ROW_PITCH,
+    });
   }
   return positions;
 }
