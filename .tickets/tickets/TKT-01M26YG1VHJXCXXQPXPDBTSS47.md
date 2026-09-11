@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M26YG1VHJXCXXQPXPDBTSS47
 title: Add visual checks for dense canvas scenes
 type: task
-status: draft
-status_reason: null
+status: ready
+status_reason: The user asked me to pick this up, which is the promotion. Both dependencies are done.
 priority: normal
 due_on: null
 labels:
@@ -24,7 +24,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-11T00:39:48Z
-updated_at: 2026-09-11T05:58:37Z
+updated_at: 2026-09-11T14:29:58Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -51,3 +51,9 @@ Cover the current full-card scene with Relationships set to All, including the d
 ## Implementation plan
 
 Add a browser test that consumes the fixture and capture helper, stores a baseline and diff output, and asserts stable card counts, relationship kinds, toolbar state, and inspector presence alongside the image comparison.
+
+## Notes
+
+**agent:terva/mieli** at 2026-09-11T14:29:58Z
+
+draft to ready: The user asked me to pick this up, which is the promotion. Both dependencies are done.

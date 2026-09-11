@@ -2,7 +2,8 @@
 import { chromium } from '@playwright/test'
 import { createHash } from 'node:crypto'
 import { execFileSync, spawn } from 'node:child_process'
-import { access, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { unpackCanvasFixture } from '../tests/browser/canvas-fixture.mjs'
 import { fileURLToPath } from 'node:url'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -41,41 +42,6 @@ async function stop(child) {
     child.once('exit', () => { clearTimeout(timer); resolveStop() })
     child.kill('SIGTERM')
   })
-}
-
-async function adaptLayout(root) {
-  const path = join(root, '.tickets', 'canvas', 'default.yml')
-  const source = await readFile(path, 'utf8')
-  const removedFields = ['pens', 'ruleOrder', 'inbox']
-  const data = source.split('\n')
-    .map(line => line === 'schema: 3' ? 'schema: 2' : line)
-    .filter(line => !removedFields.some(field => line.startsWith(`${field}:`)))
-    .join('\n')
-  await writeFile(path, data)
-  return { sourceSchema: 3, targetSchema: 2, removedFields }
-}
-
-async function ensureReferenceTargets(root) {
-  const pending = [join(root, '.tickets')]
-  while (pending.length) {
-    const directory = pending.pop()
-    for (const entry of await readdir(directory, { withFileTypes: true })) {
-      const path = join(directory, entry.name)
-      if (entry.isDirectory()) {
-        pending.push(path)
-        continue
-      }
-      if (!entry.name.endsWith('.md')) continue
-      const text = await readFile(path, 'utf8')
-      for (const match of text.matchAll(/^\s+path:\s+(.+)$/gm)) {
-        const value = match[1].trim().replace(/^['"]|['"]$/g, '')
-        const target = resolve(root, value)
-        if (!value || value === 'null' || !target.startsWith(`${root}/`)) continue
-        await mkdir(dirname(target), { recursive: true })
-        try { await access(target) } catch { await writeFile(target, '') }
-      }
-    }
-  }
 }
 
 async function startServer(store, binary) {
@@ -155,29 +121,37 @@ const stubbedVersion = {
   commit: 'baseline', go: 'baseline', modified: false,
 }
 const expectedVersionLabel = 'baseline'
+// The brand prints the store path. The fixture now unpacks into a per-run
+// directory so two callers cannot collide, which would otherwise repaint the
+// brand on every capture, and `tmpdir()` already differed across platforms.
+// Both go away by serving one path to the page.
+const stubbedStorePath = '/canvas-fixture/.tickets'
 
 async function stubBuildIdentity(page) {
   await page.route('**/api/version', route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify(stubbedVersion),
   }))
+  await page.route('**/api/board*', async route => {
+    const response = await route.fetch()
+    // A conditional read answers 304 with no body to rewrite.
+    if (response.status() !== 200) { await route.fulfill({ response }); return }
+    await route.fulfill({ response, json: { ...await response.json(), storePath: stubbedStorePath } })
+  })
 }
 
-// The store path is deterministic by construction, because the capture unpacks
-// the fixture at a path it chooses. Assert it rather than rewrite it, so that
-// giving the capture a per-run directory fails here instead of silently making
-// every future baseline unreproducible.
-async function assertStableChrome(page, store) {
+// Assert what the toolbar ended up showing. A stub that stops matching, or a
+// new element carrying build identity, then fails the capture instead of
+// quietly producing a baseline that nobody can reproduce.
+async function assertStableChrome(page) {
   const seen = await page.evaluate(() => ({
     version: document.querySelector('#version > summary')?.textContent ?? null,
     storePath: document.querySelector('#storePath')?.textContent ?? null,
   }))
-  if (seen.version !== expectedVersionLabel) {
-    throw new Error(`toolbar version reads ${JSON.stringify(seen.version)}, expected `
-      + `${JSON.stringify(expectedVersionLabel)}. The build version would vary the baseline.`)
-  }
-  if (!seen.storePath || !seen.storePath.startsWith(store)) {
-    throw new Error(`toolbar store path reads ${JSON.stringify(seen.storePath)}, expected it to `
-      + `start with ${JSON.stringify(store)}. A per-run store path would vary the baseline.`)
+  for (const [field, expected] of [['version', expectedVersionLabel], ['storePath', stubbedStorePath]]) {
+    if (seen[field] !== expected) {
+      throw new Error(`toolbar ${field} reads ${JSON.stringify(seen[field])}, expected `
+        + `${JSON.stringify(expected)}. That would vary the baseline between runs.`)
+    }
   }
   return seen
 }
@@ -185,18 +159,14 @@ async function assertStableChrome(page, store) {
 async function main() {
   const fixtureBytes = await readFile(fixture)
   const fixtureChecksum = createHash('sha256').update(fixtureBytes).digest('hex')
-  const temporary = storePath
-  await rm(temporary, { recursive: true, force: true })
-  await mkdir(temporary, { recursive: true })
+  // Pin the store for a capture. The helper would otherwise pick a fresh
+  // directory per run, which is what a parallel test suite wants and what a
+  // reproducible artifact does not.
+  const fixtureStore = await unpackCanvasFixture({ archive: fixture, store: storePath })
+  const temporary = fixtureStore.store
   let server
   let browser
   try {
-    execFileSync('tar', ['-xzf', fixture, '-C', temporary])
-    const layoutAdapter = await adaptLayout(temporary)
-    // The archive contains the .tickets store, but not the original repository
-    // files named by ticket references. Empty deterministic targets make the
-    // copied fixture valid without changing the immutable source archive.
-    await ensureReferenceTargets(temporary)
     const binary = process.env.GIT_TICKET_CANVAS_BINARY
       ? pathFrom(process.env.GIT_TICKET_CANVAS_BINARY)
       : join(temporary, 'git-ticket-canvas')
@@ -213,18 +183,24 @@ async function main() {
     const page = await context.newPage()
     await stubBuildIdentity(page)
     await pageReady(page, server.url)
-    const chrome = await assertStableChrome(page, temporary)
+    const chrome = await assertStableChrome(page)
     const board = await page.evaluate(async () => (await fetch('/api/board?board=default')).json())
     const version = await page.evaluate(async () => (await fetch('/api/version')).json())
     await mkdir(dirname(output), { recursive: true })
-    await page.screenshot({ path: output, fullPage: false })
+    // Selecting a card starts two CSS transitions: the inspector slides in over
+    // .16s and the selected card's handle fades in over .12s. Waiting for
+    // `#inspector.open` to be visible does not wait for either to finish, so
+    // the shot could land mid-transition. Measured: six identical runs gave
+    // three different PNGs while card geometry was byte-identical in all six,
+    // which is how this was tracked to paint rather than layout. `animations:
+    // 'disabled'` finishes finite transitions at their end state first.
+    await page.screenshot({ path: output, fullPage: false, animations: 'disabled', caret: 'hide' })
     const metadata = {
       schema: 1,
       fixture: {
         archive: 'docs/artifacts/canvas-review-baseline-2026-09-11/ahpsh-tickets/ahpsh-tickets.tgz',
         sha256: fixtureChecksum,
         ticketCount: board.tickets.length,
-        layoutAdapter,
       },
       viewport: { width, height, deviceScaleFactor: 1 },
       board: await page.locator('#boardSelect').inputValue(),
@@ -232,6 +208,15 @@ async function main() {
       selectedTicket,
       cards: await page.locator('#cards .card').count(),
       relationshipsRendered: await page.locator('#edges .relationship').count(),
+      // Where every card landed. A baseline that drifts then says which cards
+      // moved, instead of only that the bytes changed.
+      geometry: await page.evaluate(() => [...document.querySelectorAll('#cards .card')]
+        .map(card => {
+          const box = card.getBoundingClientRect()
+          return [card.dataset.id, Math.round(box.x), Math.round(box.y),
+            Math.round(box.width), Math.round(box.height)]
+        })
+        .sort((a, b) => a[0].localeCompare(b[0]))),
       // The build that produced the image, for provenance. It varies per build
       // and is deliberately not what the page rendered.
       appVersion: version,
@@ -247,7 +232,7 @@ async function main() {
   } finally {
     await browser?.close()
     await stop(server?.child)
-    await rm(temporary, { recursive: true, force: true })
+    await fixtureStore.cleanup()
   }
 }
 

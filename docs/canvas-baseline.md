@@ -21,7 +21,31 @@ docs/artifacts/canvas-review-baseline-2026-09-11/ahpsh-tickets/canvas-baseline.p
 docs/artifacts/canvas-review-baseline-2026-09-11/ahpsh-tickets/canvas-baseline.json
 ```
 
-The capture uses a temporary store at a fixed path, and removes it after the server exits. It never modifies the archive. Do not run two captures concurrently, because the second one deletes the first one's store.
+The capture unpacks the archive with the shared helper described below, and removes the store after the server exits. It never modifies the archive. It pins the store to one path, so do not run two captures at once: the second deletes the first one's store.
+
+## The fixture helper
+
+`tests/browser/canvas-fixture.mjs` unpacks the archive for everything that needs the dense scene, the capture script and the Playwright specs alike:
+
+```js
+import { unpackCanvasFixture } from './canvas-fixture.mjs'
+
+const fixture = await unpackCanvasFixture()
+try {
+  // fixture.store is the store root to pass the server as -store
+  // fixture.tickets is the ticket ids found in the copy
+} finally {
+  await fixture.cleanup()
+}
+```
+
+With no arguments it unpacks into a fresh `mkdtemp` directory. That is what the specs need: `playwright.config` runs two workers with `fullyParallel`, so a shared directory would have one spec deleting the store another is reading. Pass `store` to pin the path, which is what the capture does and what a spec should not do. Pass `archive` to point at a different tarball.
+
+It verifies before it returns. The copy must hold 30 tickets and a `default.yml`, or the call throws and leaves nothing behind. `cleanup` removes the directory and is safe to call twice. Neither path writes to the archive.
+
+The helper is plain `.mjs` on purpose. `tests/browser` is not in the `tsconfig.json` include, so the specs are not typechecked, and one JavaScript module serves both them and the capture script with no build step.
+
+`just tooling-test` covers it: two concurrent callers getting separate stores, cleanup, a double cleanup, a pinned path, a pinned path replacing stale content, and a bad archive.
 
 ## How the capture stays build-independent
 
@@ -31,19 +55,21 @@ The capture stubs `GET /api/version` with a constant payload, so the toolbar ren
 
 Stubbing beat clipping the screenshot to the canvas. The toolbar is part of what the density and relationship-clutter tickets want to review, so cropping it out would remove the evidence those tickets need.
 
-The store path in the brand is deterministic by construction, because the capture unpacks the fixture at a path it chooses. The capture asserts it rather than rewriting it. That assertion is the tripwire for the per-run store directory in TKT-01M26YFC1Y1XTK2RW2XYN4FFGW: giving the capture a fresh directory per run fails the capture loudly instead of quietly making every later baseline unreproducible. The version label is asserted the same way, so a toolbar change that moves `#version` stops the capture rather than poisoning the image.
+The brand prints the store path beside the version, and the capture stubs that the same way. It intercepts `GET /api/board`, replaces `storePath` with `/canvas-fixture/.tickets`, and passes everything else through. A conditional read answering 304 carries no body, so that case is forwarded untouched.
+
+The capture then asserts what the toolbar ended up showing, both the version label and the store path. A toolbar change that moves `#version` or `#storePath` stops the capture rather than quietly poisoning the image.
 
 The PNG is the byte-comparison target. The JSON beside it records `appVersion`, the build that produced the image, which varies on purpose and is provenance rather than something a comparison holds fixed. `renderedChrome` records what the toolbar actually displayed, which is the part held constant.
 
-The visible store path makes the baseline machine-dependent. `tmpdir()` is `/tmp` on Linux and `/var/folders/...` on macOS, so a capture on another platform writes a different path into the brand and the bytes differ for a reason that has nothing to do with the canvas. Pass the same path to reproduce the committed image:
-
-```sh
-npm run capture:canvas-baseline -- --store /tmp/git-ticket-canvas-reference-store-2026-09-11-warricksothr-arkham-halloween-photo-scavenger-hunt
-```
-
-`CANVAS_CAPTURE_STORE` sets the same thing. A gate that has to run on more than one platform should pin this rather than rely on the default.
+Stubbing the store path is also what makes the baseline portable. `tmpdir()` is `/tmp` on Linux and `/var/folders/...` on macOS, so before the stub a capture on another platform wrote a different path into the brand and the bytes differed for a reason that had nothing to do with the canvas. Pinning the path was the old workaround. `--store` and `CANVAS_CAPTURE_STORE` still choose where the store lands, and neither is needed to reproduce the committed image now.
 
 One thing is deliberately left alone. `CardView.tsx` and `Inspector.tsx` mark a ticket late by comparing `dueOn` against `new Date()`, so a fixture ticket with a due date would repaint on a calendar day with no commit behind it. All 30 tickets in this archive have `due_on: null`, so that path never fires here. A future fixture that carries due dates needs a pinned clock, or the late state held constant the same way the version is.
+
+## Why the screenshot disables animations
+
+Selecting a card starts two CSS transitions. The inspector slides in over `.16s`, and the selected card's handle fades in over `.12s`. Waiting for `#inspector.open` to be visible does not wait for either to finish, so the shot could land mid-transition and the bytes changed run to run.
+
+That took a while to find because it looks like a build problem from the outside. Six identical runs produced three different images, while the card geometry recorded in the JSON was identical in all six. Layout was never in question, so the difference had to be paint. The screenshot now passes `animations: 'disabled'`, which finishes finite transitions at their end state first, and `caret: 'hide'`.
 
 ## Capture conditions
 
@@ -57,30 +83,34 @@ One thing is deliberately left alone. `CardView.tsx` and `Inspector.tsx` mark a 
 - expected saved card placements: 30
 - expected rendered relationships: 41
 
-The archive was produced with layout schema 3. The current canvas reader accepts schema 2, so the isolated copy changes `schema: 3` to `schema: 2` and removes the schema 3 `pens`, `ruleOrder`, and `inbox` fields. The archive also contains references to files from the original project that are not part of the ticket tarball. The capture creates empty reference targets in the isolated copy so the store can validate. Neither adaptation changes the committed archive.
+The archive was produced with layout schema 3, and `internal/layout.Schema` is 3, so the copy loads as recorded. An earlier version of this capture rewrote `schema: 3` to `schema: 2` and stripped the schema 3 `pens`, `ruleOrder`, and `inbox` fields. That rewrite is gone, and the capture reports 30 tickets and 30 rendered cards without it. The archive does hold references to files from the original project that are not in the tarball, so the helper creates empty reference targets in the copy for the store to validate against. That does not change the committed archive.
 
 The generated image is the current-app baseline for the supplied reference screenshot. It uses the same 30-ticket AHPSH store, saved `default` layout, dark 2048 by 1152 viewport, `All` relationship mode, and selected `Prepare the first live event and future themes` ticket. It is a reproducible baseline rather than a byte-for-byte copy of the conversation image, which was never a workspace file.
 
-The JSON file records the fixture SHA-256, the layout adaptation, viewport, board, relationship mode, selected ticket, card count, relationship count, and app build information.
+The JSON file records the fixture SHA-256, viewport, board, relationship mode, selected ticket, card count, relationship count, the position and size of every card, and app build information. The geometry is there so a baseline that drifts says which cards moved instead of only that the bytes changed. It is also what located the animation race above.
 
 ## Verification
 
-Two builds reporting different versions produced identical PNG bytes. One was the ordinary VCS-stamped build, which reports `v0.1.1-0.20260911061135-104c3c1ad552`. The other was built with `go build -buildvcs=false`, which reports `devel`. The committed baseline is a third capture and matches both:
+Eight consecutive captures produced identical PNG bytes. So did three captures across different builds: the default run that compiles the binary into the store, an ordinary VCS-stamped build reporting `v0.1.1-0.20260911142057-aec22cd52685`, and a `go build -buildvcs=false` build reporting `devel`. The committed baseline is a twelfth capture and matches all of them:
 
 ```text
-ad4291f6651cf8211107002b25520b19b238581b7c3caf79e92d75df8161dd9a  canvas-baseline.png
+1688493a9730949f88f777dceb874d551670b09571f527e91886a6ef4f42dc4c  canvas-baseline.png
 ```
 
 To reproduce that check:
 
 ```sh
 go build -buildvcs=false -o /tmp/canvas-devel .
-npm run capture:canvas-baseline -- --output /tmp/a.png
-GIT_TICKET_CANVAS_BINARY=/tmp/canvas-devel npm run capture:canvas-baseline -- --output /tmp/b.png
-sha256sum /tmp/a.png /tmp/b.png
+for n in 1 2 3 4 5 6 7 8; do
+  npm run capture:canvas-baseline -- --output /tmp/canvas-$n.png
+done
+GIT_TICKET_CANVAS_BINARY=/tmp/canvas-devel npm run capture:canvas-baseline -- --output /tmp/canvas-devel.png
+sha256sum /tmp/canvas-*.png | sort | uniq -c -w64
 ```
 
-The previous baseline was `75fd5785ba7cafc07acd3acff6ca6f3d1cc7a49c4d70e55f156dfb27339e85cc`. It is superseded rather than reproducible: it predates both the version stub and the `Labels` filter button from TKT-01M26SB170M9TGNXHK8W7W5YSM, which added a toolbar control and pushed the card count and relationship selector onto a second row.
+Run it more than twice. The earlier baseline `ad4291f6651cf8211107002b25520b19b238581b7c3caf79e92d75df8161dd9a` passed a two-capture check and was still caught by the animation race, because two samples cannot tell a stable capture from one that agrees most of the time.
+
+Two baselines are superseded rather than reproducible. `ad4291f6...` predates the animation fix. `75fd5785ba7cafc07acd3acff6ca6f3d1cc7a49c4d70e55f156dfb27339e85cc` predates the version stub and the `Labels` filter button from TKT-01M26SB170M9TGNXHK8W7W5YSM, which added a toolbar control and pushed the card count and relationship selector onto a second row.
 
 The source archive is unchanged:
 
