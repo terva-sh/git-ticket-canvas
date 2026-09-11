@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { allocatePlacement, type PlacementInput, type PlacementSnapshot, type Rectangle } from './placement'
+import { CARD_WIDTH, COMPACT_CARD_WIDTH } from './geometry'
 
 function input(ids = ['a', 'b', 'c', 'd', 'e']): PlacementInput {
   return { board: 'default', generation: 1, revision: 1, baseline: 'r1',
@@ -8,6 +9,32 @@ function input(ids = ['a', 'b', 'c', 'd', 'e']): PlacementInput {
     routing: { pens: { p: { title: 'Pen', x: 0, y: 0, w: 632, h: 296, color: '#759bcc', pin: { x: 24, y: 24 }, requiredLabels: ['x'] } },
       ruleOrder: ['p'], inbox: { x: -1000, y: 0 } } }
 }
+it('places on a lattice sized by the card width, and defaults to CARD_WIDTH', () => {
+  // Omitting the width has to mean exactly the old behaviour, because every
+  // existing caller omits it.
+  const implicit = placed(input())
+  const explicit = placed({ ...input(), cardWidth: CARD_WIDTH })
+  expect([...explicit.snapshot.positions]).toEqual([...implicit.snapshot.positions])
+  expect([...implicit.snapshot.positions.values()].map(p => p.width)).toEqual(Array(5).fill(CARD_WIDTH))
+
+  // Narrower cards mean a tighter lattice and a wider interior, so the same pen
+  // holds more of them. The pen has to have room for the extra column to exist:
+  // at the default 632 both widths yield two columns, because the lattice index
+  // stops at floor((428 - 24) / 204) = 1.
+  const roomy = () => { const value = input(); value.routing.pens.p.w = 700; return value }
+  const full = placed(roomy())
+  const compact = placed({ ...roomy(), cardWidth: COMPACT_CARD_WIDTH })
+  expect([...compact.snapshot.positions.values()].map(p => p.width)).toEqual(Array(5).fill(COMPACT_CARD_WIDTH))
+  expect(compact.snapshot.overflowCounts.get('p')!).toBeLessThan(full.snapshot.overflowCounts.get('p')!)
+  collisionFree(compact.snapshot)
+})
+it('refuses a card width that is not a positive number', () => {
+  for (const cardWidth of [0, -10, NaN, Infinity]) {
+    const result = allocatePlacement({ ...input(), cardWidth })
+    expect(result.ok, `width ${cardWidth}`).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('invalid-input')
+  }
+})
 function placed(value: PlacementInput, previous?: PlacementSnapshot) {
   const result = allocatePlacement(value, previous)
   if (!result.ok) throw new Error(JSON.stringify(result.error))

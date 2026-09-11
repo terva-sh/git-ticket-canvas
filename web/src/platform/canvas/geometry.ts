@@ -35,6 +35,9 @@ export interface FitCard extends Point {
 }
 
 export const CARD_WIDTH = 280;
+/** The compact density width. Placement, edges and the stylesheet all read a
+ * width rather than this constant, so the two densities share one code path. */
+export const COMPACT_CARD_WIDTH = 180;
 const LANE_W = 300;
 const LANE_GAP = 22;
 

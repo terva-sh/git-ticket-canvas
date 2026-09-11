@@ -16,6 +16,9 @@ export interface PlacementInput {
   board: string; generation: number; revision: number; baseline: string
   tickets: readonly PlacementTicket[]; routing: Routing; cards: Readonly<Cards>
   heights: ReadonlyMap<string, MeasuredHeight>; previews: ReadonlyMap<string, ManualPreview>; obstacles: readonly Obstacle[]
+  /** How wide a card is on this board. Omit for the full-density CARD_WIDTH.
+   * Heights are measured per ticket; width is uniform, so it belongs here. */
+  cardWidth?: number
 }
 export interface Placement extends Rectangle {
   readonly identity: string; readonly mode: 'automatic' | 'manual' | 'preview'; readonly provisional: boolean
@@ -181,10 +184,12 @@ class Heap {
     return first
   }
 }
-function* grid(domain: Domain, pin: { x: number; y: number }, height: number): Generator<{ x: number; y: number }> {
+// Every width here defaults to CARD_WIDTH, so a caller that does not care about
+// density reads and behaves exactly as before. Compact mode passes its own.
+function* grid(domain: Domain, pin: { x: number; y: number }, height: number, width = CARD_WIDTH): Generator<{ x: number; y: number }> {
   if (domain.minX > domain.maxX || domain.minY > domain.maxY) return
   const x = Math.max(domain.minX, Math.min(domain.maxX, pin.x)), y = Math.max(domain.minY, Math.min(domain.maxY, pin.y))
-  const dx = CARD_WIDTH + PLACEMENT_GAP, dy = height + PLACEMENT_GAP
+  const dx = width + PLACEMENT_GAP, dy = height + PLACEMENT_GAP
   const minI = Math.ceil((domain.minX - x) / dx), maxI = Math.floor((domain.maxX - x) / dx)
   const minJ = Math.ceil((domain.minY - y) / dy), maxJ = Math.floor((domain.maxY - y) / dy)
   const heap = new Heap(), seen = new Set<string>()
@@ -203,18 +208,18 @@ function* grid(domain: Domain, pin: { x: number; y: number }, height: number): G
     add(point.ix - 1, point.iy); add(point.ix + 1, point.iy); add(point.ix, point.iy - 1); add(point.ix, point.iy + 1)
   }
 }
-const world = (height: number): Domain => ({ minX: -SCENE_LIMIT, maxX: SCENE_LIMIT - CARD_WIDTH, minY: -SCENE_LIMIT, maxY: SCENE_LIMIT - height })
+const world = (height: number, width = CARD_WIDTH): Domain => ({ minX: -SCENE_LIMIT, maxX: SCENE_LIMIT - width, minY: -SCENE_LIMIT, maxY: SCENE_LIMIT - height })
 function inside(rect: Rectangle, domain: Domain) {
   return coordinate(rect.x) && coordinate(rect.y) && rect.x >= domain.minX && rect.x <= domain.maxX && rect.y >= domain.minY && rect.y <= domain.maxY
 }
-function interior(routing: Routing, id: string, height: number): Domain {
-  const p = routing.pens[id], legal = world(height)
-  return { minX: Math.max(legal.minX, p.x + PLACEMENT_GAP), maxX: Math.min(legal.maxX, p.x + p.w - PLACEMENT_GAP - CARD_WIDTH),
+function interior(routing: Routing, id: string, height: number, width = CARD_WIDTH): Domain {
+  const p = routing.pens[id], legal = world(height, width)
+  return { minX: Math.max(legal.minX, p.x + PLACEMENT_GAP), maxX: Math.min(legal.maxX, p.x + p.w - PLACEMENT_GAP - width),
     minY: Math.max(legal.minY, p.y + PLACEMENT_GAP), maxY: Math.min(legal.maxY, p.y + p.h - PLACEMENT_GAP - height) }
 }
-function fitsPen(routing: Routing, id: string, rect: Rectangle): boolean {
+function fitsPen(routing: Routing, id: string, rect: Rectangle, width = CARD_WIDTH): boolean {
   const p = routing.pens[id]
-  return inside(rect, interior(routing, id, rect.height))
+  return inside(rect, interior(routing, id, rect.height, width))
     && rect.x + rect.width <= p.x + p.w - PLACEMENT_GAP && rect.y + rect.height <= p.y + p.h - PLACEMENT_GAP
 }
 function anchorKey(routing: Routing, dest: Destination): string {
@@ -227,15 +232,15 @@ function exterior(routing: Routing, id: string, rect: Rectangle): boolean {
   return rect.y >= p.y + p.h + PLACEMENT_GAP || rect.x >= p.x + p.w + PLACEMENT_GAP
     || rect.y + rect.height + PLACEMENT_GAP <= p.y || rect.x + rect.width + PLACEMENT_GAP <= p.x
 }
-function* spill(routing: Routing, id: string, height: number): Generator<{ x: number; y: number }> {
-  const p = routing.pens[id], w = world(height)
+function* spill(routing: Routing, id: string, height: number, width = CARD_WIDTH): Generator<{ x: number; y: number }> {
+  const p = routing.pens[id], w = world(height, width)
   const domains: Domain[] = [
     { ...w, minY: Math.max(w.minY, p.y + p.h + PLACEMENT_GAP) },
     { ...w, minX: Math.max(w.minX, p.x + p.w + PLACEMENT_GAP) },
     { ...w, maxY: Math.min(w.maxY, p.y - PLACEMENT_GAP - height) },
-    { ...w, maxX: Math.min(w.maxX, p.x - PLACEMENT_GAP - CARD_WIDTH) },
+    { ...w, maxX: Math.min(w.maxX, p.x - PLACEMENT_GAP - width) },
   ]
-  const iterators = domains.map(d => grid(d, p.pin, height))
+  const iterators = domains.map(d => grid(d, p.pin, height, width))
   const done = new Set<number>()
   while (done.size < iterators.length) {
     for (let i = 0; i < iterators.length; i++) {
@@ -256,19 +261,23 @@ export function allocatePlacement(input: PlacementInput, previous?: PlacementSna
   const budget = options.maxCandidates ?? DEFAULT_CANDIDATE_BUDGET
   try {
     if (!Number.isSafeInteger(budget) || budget < 0) throw new Error('Invalid candidate budget')
+    if (input.cardWidth !== undefined && !positive(input.cardWidth)) throw new Error('Invalid card width')
     prepared = preparePlacement(input)
   } catch (error) {
     return { ok: false, error: { code: 'invalid-input', message: error instanceof Error ? error.message : 'Invalid placement input' }, work }
   }
   const { routing, obstacles } = prepared.input, tickets = prepared.tickets
+  // Read from the caller's input, not prepared.input: preparePlacement rebuilds
+  // the input from the fields it knows, so a width set there would be dropped.
+  const cardWidth = input.cardWidth ?? CARD_WIDTH
   const effectiveCards = Object.fromEntries(tickets.filter(t => t.preview || t.manual).map(t => [t.id, t.preview?.card ?? t.manual!]))
   const evaluation = evaluatePens(routing, tickets, effectiveCards), positions = new Map<string, Placement>(), occupancy = new Occupancy(work)
   for (const obstacle of obstacles) occupancy.add(obstacle)
   for (const t of tickets) {
-    if (t.manual) occupancy.add({ ...t.manual, width: CARD_WIDTH, height: t.height })
-    if (t.preview) occupancy.add({ ...t.preview.card, width: CARD_WIDTH, height: t.height })
+    if (t.manual) occupancy.add({ ...t.manual, width: cardWidth, height: t.height })
+    if (t.preview) occupancy.add({ ...t.preview.card, width: cardWidth, height: t.height })
     const card = t.preview?.card ?? t.manual
-    if (card) positions.set(t.id, { ...card, width: CARD_WIDTH, height: t.height, identity: t.identity,
+    if (card) positions.set(t.id, { ...card, width: cardWidth, height: t.height, identity: t.identity,
       provisional: t.provisional, mode: t.preview ? 'preview' : 'manual', destination: null, overflow: false, anchorKey: '',
       ...(t.preview ? { previewOwner: t.preview.owner } : {}) })
   }
@@ -284,28 +293,28 @@ export function allocatePlacement(input: PlacementInput, previous?: PlacementSna
     const old = oldFor(t), dest = destination(t)
     if (!old || old.mode !== 'automatic' || old.identity !== t.identity || old.anchorKey !== anchorKey(routing, dest)) continue
     const candidate = { ...old, height: t.height, provisional: t.provisional }
-    if (!inside(candidate, world(t.height))) continue
-    if (dest.kind === 'pen' && (old.overflow ? !exterior(routing, dest.penId, candidate) : !fitsPen(routing, dest.penId, candidate))) continue
+    if (!inside(candidate, world(t.height, cardWidth))) continue
+    if (dest.kind === 'pen' && (old.overflow ? !exterior(routing, dest.penId, candidate) : !fitsPen(routing, dest.penId, candidate, cardWidth))) continue
     if (!occupancy.free(candidate)) continue
     const same = old.height === t.height && old.provisional === t.provisional
     positions.set(t.id, same ? old : candidate); occupancy.add(candidate); work.retained++
   }
   for (const t of automatic) {
     if (positions.has(t.id)) continue
-    const dest = destination(t), legal = world(t.height)
+    const dest = destination(t), legal = world(t.height, cardWidth)
     if (legal.minY > legal.maxY) return { ok: false, error: { code: 'coordinate-exhausted', ticketId: t.id, message: 'Card exceeds scene bounds' }, work }
     const sources: { points: Generator<{ x: number; y: number }>; overflow: boolean }[] = dest.kind === 'pen'
-      ? [{ points: grid(interior(routing, dest.penId, t.height), routing.pens[dest.penId].pin, t.height), overflow: false },
-        { points: spill(routing, dest.penId, t.height), overflow: true }]
-      : [{ points: grid(legal, routing.inbox, t.height), overflow: false }]
+      ? [{ points: grid(interior(routing, dest.penId, t.height, cardWidth), routing.pens[dest.penId].pin, t.height, cardWidth), overflow: false },
+        { points: spill(routing, dest.penId, t.height, cardWidth), overflow: true }]
+      : [{ points: grid(legal, routing.inbox, t.height, cardWidth), overflow: false }]
     search: for (const source of sources) {
       for (const point of source.points) {
         if (work.candidates >= budget) return { ok: false, error: { code: 'search-exhausted', ticketId: t.id, message: 'Placement candidate budget exhausted' }, work }
         work.candidates++
-        const candidate: Placement = { ...point, width: CARD_WIDTH, height: t.height, identity: t.identity, mode: 'automatic',
+        const candidate: Placement = { ...point, width: cardWidth, height: t.height, identity: t.identity, mode: 'automatic',
           provisional: t.provisional, destination: dest, overflow: source.overflow, anchorKey: anchorKey(routing, dest) }
         if (!inside(candidate, legal)) continue
-        if (dest.kind === 'pen' && (source.overflow ? !exterior(routing, dest.penId, candidate) : !fitsPen(routing, dest.penId, candidate))) continue
+        if (dest.kind === 'pen' && (source.overflow ? !exterior(routing, dest.penId, candidate) : !fitsPen(routing, dest.penId, candidate, cardWidth))) continue
         if (!occupancy.free(candidate)) continue
         positions.set(t.id, candidate); occupancy.add(candidate); break search
       }
