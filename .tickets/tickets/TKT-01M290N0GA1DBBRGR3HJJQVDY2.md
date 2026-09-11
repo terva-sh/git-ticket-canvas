@@ -4,7 +4,7 @@ id: TKT-01M290N0GA1DBBRGR3HJJQVDY2
 title: Wrap a deep status lane into more than one column
 type: task
 status: ready
-status_reason: The attribution this ticket asked for first is done and criterion 1 is ticked. Nobody is holding the rest, and in-progress without a claim is a strict-check warning, so it goes back on the queue.
+status_reason: The attribution and the wrap-against-drop decision are recorded, with criteria 1 and 2 ticked. The implementation needs a fresh context window, so it goes back on the queue rather than sitting in-progress unheld.
 priority: normal
 due_on: null
 labels:
@@ -26,7 +26,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-11T19:55:57Z
-updated_at: 2026-09-11T20:43:36Z
+updated_at: 2026-09-11T22:15:50Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -63,7 +63,7 @@ Whether wrapping interacts with the pen placement path in `placement.ts`, which 
 ## Acceptance criteria
 
 - [x] The 25-deep lane on the reference board is attributed: how many of those cards carry a configured status, and how many fell into lane 0 through the indexOf fallback.
-- [ ] The column strategy is chosen and recorded, including what decides the column count and why it does not read card width or height.
+- [x] The column strategy is chosen and recorded, including what decides the column count and why it does not read card width or height.
 - [ ] Fill order within a wrapped lane is chosen, recorded, and asserted by a test.
 - [ ] Pinning a card still does not move unrelated automatic cards, asserted by a test rather than by inspection.
 - [ ] A test records the arranged span, aspect ratio and fit scale at both densities, so a later change says which number moved.
@@ -71,6 +71,32 @@ Whether wrapping interacts with the pen placement path in `placement.ts`, which 
 - [ ] Manual card positions are unchanged by any density change, and no density change writes board data.
 - [ ] The relationship between lane wrapping and the pen placement path in placement.ts is stated, even if the answer is that they do not interact yet.
 - [ ] docs/readability-v1.md records the outcome.
+
+## Implementation plan
+
+Written after the attribution and the wrap-against-drop decision, both in the notes. Decision: wrap at a fixed row cap, recommended 6. Dropping empty lanes is rejected for now and returns only if a cap makes boards width-bound.
+
+Measure a second board shape before fixing the constant. This fixture puts 25 of 30 tickets in one status, which is what makes it height-bound at more than four to one, and a store spread across seven statuses could be made worse by a cap of 6. The number in the table is defensible for this shape and unproven for any other.
+
+1. `autoPlace` changes shape, not signature. It still takes `{id, status}` items, pinned positions and statuses, and it still reads no card width or height, which is what keeps a density toggle from reflowing the board.
+
+   - A lane's column count becomes `ceil(occupancy / CAP)`, where occupancy counts every ticket in that status including pinned ones.
+   - Lane origins stop being `index * (LANE_W + LANE_GAP)` and accumulate instead, because lanes now differ in width. Walk the configured statuses in order, carrying a running x.
+   - Occupancy has to be counted in a first pass, since a lane's width is known only after every ticket is seen, and today's single pass assigns x while iterating.
+
+2. Fill order is column-major: down to the cap, then start the next column to the right. A status stays readable top to bottom, which is how the lane reads today, and the id sort keeps it deterministic. Assert it in a test rather than leaving it implied, because row-major produces a board that looks reasonable and orders tickets differently.
+
+3. The pinned slot reservation has to survive the rewrite. Today the row counter increments for a pinned ticket before the `continue` skips it, so pinning a frame's members never relocates unrelated automatic cards. With wrapping the same rule has to hold across a column boundary: a pinned ticket consumes its slot in its column, or pinning one card reflows the rest of its lane. This is the regression most likely to slip through, because nothing about it is visible until somebody pins a card in a deep lane.
+
+4. `CAP` sits beside `LANE_W` and the row pitch as a module constant, with the measurement and the second-board caveat in a comment.
+
+5. Tests. The arranged span, aspect ratio and fit scale at both densities, so a later change says which number moved. No card overlapping another. Pinning stability from point 3. Fill order from point 2. The existing `geometry.test.ts` cases assert exact coordinates from `lane * 322` and `row * 340`, so they will need rewriting against the new origins, and that rewrite is the moment to check that each one still asserts what it meant.
+
+6. State the relationship to the pen placement path in `placement.ts`. Both decide where an automatic card goes, pens are not active in production, and the answer may well be that they do not interact yet. It needs saying either way.
+
+7. `docs/readability-v1.md` records the outcome, replacing its current statement that nothing implements a tighter arrangement.
+
+Not in scope. The row pitch is TKT-01M290E5VQE9CWSQF3WCG71806, and whichever of the two lands second has to re-measure, because both change the geometry the other was measured against.
 
 ## Notes
 
@@ -100,3 +126,38 @@ Still open here: every design question in the description. What bounds the colum
 **agent:terva/mieli** at 2026-09-11T20:43:36Z
 
 in-progress to ready: The attribution this ticket asked for first is done and criterion 1 is ticked. Nobody is holding the rest, and in-progress without a claim is a strict-check warning, so it goes back on the queue.
+
+**agent:terva/mieli** at 2026-09-11T22:15:05Z
+
+Decided: wrap. Dropping empty lanes is rejected as a standalone change, and the arithmetic is not close.
+
+Computed from the attributed board, 5 cards in lane 0 and 25 in lane 5, against the stage this app actually gets at the reference viewport: 2048 x 1023 after the toolbar, `fitView`'s 60 px padding on each side, a 340 px row pitch, a 322 px lane pitch and a tallest card of 249 px.
+
+| option | spanX | spanY | fit scale | binds |
+| --- | --- | --- | --- | --- |
+| today | 1890 | 8409 | 0.120 | height |
+| drop empty lanes | 602 | 8409 | 0.120 | height |
+| wrap at 4 rows, 7 columns | 3822 | 1269 | 0.520 | width |
+| wrap at 6 rows, 5 columns | 3178 | 1949 | 0.494 | height |
+| wrap at 8 rows, 4 columns | 2856 | 2629 | 0.372 | height |
+| wrap at 10 rows, 3 columns | 2534 | 3309 | 0.298 | height |
+| wrap at 16 rows, 2 columns | 2212 | 5349 | 0.187 | height |
+| wrap at 8 rows and drop empty lanes | 1568 | 2629 | 0.372 | height |
+
+Dropping empty lanes removes 1288 px of horizontal emptiness and changes the fit scale by nothing. The board is height-bound by more than four to one and stays height-bound, so the width it frees is width nobody was waiting on. The last row is the same point from the other side: added to wrapping, it takes spanX from 2856 to 1568 and leaves the scale at 0.372.
+
+That gives the conditional rather than a flat no. Dropping empty lanes pays only once the board is width-bound, which is exactly what a cap of 4 produces. If a later measurement lands on a cap that flips the binding dimension, this comes back as the next change rather than as a rejected idea.
+
+Wrapping is the only option that moves the number, between 1.6x and 4.3x depending on the cap.
+
+The cap I recommend is 6 rows, and the knee in that table is the reason. Between 4 and 6 the board crosses from height-bound to width-bound, so 4 buys 0.520 against 0.494 for 6, a 5% gain for spreading 25 cards across 7 columns instead of 5. Six also has a meaning rather than being a tuned constant: at the resulting scale of about 0.49, six rows of 340 px is 2040 scene px, which is close to 1023 device px of stage height, so the cap is one screenful of rows. It is a count, so it reads neither card width nor card height, which is what criterion 2 requires and what keeps a density toggle from reflowing the board.
+
+The instability I raised when filing this applies to both options, and it is not a reason to prefer dropping. Wrapping makes a lane's width depend on how many tickets share that status, so a status crossing a multiple of the cap gains a column and shifts every lane to its right. Dropping makes a lane's position depend on whether a status has any tickets at all, so filing the first `ready` ticket shifts every lane to its right. Wrapping reflows at 6, 12, 18 tickets in a status; dropping reflows at 1. Wrapping pays four times the fit scale for its reflow, and dropping pays nothing for a more frequent one.
+
+One board, one shape, and the caveat matters here more than usual. This store has 25 of 30 tickets in a single status, which is what makes it height-bound at all. A store spread evenly across seven statuses would be nearly square today, would gain far less from wrapping, and might be made worse by a cap of 6. Whoever implements this should measure a second board shape before choosing the constant, and the fixture is the wrong place to look for one.
+
+Nothing is implemented. Criterion 2 is ticked for the decision and its record; the remaining criteria are the build.
+
+**agent:terva/mieli** at 2026-09-11T22:15:47Z
+
+in-progress to ready: The attribution and the wrap-against-drop decision are recorded, with criteria 1 and 2 ticked. The implementation needs a fresh context window, so it goes back on the queue rather than sitting in-progress unheld.
