@@ -109,10 +109,15 @@ const ROW_PITCH = 269;
  * reaches 0.522, and dropping empty lanes on top adds nothing, because cap 7
  * is bound by height.
  *
- * One board shape backs that, and this store puts 25 of 30 tickets in a single
- * status. A store spread evenly across seven statuses is nearly square before
- * wrapping and could be made worse by this cap. Measure a second shape before
- * treating 6 as settled.
+ * Six is measured against six board shapes now, not one, and it is the wrong
+ * number: 5 is better or tied on all of them and 6 never wins, giving up 14%
+ * to 16% on a board with one deep lane. Six was one screenful of rows at a
+ * pitch of 340 and a fit near 0.49; at 269 and 0.72 a screenful is five rows,
+ * so the rule survived and its arithmetic did not.
+ *
+ * Still 6 here because changing it moves the numbers the arranged browser
+ * spec records. See TKT-01M29E2EVNTD69ACSY0W6TRK52 and the Lane depth section
+ * of docs/readability-v1.md for the per-shape table.
  */
 const LANE_CAP = 6;
 

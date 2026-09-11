@@ -202,20 +202,40 @@ width against 0.605 by height, where dropping the lanes entirely read 0.820.
 Height binds either way, and the suite asserts the ratio as well as the binding
 dimension, because that ratio is the budget any further gap comes out of.
 
-The cap is worth re-reading against that. Measured with the gaps and the pitch
-at 269, a cap of 5 reaches 0.707 at full, against 0.605 for a cap of 6, and it
-turns the board width-bound at 0.7073 by width against 0.7194 by height. That
-is not a reason to change it. Twenty-five cards divide into five columns of
-five exactly, so a cap of 5 saves a row of height at no cost in width on this
-board and this board only. At 26 cards it costs a column. The optimum cap
-tracks the deepest lane's count, a fixed cap cannot, and a cap that read the
-count would reflow the board on a create.
+The cap is measured against six board shapes, and 6 is the wrong number.
+TKT-01M29E2EVNTD69ACSY0W6TRK52 (Measure the lane cap against board shapes other
+than the fixture) built each shape through the API, measured it in the browser,
+and swept the cap with a model validated against each rendered board:
 
-One board shape backs all of this, and this store puts 25 of its 30 tickets in
-one status. A store spread across seven statuses is nearly square before wrapping
-and could be made worse by a cap of six. It also loses the other half of this
-change, since a board with every status occupied has no empty lanes to drop.
-Measure a second shape before treating six as settled.
+| shape | cards | fit at 6 | best fit | best cap |
+| --- | --- | --- | --- | --- |
+| even, 5 per status | 30 | 0.7219 | 0.7219 | 5 |
+| even, 10 per status | 60 | 0.4181 | 0.4181 | 5 |
+| 20 in one status | 30 | 0.5538 | 0.5538 | 5 |
+| 15 and 15 | 30 | 0.6068 | 0.7073 | 5 |
+| all 30 in one status | 30 | 0.6068 | 0.7219 | 5 |
+| eight cards | 8 | 0.8911 | 0.9775 | 3 |
+
+A cap of 5 is best or tied everywhere and 6 never wins, giving up 14% to 16% on
+the deep-lane shapes. The reference fixture agrees at 0.707 against 0.605.
+
+The reason is the rule that chose 6 rather than the rule being wrong. Six was
+one screenful of rows at a pitch of 340 and a fit near 0.49. The pitch is now
+269 and the fit near 0.72, and one screenful at those numbers is five rows.
+The arithmetic aged with the pitch.
+
+The code still says 6. Changing it moves the recorded numbers in
+`canvas-arrange.spec.ts` again, so it is its own change.
+
+The caveat this section used to carry, that an even spread across every status
+could be made worse by the cap, is answered and it was wrong. An even board is
+flat from cap 5 upward, because it is bound by its widest lane rather than by
+its deepest, and the cap stops mattering once no lane exceeds it. The cap only
+bites on a board with one deep lane, which is the shape this work started from.
+
+What an even board does lose is the empty-lane gap, since a store with every
+status occupied has no empty lanes. Its width comes from occupied lanes, and
+only a narrower card or a narrower lane would move it.
 
 Lane wrapping and the pen placement path in `placement.ts` do not interact. Pens
 allocate positions inside label-matching regions through `allocatePlacement` and
