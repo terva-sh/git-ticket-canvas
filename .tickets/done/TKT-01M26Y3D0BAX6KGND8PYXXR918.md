@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M26Y3D0BAX6KGND8PYXXR918
 title: Add a compact card density mode for large boards
 type: task
-status: ready
-status_reason: The user asked me to promote this and start it, which is the promotion. Its dependency, the dense-scene visual suite, is done.
+status: done
+status_reason: null
 priority: normal
 due_on: null
 labels:
@@ -20,23 +20,16 @@ dependencies:
   - TKT-01M26YG1VHJXCXXQPXPDBTSS47
 blocks_on: none
 references: []
-claim:
-  actor: agent:terva/mieli
-  branch: main
-  worktree: null
-  commit: null
-  session: bd5cdc0f-a012-474a-a5a2-1a984b5207fa
-  claimed_at: 2026-09-11T17:29:20Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-11T00:32:54Z
-updated_at: 2026-09-11T19:14:51Z
+updated_at: 2026-09-11T19:30:35Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
 updated_by:
   id: agent:terva/mieli
-  name: ""
+  name: Mieli
 extensions: {}
 ---
 
@@ -164,3 +157,35 @@ Criteria 2 through 5 are ticked, with the evidence spread across three places. T
 Full mode is untouched, and the pixel baseline passing unchanged is the evidence: every compact rule is scoped to `.card.compact`, and the capture stays in full mode, so `dc699217` still matches.
 
 Gates: `just check` clean, 472 frontend tests, 75 tooling tests, 65 browser tests with 6 skipped, and the pixel gate green.
+
+**agent:terva/mieli** at 2026-09-11T19:30:30Z
+
+ready to in-progress: Passing through in-progress to reach done. The work landed across 8ff6e93, 160d535 and 2c67bf5, with the documentation still uncommitted.
+
+**agent:terva/mieli** at 2026-09-11T19:30:32Z
+
+Task worklog for this ticket, from the session task board.
+
+### Generation 7 — 2026-09-11 — TKT-01M26Y3D0B compact cards, planned only
+
+- [ ] task-29 The canvas exposes a visible density or detail control with full and compact presentations.
+- [ ] task-30 Compact cards retain readable titles, status, selection and link-target states, and the metadata needed to identify blockers or labels during scanning.
+- [ ] task-31 Secondary metadata remains available through the inspector or an explicit expand, hover, or focus interaction.
+- [ ] task-32 The full presentation remains available and its current inspector and relationship behavior does not regress.
+- [ ] task-33 A 30-card fit-to-view board remains distinguishable and usable in compact mode, including cards connected by dependency and parent edges.
+
+## Summary
+
+The canvas has a `Cards` control beside `Relationships`, with `Full` and `Compact`. Density is session state in `App`, like the relationship mode, and nothing persists it. Compact renders a card at 180 px against 280 and drops rows with it: priority, assignees, claim, milestone, frame membership and the id, type and placement line all go, while the title, status pill, blocker and overdue line, labels and acceptance progress stay. Labels move the other way, three chips against two, because they carry the scanning load once the other rows are gone. Everything dropped is still in the inspector.
+
+Measured on the 30-card reference board, full against compact: rows per card 10 to 5, median height 226 to 201 px, shortest card 204 to 160 px, and total card area at 0.55 of full. The tests assert the direction rather than the numbers, since CI renders with other fonts.
+
+`cardWidthFor` in `geometry.ts` is the only place that chooses between the two widths, and the stylesheet declares no `--card-w` of its own. Canvas reads the width once per render and feeds five consumers with it: the custom property on `#scene`, the edge anchors, `fitView`, frame membership capture and `focus`. Three of those are not the CSS width and none would have failed loudly.
+
+A density change re-derives nothing, which was the user's ruling. `autoPlace` lanes off `LANE_W`, so automatic cards stay put and compact only opens space between them. Manual positions are untouched and no density change writes board data.
+
+Landed across four commits: `8ff6e93` parameterised the pure modules, `160d535` gave the width one source and added the state and control, `2c67bf5` trimmed the card content, and the documentation commit records the behaviour in `docs/readability-v1.md`. One new baseline, `dc699217`, for the toolbar control alone.
+
+Two defects were found by looking at the captured image rather than by any assertion: the animation race on the earlier baseline ticket, and compact label chips breaking mid-word into `maintenan` over `ce`. Both passed every test that existed at the time. The visual gate catches change, not ugliness, so a person still has to look.
+
+Not done here, and worth its own ticket if it matters: compact does not re-lane the board, so a 180 px card still sits in a 300 px lane and the horizontal space that frees is not reclaimed.
