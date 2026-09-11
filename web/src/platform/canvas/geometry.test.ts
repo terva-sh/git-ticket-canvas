@@ -1,5 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { autoPlace, fitView, isPinned, posOf, toClient, toScene, zoomAt } from './geometry';
+import {
+  CARD_WIDTH, COMPACT_CARD_WIDTH, autoPlace, cardWidthFor, fitView, isPinned,
+  posOf, toClient, toScene, zoomAt,
+} from './geometry';
+
+describe('cardWidthFor', () => {
+  it('maps each density to its width', () => {
+    expect(cardWidthFor('full')).toBe(CARD_WIDTH);
+    expect(cardWidthFor('compact')).toBe(COMPACT_CARD_WIDTH);
+  });
+
+  it('bounds a fit by the width each card carries, not by the full width', () => {
+    // `fitView` falls back to `CARD_WIDTH` per card, so a compact board fits
+    // correctly only when the caller stamps the active width on each card.
+    const cards = [{ x: 0, y: 0, height: 100 }, { x: 600, y: 0, height: 100 }];
+    const compact = cards.map(card => ({ ...card, width: cardWidthFor('compact') }));
+    const stage = { width: 1200, height: 800 };
+    expect(fitView(compact, stage)?.k).toBeGreaterThan(fitView(cards, stage)!.k);
+  });
+});
 
 describe('autoPlace', () => {
   it('sorts IDs and stacks each configured status lane independently', () => {

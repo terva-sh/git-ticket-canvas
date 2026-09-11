@@ -15,6 +15,14 @@ export const SCENE = {
   colorScheme: 'dark',
   expectedCards: 30,
   expectedRelationships: 41,
+  // Every card at the full density, in CSS pixels. Canvas sets `--card-w` on
+  // `#scene` from `CARD_WIDTH`, and the stylesheet declares no fallback, so a
+  // width that fails to reach the page makes cards auto-width rather than
+  // leaving them at 280. This is the assertion that catches that.
+  cardWidth: 280,
+  // The compact density's width. The capture stays in full mode, so this
+  // number belongs to the structural suite rather than to the image.
+  compactCardWidth: 180,
   // Every dependency link and every parent link in the fixture draws one edge,
   // so these two numbers are derivable from the store rather than observed from
   // a render. The suite checks them both ways.

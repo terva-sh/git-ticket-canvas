@@ -3,6 +3,12 @@
   "comment": "Every canvas baseline, newest first. The first entry must match the committed canvas-baseline.png and the pngSha256 in canvas-baseline.json. tests/tooling/canvas-baseline.test.mjs enforces that, so a baseline cannot change without someone writing down why.",
   "baselines": [
     {
+      "sha256": "dc6992174ad3d16d1aec17570fea064d64c102328de719486475be03bb05c947",
+      "recordedOn": "2026-09-11",
+      "ticket": "TKT-01M26Y3D0BAX6KGND8PYXXR918",
+      "reason": "The toolbar gained the card density control, a `Cards` select reading `Full`, between `Relationships` and `New frame`. That is the whole difference: 1963 pixels, a ratio of 0.01, and it still fits on the first toolbar row rather than pushing anything onto a second one the way the Labels button did. The canvas is identical, because the capture stays in full mode and full is what this image has always shown. Compact is not in the picture and is gated structurally instead, by the browser case that toggles it and asserts 180px cards, unchanged card positions and every edge still anchored on a card. Card metadata rows are unchanged too: this slice narrows cards and does not yet trim their content."
+    },
+    {
       "sha256": "79faddf42df8b55535e1d08dfec7f7a2383f0154914ac4c9582991b70ff59472",
       "recordedOn": "2026-09-11",
       "ticket": "TKT-01M26Y32BZHJFXFGRYZ37TWYFP",

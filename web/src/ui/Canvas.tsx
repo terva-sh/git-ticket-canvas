@@ -1,15 +1,15 @@
 import type { ComponentChildren } from 'preact'
 import { forwardRef } from 'preact/compat'
 import { useCallback, useImperativeHandle, useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { autoPlace, fitView, posOf, toScene, zoomAt } from '../platform/canvas/geometry'
+import { autoPlace, cardWidthFor, fitView, posOf, toScene, zoomAt } from '../platform/canvas/geometry'
 import { captureMembers } from '../platform/canvas/frames'
-import type { Point, View } from '../platform/canvas/geometry'
+import type { Density, Point, View } from '../platform/canvas/geometry'
 import type { Card, CardChanges, Cards, Frame, Frames, Ticket } from '../platform/tickets/types'
 import './FrameCanvas.css'
 import { matchesTicket } from '../platform/tickets/filters'
 import type { LabelFilters } from '../platform/tickets/filters'
 import { CardView } from './canvas/CardView'
-import { CARD_WIDTH, Edges } from './canvas/Edges'
+import { Edges } from './canvas/Edges'
 import type { Placement } from './canvas/Edges'
 import { drawGrid } from './canvas/grid'
 import { useMeasurements } from './canvas/useMeasurements'
@@ -39,6 +39,8 @@ export interface CanvasProps {
   statuses: readonly string[]
   selection: ReadonlySet<string>
   relationships?: import('./canvas/Edges').RelationshipMode
+  /** How much of a card to show. Defaults to the full presentation. */
+  density?: Density
   query: string
   filters: ReadonlySet<string>
   labelFilters?: LabelFilters
@@ -98,6 +100,10 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   const grid = useRef<HTMLCanvasElement>(null)
   const latest = useRef(props)
   latest.current = props
+  /** The card width the current density renders at. A callback reads it from
+   * here rather than closing over a width, because density changes between a
+   * gesture starting and the callback running. */
+  const activeWidth = () => cardWidthFor(latest.current.density ?? 'full')
   const local = useRef<LocalState>({
     view: { x: 120, y: 90, k: 1 }, previews: new Map(), gesture: null,
     motion: null, frame: null, frameCount: 0, mounted: false,
@@ -203,7 +209,10 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     if (!element) return
     cancel()
     const view = fitView([
-      ...[...positions()].map(([id, point]) => ({ ...point,
+      // Stamp the active width on each card. `fitView` falls back to the full
+      // width per card, so a compact board would otherwise fit as if every
+      // card were still 280 wide.
+      ...[...positions()].map(([id, point]) => ({ ...point, width: activeWidth(),
         height: measurements.elements.get(id)?.offsetHeight ?? measurements.heights.get(id) })),
       ...Object.values(latest.current.frames || {}).map(frame => ({ x: frame.x, y: frame.y - 24,
         width: frame.w, height: frame.h + 24 })),
@@ -247,7 +256,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
 
   function captureFrame(frame: Frame) {
     return captureMembers(latest.current.frames || {}, frame, [...positions()].map(([id, point]) => ({
-      id, x: point.x, y: point.y, w: CARD_WIDTH,
+      id, x: point.x, y: point.y, w: activeWidth(),
       h: measurements.elements.get(id)?.offsetHeight ?? measurements.heights.get(id) ?? 240,
     })))
   }
@@ -271,7 +280,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       const point = positions().get(id)!
       const k = local.view.k
       local.view = {
-        x: viewport().width / 2 - (point.x + CARD_WIDTH / 2) * k,
+        x: viewport().width / 2 - (point.x + activeWidth() / 2) * k,
         y: viewport().height / 2 - (point.y + (measurements.heights.get(id) ?? 120) / 2) * k,
         k,
       }
@@ -499,6 +508,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     { statuses: props.filters, labels: props.labelFilters || empty, query: props.query })).map(t => t.id))
   const gesture = local.gesture
   const ghost = gesture?.kind === 'link' ? { from: gesture.from, point: gesture.point } : null
+  // One width for this render. The stylesheet, the edge anchors and the fit
+  // bounds all take it from here rather than choosing a constant themselves.
+  const cardWidth = activeWidth()
   return <div id="stage" ref={stage} data-canvas-frame={local.frameCount}
     data-placement-calculations={placementCalculations.current}
     class={gesture?.kind === 'pan' ? 'panning' : gesture?.kind === 'link' ? 'linking' : ''}
@@ -508,7 +520,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       if (event.button === 0 && target && !target.closest('.card, .canvas-frame') && !local.gesture && !props.frameCreating) compose({ x: event.clientX, y: event.clientY })
     }}>
     <canvas id="grid" ref={grid} />
-    <div id="scene" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` }}>
+    <div id="scene" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})`,
+      '--card-w': `${cardWidth}px` }}>
       <div id="frameLayer">{Object.entries(props.frames || {}).map(([id, accepted]) => {
         const frame = (gesture?.kind === 'frame-move' || gesture?.kind === 'frame-resize') && gesture.id === id ? gesture.next : accepted
         const dimmed = frame.members.filter(member => props.tickets.has(member) && !matching.has(member)).length
@@ -526,7 +539,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       {gesture?.kind === 'frame-draw' && <div class="canvas-frame-draft" style={{ left: gesture.bounds.x, top: gesture.bounds.y,
         width: gesture.bounds.w, height: gesture.bounds.h }} />}
       <Edges tickets={props.tickets} positions={placed} heights={measurements.heights} matching={matching} ghost={ghost}
-        mode={props.relationships} selection={props.selection} />
+        mode={props.relationships} selection={props.selection} cardWidth={cardWidth} />
       <div id="cards">{[...props.tickets.values()].map(ticket => {
         const point = placed.get(ticket.id)!
         return <CardView key={ticket.id} ticket={ticket} x={point.x} y={point.y} z={point.z} pinned={point.pinned}

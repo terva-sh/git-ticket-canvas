@@ -38,6 +38,23 @@ export const CARD_WIDTH = 280;
 /** The compact density width. Placement, edges and the stylesheet all read a
  * width rather than this constant, so the two densities share one code path. */
 export const COMPACT_CARD_WIDTH = 180;
+
+/** How much of a card the canvas shows. The setting is session state, so a
+ * reload returns to `full`. */
+export type Density = 'full' | 'compact';
+
+/**
+ * The card width a density renders at. Every consumer of the width goes
+ * through here rather than choosing between the two constants itself, so the
+ * stylesheet, the edge anchors and the fit bounds cannot disagree.
+ *
+ * Automatic placement is deliberately not one of those consumers. `autoPlace`
+ * lanes off `LANE_W`, so switching density leaves every automatic card where
+ * it is and compact simply opens space between them.
+ */
+export function cardWidthFor(density: Density): number {
+  return density === 'compact' ? COMPACT_CARD_WIDTH : CARD_WIDTH;
+}
 const LANE_W = 300;
 const LANE_GAP = 22;
 

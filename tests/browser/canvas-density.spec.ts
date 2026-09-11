@@ -85,6 +85,15 @@ test.describe('dense canvas scene', () => {
     expect(edges.filter(edge => rightHalf.has(edge.from) || rightHalf.has(edge.to)).length,
       'relationships landing on a right-half card').toBe(SCENE.rightHalf.edgesTouching)
 
+    // The card width arrives as a custom property rather than a stylesheet
+    // declaration, so assert the width the cards actually took. Read it as
+    // `offsetWidth`, which is scene space. The widths in `geometry` come from
+    // `getBoundingClientRect`, and `#scene` carries `scale(view.k)`, so those
+    // are the fitted viewport widths: 165 rather than 280 at this viewport.
+    const widths = await page.evaluate(() => [...new Set([...document.querySelectorAll('#cards .card')]
+      .map(card => (card as HTMLElement).offsetWidth))])
+    expect(widths, 'the width every card took').toEqual([SCENE.cardWidth])
+
     await selectReference(page)
     await expect(page.locator('#inspector')).toHaveClass(/open/)
     expect(await page.locator('#fTitle').inputValue(), 'inspector title').toBe(SCENE.selectedTitle)
@@ -100,6 +109,66 @@ test.describe('dense canvas scene', () => {
     // Last, because it is the assertion most likely to be made obsolete by a
     // toolbar change, and the ones above say more about what broke.
     await assertStableChrome(page)
+  })
+
+  test('compact narrows cards, moves none of them, and keeps edges anchored', async ({ dense, page }) => {
+    await loadScene(page, dense.url)
+
+    // Cards carry their scene position as `translate(x, y)`, and edge paths are
+    // in the same space, so one pass can compare an anchor with a card edge.
+    // Reading card boxes with `getBoundingClientRect` instead would mix in the
+    // scene's `scale(view.k)` and compare two different coordinate systems.
+    const survey = () => page.evaluate(() => {
+      const cards = new Map<string, { x: number; y: number; w: number }>()
+      for (const node of document.querySelectorAll('#cards .card')) {
+        const card = node as HTMLElement
+        const at = card.style.transform.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/)!
+        cards.set(card.dataset.id!, { x: Number(at[1]), y: Number(at[2]), w: card.offsetWidth })
+      }
+      // An anchor sits on the source card's left edge, right edge or horizontal
+      // centre, depending on how the edge routes. Anything else means the edge
+      // layer and the rendered card disagree about how wide a card is.
+      const detached: string[] = []
+      for (const node of document.querySelectorAll('#edges .relationship')) {
+        const group = node as SVGGElement
+        const d = group.querySelector('path:not(.edge-hit)')!.getAttribute('d')!
+        const anchor = Number(d.match(/^M(-?[\d.]+),/)![1])
+        const card = cards.get(group.dataset.from!)!
+        const edges = [card.x, card.x + card.w / 2, card.x + card.w]
+        if (!edges.some(value => Math.abs(value - anchor) < 0.5)) {
+          detached.push(`${group.dataset.from} to ${group.dataset.to}: anchor ${anchor}, `
+            + `card edges ${edges.join(' ')}`)
+        }
+      }
+      return {
+        positions: Object.fromEntries([...cards].map(([id, box]) => [id, `${box.x},${box.y}`])),
+        widths: [...new Set([...cards.values()].map(box => box.w))],
+        detached,
+      }
+    })
+
+    const full = await survey()
+    expect(full.widths, 'card widths at full density').toEqual([SCENE.cardWidth])
+    expect(full.detached, 'full-density edges anchored off a card').toEqual([])
+
+    await page.locator('#cardDensity').selectOption('compact')
+    await expect.poll(() => page.locator('#cards .card').first()
+      .evaluate(card => (card as HTMLElement).offsetWidth)).toBe(SCENE.compactCardWidth)
+    const compact = await survey()
+
+    expect(compact.widths, 'card widths at compact density').toEqual([SCENE.compactCardWidth])
+    // The ruling this slice implements: a density change re-derives nothing, so
+    // every card stays exactly where it was and compact only opens space.
+    expect(compact.positions, 'card positions after the toggle').toEqual(full.positions)
+    expect(compact.detached, 'compact edges anchored off a card').toEqual([])
+    expect(await page.locator('#edges .relationship').count(),
+      'relationships still drawn in compact').toBe(SCENE.expectedRelationships)
+
+    // Back to full, because the control has to be reversible to be a setting.
+    await page.locator('#cardDensity').selectOption('full')
+    await expect.poll(() => page.locator('#cards .card').first()
+      .evaluate(card => (card as HTMLElement).offsetWidth)).toBe(SCENE.cardWidth)
+    expect((await survey()).positions, 'card positions back at full density').toEqual(full.positions)
   })
 
   test('names one relationship at a time, by selection and by hover', async ({ dense, page }) => {

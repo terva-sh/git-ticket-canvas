@@ -8,6 +8,7 @@ import { LiveUpdates, type LiveStatus } from '../platform/tickets/live'
 import type { CardChanges, Cards, Frame, Op, Ticket, VersionInfo } from '../platform/tickets/types'
 import { FrameHistory, applyFrameOperation, assertFrameOperation, createFrame, moveFrame, resizeFrame, updateFrame, deleteFrame, setMembership } from '../platform/canvas/frames'
 import type { FrameOperation, FrameState, Point } from '../platform/canvas/frames'
+import type { Density } from '../platform/canvas/geometry'
 import { sameJSON } from '../platform/tickets/reconcile'
 import { cycleLabel, labelUniverse, matchesTicket, type LabelFilters } from '../platform/tickets/filters'
 import { FramePanel, FrameMembership } from './FramesPanel'
@@ -49,6 +50,9 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
   const [framePreview, setFramePreview] = useState<{ board: string; generation: number; state: FrameState } | null>(null)
   const [, setHistoryVersion] = useState(0)
   const [relationships, setRelationships] = useState<RelationshipMode>('selected')
+  // Session state, like `relationships`. Nothing persists it, so a reload
+  // returns to the full presentation.
+  const [density, setDensity] = useState<Density>('full')
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [sync, setSync] = useState<LiveStatus>({ connection: 'connecting', stale: false, degraded: false, readFailed: false })
   const live = useRef<LiveUpdates>()
@@ -354,6 +358,7 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       boards={snapshot.boards} board={snapshot.board} config={snapshot.config} query={ui.query} filters={ui.filters}
       counts={`${[...snapshot.tickets.values()].filter(matches).length} of ${snapshot.tickets.size}`}
       relationships={relationships} onRelationships={setRelationships}
+      density={density} onDensity={setDensity}
       onNewFrame={() => canvas.current?.newFrame()} onUndoFrame={() => { void frameHistoryAction(false) }} onRedoFrame={() => { void frameHistoryAction(true) }}
       framePending={!!framePreview} undoFrame={history.undoEntry} redoFrame={history.redoEntry}
       labels={labelUniverse(snapshot.config?.labels, snapshot.tickets.values())} labelFilters={ui.labelFilters}
@@ -375,7 +380,7 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       frames={displayed.frames} selectedFrame={frameUI.selected} frameCreating={!!frameUI.draft} layoutBusy={!!framePreview}
       onSelectFrame={selectFrame} onNewFrame={newFrameDraft} onFrameMove={frameMove} onFrameResize={frameResize}
       statuses={snapshot.config?.statuses || []} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters}
-      relationships={relationships} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
+      relationships={relationships} density={density} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>
       <div id="formsRoot">
         <div id="frameHistory" role="status" hidden={!framePreview && !history.undoEntry?.blockedReason && !history.redoEntry?.blockedReason}>

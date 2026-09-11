@@ -1,5 +1,6 @@
 import type { Schema, VersionInfo } from '../platform/tickets/types'
 import type { LabelFilters, LabelState } from '../platform/tickets/filters'
+import type { Density } from '../platform/canvas/geometry'
 import type { RelationshipMode } from './canvas/Edges'
 
 export interface ToolbarProps {
@@ -12,6 +13,7 @@ export interface ToolbarProps {
   onNewFrame?(): void; onUndoFrame?(): void; onRedoFrame?(): void
   framePending?: boolean; undoFrame?: { label: string; blockedReason?: string }; redoFrame?: { label: string; blockedReason?: string }
   relationships?: RelationshipMode; onRelationships?(mode: RelationshipMode): void
+  density?: Density; onDensity?(density: Density): void
   /** Every label the store offers, configured or carried by a ticket. */
   labels?: readonly string[]; labelFilters?: LabelFilters
   onLabelFilter?(label: string): void; onClearLabelFilters?(): void
@@ -103,6 +105,11 @@ export function Toolbar(p: ToolbarProps) {
       onChange={event => p.onRelationships?.(event.currentTarget.value as RelationshipMode)}>
       <option value="all">All</option><option value="selected">Selected</option><option value="none">None</option>
     </select></label>
+    {p.onDensity && <label class="relationship-control">Cards <select id="cardDensity" class="tool"
+      title="Compact narrows cards to fit more of the board on screen" value={p.density || 'full'}
+      onChange={event => p.onDensity?.(event.currentTarget.value as Density)}>
+      <option value="full">Full</option><option value="compact">Compact</option>
+    </select></label>}
     {p.onNewFrame && <>
       <button id="btnFrame" class="tool" disabled={p.readOnly || p.framePending} onClick={p.onNewFrame}>New frame</button>
       <button id="btnFrameUndo" class="tool" disabled={p.readOnly || p.framePending || !p.undoFrame || !!p.undoFrame.blockedReason}

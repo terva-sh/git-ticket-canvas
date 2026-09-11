@@ -113,3 +113,35 @@ it('names one relationship at a time and fades the rest without hiding them', ()
   act(() => { filtered.querySelector('.edge-hit')!.dispatchEvent(new Event('pointerenter')) })
   expect(root.querySelector('.relationship[data-to=c]')?.getAttribute('opacity')).toBe('0.12')
 })
+
+it('anchors edges and the ghost on the active density width', () => {
+  const tickets = new Map<string, Ticket>([
+    ['a', { ...ticket, dependencies: ['b'] }], ['b', { ...ticket, id: 'b' }],
+  ])
+  // `d` opens `M<x>,<y>`, and x is the anchor on the source card's edge.
+  const anchorX = () => Number(root.querySelector('[data-kind=dependency] path:not(.edge-hit)')!
+    .getAttribute('d')!.match(/^M(-?[\d.]+),/)![1])
+  const show = (positions: Map<string, { x: number; y: number; z: number; pinned: boolean }>, cardWidth?: number) =>
+    act(() => render(<Edges tickets={tickets} positions={positions} heights={new Map()}
+      matching={new Set(tickets.keys())} ghost={{ from: 'a', point: { x: 900, y: 400 } }} mode="all"
+      selection={new Set(['a'])} cardWidth={cardWidth} />, root))
+
+  // Far apart horizontally, so both widths route sideways and the anchor is the
+  // card's right edge. That isolates the width from the routing decision.
+  const apart = new Map([['a', { x: 0, y: 0, z: 1, pinned: true }], ['b', { x: 340, y: 0, z: 1, pinned: true }]])
+  show(apart)
+  expect(anchorX(), 'full width anchors at the 280px edge').toBe(280)
+  expect(root.querySelector('#ghost')?.getAttribute('d')).toContain('M280,')
+  show(apart, 180)
+  expect(anchorX(), 'compact anchors at the 180px edge').toBe(180)
+  expect(root.querySelector('#ghost')?.getAttribute('d')).toContain('M180,')
+
+  // The width also decides vertical against horizontal routing. At 200px apart
+  // and vertically disjoint, full routes vertically and leaves from the card's
+  // horizontal centre, while compact still routes sideways.
+  const stacked = new Map([['a', { x: 0, y: 0, z: 1, pinned: true }], ['b', { x: 200, y: 300, z: 1, pinned: true }]])
+  show(stacked)
+  expect(anchorX(), 'full routes vertically from the centre').toBe(140)
+  show(stacked, 180)
+  expect(anchorX(), 'compact routes sideways from the edge').toBe(180)
+})

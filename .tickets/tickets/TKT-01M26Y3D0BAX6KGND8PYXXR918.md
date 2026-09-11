@@ -30,13 +30,13 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-11T00:32:54Z
-updated_at: 2026-09-11T17:33:10Z
+updated_at: 2026-09-11T18:56:13Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
 updated_by:
   id: agent:terva/mieli
-  name: Mieli
+  name: ""
 extensions: {}
 ---
 
@@ -50,7 +50,7 @@ Use the screenshot's 30-card fit-to-view board as a density regression fixture. 
 
 ## Acceptance criteria
 
-- [ ] The canvas exposes a visible density or detail control with full and compact presentations.
+- [x] The canvas exposes a visible density or detail control with full and compact presentations.
 - [ ] Compact cards retain readable titles, status, selection and link-target states, and the metadata needed to identify blockers or labels during scanning.
 - [ ] Secondary metadata remains available through the inspector or an explicit expand, hover, or focus interaction.
 - [ ] The full presentation remains available and its current inspector and relationship behavior does not regress.
@@ -108,3 +108,41 @@ A narrower card does not automatically fit more per pen, and my first test asser
 Still to do, in plan order: one source for the number, since `--card-w: 280px` in the stylesheet is still written independently of the constant; the `density` state and toolbar control; `CardView`'s compact subset; the `Edges.tsx` anchors, which still read the constant directly; and the decision about whether a density change re-derives automatic placement.
 
 `just check` is clean and 468 frontend tests pass.
+
+**agent:terva/mieli** at 2026-09-11T18:43:49Z
+
+Step 2 is done and uncommitted: the card width has one source. `--card-w: 280px` is gone from `:root` in `web/index.html`, and `Canvas` sets `--card-w` on `#scene` inline from `CARD_WIDTH`. `.card` is the only consumer and every card renders inside `#scene`, so that placement covers all of them. Preact writes the custom property from the style object without help.
+
+The evidence that it is a pure refactor is the pixel gate: `just canvas-visual` passes against the committed baseline unchanged, so the rendered board is byte-identical after the move.
+
+I deliberately left no `var(--card-w, 280px)` fallback, because a fallback is a second copy of the number. That makes a missing variable a silent auto-width collapse rather than an error, and only the opt-in pixel gate would have caught it. So the always-on structural test now asserts the width: `SCENE.cardWidth = 280`, and the test reads `offsetWidth` on every `.card` and expects one distinct value.
+
+Two measurements from getting that assertion right.
+
+The widths in `cardGeometry` are viewport space, not scene space. They come from `getBoundingClientRect`, and `#scene` carries `scale(view.k)`, so at the reference viewport a 280px card reports 165. My first version of the assertion failed on that and I changed it to `offsetWidth`, which the transform does not touch. Anything else asserting a scene-space size from `geometry` has the same trap waiting.
+
+The guard was then checked against its own failure: with the inline property removed and the bundle rebuilt, cards collapsed to 120 and 121 and the test failed naming the width. Without that run the assertion was only known to pass.
+
+Still to do, in plan order: the `density` state and toolbar control; `CardView`'s compact subset; the `Edges.tsx` anchors, which still read `CARD_WIDTH` directly; and the open decision about whether a density change re-derives automatic placement.
+
+`just check`, 468 frontend tests, 75 tooling tests, 63 browser tests and the pixel gate all pass.
+
+**agent:terva/mieli** at 2026-09-11T18:56:08Z
+
+Steps 3 and 4 are done and uncommitted, and step 4's open question is now decided. The user's ruling: a density change re-derives nothing, so automatic cards stay where they are and compact only opens space between them.
+
+That ruling costs no code, which is worth knowing. `autoPlace` lanes off its own `LANE_W = 300` rather than `CARD_WIDTH`, so no density input reaches placement and nothing can move. The invariant is asserted where positions are observable, in the browser: toggle to compact, compare every card's `translate(x, y)` against what it was, toggle back, compare again.
+
+What landed. `geometry.ts` gained `Density` and `cardWidthFor`, which is the one place that chooses between 280 and 180. `Edges` takes a `cardWidth` prop, and `curve`, the vertical-against-horizontal routing decision, the label x and the ghost path all read it. `Canvas` takes `density` and holds `activeWidth()`, reading `latest.current` rather than closing over a width, because density can change between a gesture starting and its callback running. That one function feeds five consumers: `--card-w` on `#scene`, the `Edges` prop, `fitView`'s per-card width, `captureFrame`'s box width and `focus`'s centring. `App` holds `density` as session `useState` beside `relationships`, and `Toolbar` renders `#cardDensity` as Full and Compact next to Relationships.
+
+Three of those five were traps rather than tidiness. `fitView` falls back to `CARD_WIDTH` per card, so a compact board would have fitted as if every card were still 280 wide. `captureFrame` describes each card's box to frame membership capture, so a stale width would have captured cards that do not overlap the frame. `focus` centres on the card's midpoint. None of them is the CSS width, and none would have failed loudly.
+
+Both new guards were checked against their own failure rather than only observed passing. Dropping the `cardWidth` prop from the `Edges` call and rebuilding put 32 anchors off a card in compact, each one exactly 100px out, which is 280 minus 180. Removing the `--card-w` declaration collapsed cards to 120 and 121.
+
+The honest limit of this slice: compact narrows a card and does not yet trim what is on it, so a compact card holds every metadata row and wraps taller. It is narrower, not yet shorter. That is why `cardMetadataRows` in `canvas-scene.mjs` is unchanged and why acceptance criteria 2, 3 and 5 stay unticked. Criterion 4 is satisfied on the evidence below, but I left it open too, because the content slice is the one most likely to regress the full presentation and ticking it now would spend the box early.
+
+New baseline `dc699217`, with a history entry. The only difference is the `Cards` select in the toolbar, 1963 pixels at a ratio of 0.01, and it still fits on the first toolbar row rather than pushing the counts onto a second one the way the Labels button did. I viewed the image rather than trusting the ratio.
+
+Remaining: `CardView`'s compact subset, which is title, status pill, blocker and overdue alerts, AC progress and the first 3 to 5 label chips, and a check that the label disclosure still overlays rather than growing the card.
+
+Gates: `just check` clean, 471 frontend tests, 75 tooling tests, 64 browser tests with 6 skipped, and the pixel gate green.

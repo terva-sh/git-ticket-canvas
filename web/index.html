@@ -38,7 +38,8 @@
   --p-normal: #6b7381;
   --p-low: #4a515e;
 
-  --card-w: 280px;
+  /* --card-w is not declared here. Canvas sets it on #scene from CARD_WIDTH,
+     so the card width has one source and a density change can move it. */
   --radius: 10px;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
