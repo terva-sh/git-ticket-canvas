@@ -146,13 +146,18 @@ Measured on the 30-card reference board at the 2048x1152 reference viewport:
 | wrapped, pitch 269, empty lanes kept | 3178 x 1571 | 2.02 | 0.500 |
 | wrapped, pitch 340, empty lanes dropped | 1890 x 1926 | 0.98 | 0.500 |
 | wrapped, pitch 269, empty lanes dropped | 1890 x 1571 | 1.20 | 0.605 |
-| the same at compact | 1790 x 1546 | 1.16 | 0.614 |
+| wrapped, pitch 269, empty lanes at 80 px | 2210 x 1571 | 1.41 | 0.605 |
+| the same at compact | 2110 x 1546 | 1.36 | 0.614 |
 
 The middle rows are the point. After wrapping, the tighter pitch alone changes
 the fit scale by nothing and dropping the empty lanes alone changes it by
 0.0003. Together they are worth a fifth of the board. A balanced board only
 moves when both dimensions shrink, so either change measured on its own reads
 as worthless, and the pair had to land as one decision.
+
+The last two rows are the second point. Once the board is bound by height, an
+empty lane can have 80 px for nothing: 2210 px of width fits at the same 0.605
+as 1890 px.
 
 The cap is a count, not a measurement of a card, so a density change still
 re-derives nothing. Six rows at the resulting scale is about one stage height,
@@ -163,12 +168,21 @@ bottom the way it did before wrapping, and the sort by id keeps it deterministic
 Row-major produces a board that looks just as reasonable and orders the tickets
 differently, so the choice is asserted rather than implied.
 
-A status with no tickets gets no lane. That was refused twice before it landed,
-because it ties a lane's x to which statuses hold tickets: file the first
-`ready` ticket and `done` moves right by a column, in front of whoever filed it.
-The geometry unit tests assert that movement rather than leaving it as a
-footnote. It was accepted once the measurement showed the pair is worth a fifth
-of the board, and it is still the least comfortable part of this layout.
+A status with no tickets gets `EMPTY_LANE_GAP`, which is 80 px, against the
+322 px an occupied lane takes. This layout tried both ends first. A full column
+for an empty lane cost 18% of the fit scale. No lane at all cost the boundary
+between one status and the next, and the render showed it plainly: `draft` and
+`done` sat flush and read as one block of cards rather than as lanes.
+
+A leading empty status gets nothing, so the first occupied lane sits at x 0. A
+gap in front of it would be a margin nobody can see that moves as the earliest
+statuses fill.
+
+What none of the three fixes is the reflow. A lane's x still depends on which
+statuses hold tickets, so filing the first `ready` ticket moves `done` right in
+front of whoever filed it. The gap shortens that move from 322 px to 242 px and
+the geometry unit tests assert the number. It is the least comfortable part of
+this layout and 80 px does not buy its way out.
 
 A lane's origin accumulates the widths of the lanes before it, so occupancy is
 counted in a first pass. A lane's width is not known until every ticket has been
@@ -182,18 +196,20 @@ estimate that chose the cap assumed the window, and the suite measures the
 budget so a later disagreement says whether the board changed or the stage did.
 
 Wrapping alone left the board on the knee, 0.4997 by width against 0.5000 by
-height, which is too close to assert anything about. Dropping the empty lanes
-and tightening the pitch moved it clear: 0.820 by width against 0.605 by height,
-so height binds with a third of the width in hand. The suite asserts that, and
-it says where the next change should look. Spending height buys nothing now.
+height, which is too close to assert anything about. The tighter pitch moved it
+clear, and the empty-lane gaps spend part of the width that freed: 0.707 by
+width against 0.605 by height, where dropping the lanes entirely read 0.820.
+Height binds either way, and the suite asserts the ratio as well as the binding
+dimension, because that ratio is the budget any further gap comes out of.
 
-The cap is worth re-reading against that. With empty lanes dropped and the pitch
-at 269, a cap of 5 reaches 0.719 at full and 0.732 at compact, against 0.605 and
-0.614 for 6. That is not a reason to change it. Twenty-five cards divide into
-five columns of five exactly, so a cap of 5 saves a row of height at no cost in
-width on this board and this board only. At 26 cards it costs a column. The
-optimum cap tracks the deepest lane's count, a fixed cap cannot, and a cap that
-read the count would reflow the board on a create.
+The cap is worth re-reading against that. Measured with the gaps and the pitch
+at 269, a cap of 5 reaches 0.707 at full, against 0.605 for a cap of 6, and it
+turns the board width-bound at 0.7073 by width against 0.7194 by height. That
+is not a reason to change it. Twenty-five cards divide into five columns of
+five exactly, so a cap of 5 saves a row of height at no cost in width on this
+board and this board only. At 26 cards it costs a column. The optimum cap
+tracks the deepest lane's count, a fixed cap cannot, and a cap that read the
+count would reflow the board on a create.
 
 One board shape backs all of this, and this store puts 25 of its 30 tickets in
 one status. A store spread across seven statuses is nearly square before wrapping
@@ -222,8 +238,9 @@ asserts the column positions, the depth of each column against the cap, no card
 overlapping another at either density, the span and aspect above, that height
 binds with width to spare, and that a density toggle sends no request at all.
 It records the measured numbers as a test annotation, so a run that disagrees
-says which one moved. `geometry.test.ts` holds the fill order, the dropped empty
-lane, and the pinned slot reservation, which need no browser.
+says which one moved. `geometry.test.ts` holds the fill order, the empty-lane
+gap with the 242 px reflow it leaves behind, the leading lane that gets no gap,
+and the pinned slot reservation, none of which need a browser.
 
 ## Inspector
 

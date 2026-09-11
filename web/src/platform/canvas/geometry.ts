@@ -59,6 +59,19 @@ const LANE_W = 300;
 const LANE_GAP = 22;
 
 /**
+ * What a status with no tickets occupies, against the 322 px an occupied lane
+ * takes. It buys back the boundary between one status and the next, which
+ * vanished when empty lanes were dropped entirely.
+ *
+ * Free on this board, and only because of what binds. Measured with the row
+ * pitch at 269: every gap from 0 to 120 px fits at 0.605 at full and 0.614 at
+ * compact, because height binds and the width a gap spends is width nobody is
+ * waiting on. A full 322 px column costs 18%. Shorten the board enough that
+ * width binds again and this gap starts costing what a column costs today.
+ */
+const EMPTY_LANE_GAP = 80;
+
+/**
  * How far down one row sits from the one above it. The tallest card on the
  * reference board is 249 px at full density and 220 px at compact, so 269 is
  * the tallest observed card plus 20.
@@ -112,14 +125,16 @@ const LANE_CAP = 6;
  * Two passes, because a lane's width is known only after every ticket is seen
  * and the origin of each lane is the accumulated width of the lanes before it.
  *
- * A status with no tickets gets no lane. That ties a lane's x to which
- * statuses hold tickets, so filing the first `ready` ticket shifts every lane
- * to its right, and a person watching sees the board reflow on a create. That
- * cost was refused twice while it bought nothing. It was accepted once the
- * measurement showed it buys a fifth of the board, but only together with the
- * tighter row pitch: on this board, dropping empty lanes alone moves the fit
- * scale from 0.4997 to 0.5000, because the freed width hands the binding
- * straight to height.
+ * A status with no tickets gets `EMPTY_LANE_GAP` rather than a column, and a
+ * leading empty status gets nothing, so the first occupied lane sits at x 0.
+ * Paying a gap for a lane nobody can see would otherwise move the whole board
+ * right by a margin that changes as the earliest statuses fill.
+ *
+ * A full column for an empty lane was what this did first, and it cost 18% of
+ * the fit scale on the reference board. No lane at all was next, and it cost
+ * the boundary between one status and the next: the render read as a single
+ * block of cards. The gap keeps the boundary, and it is free while the board
+ * is bound by height, which it is once the row pitch tightens.
  *
  * Reserve a stable lane slot per ticket, even when it has a manual position.
  * Pinning a frame's members must not relocate unrelated automatic cards, and
@@ -141,9 +156,12 @@ export function autoPlace(
   }
   const origins = new Map<number, number>();
   let x = 0;
-  for (const lane of [...occupancy.keys()].sort((a, b) => a - b)) {
+  for (let lane = 0; lane <= Math.max(-1, ...occupancy.keys()); lane++) {
+    const count = occupancy.get(lane) ?? 0;
+    // `origins.size` is how this knows it is past the first occupied lane.
+    if (!count) { if (origins.size) x += EMPTY_LANE_GAP; continue; }
     origins.set(lane, x);
-    x += Math.ceil(occupancy.get(lane)! / LANE_CAP) * (LANE_W + LANE_GAP);
+    x += Math.ceil(count / LANE_CAP) * (LANE_W + LANE_GAP);
   }
 
   const filled = new Map<number, number>();

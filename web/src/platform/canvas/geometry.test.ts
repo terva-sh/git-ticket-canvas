@@ -84,24 +84,37 @@ describe('autoPlace', () => {
     ]);
   });
 
-  it('gives a status with no tickets no lane, and accumulates the rest', () => {
-    // Lane 0 wraps to two columns and `ready` holds nothing, so `done` starts
-    // at 2 x 322 rather than paying 322 for an empty lane in between. This is
-    // what makes lane position depend on which statuses hold tickets: file one
-    // `ready` ticket and `done` moves right by a column.
+  it('gives a status with no tickets an 80px gap, and accumulates the rest', () => {
+    // Lane 0 wraps to two columns, so it ends at 644. `ready` holds nothing
+    // and takes 80 rather than a full 322, which is what puts the boundary
+    // between two statuses back without paying a column for it.
     const items = [...'abcdefg'].map(id => ({ id, status: 'draft' }));
     items.push({ id: 'z', status: 'done' });
     const statuses = ['draft', 'ready', 'done'];
     const placed = autoPlace(items, {}, statuses);
     expect(placed.get('g'), 'the second column of lane 0').toEqual({ x: 322, y: 0 });
-    expect(placed.get('z'), '`done` sits against the wrapped lane, not behind an empty one')
-      .toEqual({ x: 644, y: 0 });
+    expect(placed.get('z'), '`done` behind a wrapped lane and one 80px gap')
+      .toEqual({ x: 724, y: 0 });
 
+    // The cost this layout carries: lane position depends on which statuses
+    // hold tickets, so the first `ready` ticket still moves `done`. The gap is
+    // what makes that move 242 rather than a full column.
     const filled = autoPlace([...items, { id: 'y', status: 'ready' }], {}, statuses);
-    expect(filled.get('y'), 'the first `ready` ticket takes the column `done` had')
+    expect(filled.get('y'), 'the first `ready` ticket takes a column where the gap was')
       .toEqual({ x: 644, y: 0 });
     expect(filled.get('z'), '`done` moves right when `ready` fills')
       .toEqual({ x: 966, y: 0 });
+    expect(filled.get('z')!.x - placed.get('z')!.x, 'how far a create moves the lanes to its right')
+      .toBe(242);
+  });
+
+  it('gives a leading empty status no gap, so the board still starts at zero', () => {
+    // A gap before the first occupied lane would be a margin nobody can see,
+    // and it would change as the earliest statuses fill. Two empty statuses in
+    // front of `done` here, and `done` still starts at x 0.
+    const placed = autoPlace([{ id: 'a', status: 'done' }], {}, ['draft', 'ready', 'done']);
+    expect(placed.get('a'), 'the first occupied lane ignores the statuses before it')
+      .toEqual({ x: 0, y: 0 });
   });
 
   it('keeps a pinned slot reserved across a column boundary', () => {
