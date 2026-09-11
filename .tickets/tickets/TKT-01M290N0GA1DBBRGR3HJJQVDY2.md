@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M290N0GA1DBBRGR3HJJQVDY2
 title: Wrap a deep status lane into more than one column
 type: task
-status: draft
-status_reason: null
+status: ready
+status_reason: The attribution this ticket asked for first is done and criterion 1 is ticked. Nobody is holding the rest, and in-progress without a claim is a strict-check warning, so it goes back on the queue.
 priority: normal
 due_on: null
 labels:
@@ -26,7 +26,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-11T19:55:57Z
-updated_at: 2026-09-11T19:55:57Z
+updated_at: 2026-09-11T20:43:36Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -62,7 +62,7 @@ Whether wrapping interacts with the pen placement path in `placement.ts`, which 
 
 ## Acceptance criteria
 
-- [ ] The 25-deep lane on the reference board is attributed: how many of those cards carry a configured status, and how many fell into lane 0 through the indexOf fallback.
+- [x] The 25-deep lane on the reference board is attributed: how many of those cards carry a configured status, and how many fell into lane 0 through the indexOf fallback.
 - [ ] The column strategy is chosen and recorded, including what decides the column count and why it does not read card width or height.
 - [ ] Fill order within a wrapped lane is chosen, recorded, and asserted by a test.
 - [ ] Pinning a card still does not move unrelated automatic cards, asserted by a test rather than by inspection.
@@ -71,3 +71,32 @@ Whether wrapping interacts with the pen placement path in `placement.ts`, which 
 - [ ] Manual card positions are unchanged by any density change, and no density change writes board data.
 - [ ] The relationship between lane wrapping and the pen placement path in placement.ts is stated, even if the answer is that they do not interact yet.
 - [ ] docs/readability-v1.md records the outcome.
+
+## Notes
+
+**agent:terva/mieli** at 2026-09-11T20:42:15Z
+
+draft to ready: The user asked me to promote this and attribute the deep lane, which is the promotion.
+
+**agent:terva/mieli** at 2026-09-11T20:43:18Z
+
+Criterion 1 answered, and my suspicion when filing this was wrong. Nothing fell through the `indexOf` fallback.
+
+The fixture holds 30 tickets: 25 `done` and 5 `draft`. Both are configured statuses, at index 5 and index 0 of `draft, ready, in-progress, blocked, review, done, archived`. So the 25-deep column is lane 5, the genuine `done` lane, and no ticket landed in lane 0 by accident. A wrap threshold chosen from this board would be tuned against real volume rather than against a bug, which is what the criterion existed to establish.
+
+Counted straight from the committed fixture rather than from a running board, with `grep '^status:'` over `docs/artifacts/canvas-review-baseline-2026-09-11/ahpsh-tickets/.tickets`, so the number does not depend on the app rendering anything.
+
+The same counts expose something the earlier lane-width measurement recorded without explaining. Only two of the seven lanes are occupied, lane 0 and lane 5, and lanes 1, 2, 3, 4 and 6 are empty. Lane origins are `index * 322`, so the arranged span is:
+
+- full: 5 x 322 + 280 = 1890
+- compact: 5 x 322 + 180 = 1790
+
+Those are exactly the spans TKT-01M28ZMK8YJDW9CHSSC8BGZWB5 measured, which means 1610 px of a 1890 px board is empty lane offset and the cards contribute the remainder. That also explains why a compact-sized lane pitch appeared to cut the span by a third there: 5 x 202 + 180 = 1190. The saving came from shrinking the offset of five empty slots, not from narrower cards.
+
+So there is a cheaper option than wrapping, and it belongs in this ticket's decision rather than in a separate one: lay out only the statuses that hold tickets, and the `done` lane moves from x = 1610 to x = 322. It is tempting and it has a cost that wrapping does not. Lane position would then depend on which statuses are occupied, so filing the first `ready` ticket would shift every lane to its right, and derived positions recompute on every accepted store update. That is the same class of delayed surprise the density work ruled out, arriving on ticket creation instead of on a density toggle. Predictable-but-wasteful may be the better trade, and whoever takes this ticket should decide it deliberately rather than inherit it.
+
+Still open here: every design question in the description. What bounds the column count, how lane origins accumulate once a lane spans several columns, fill order, preserving the pinned slot reservation, and the relationship to the pen placement path. Nothing in the code changed.
+
+**agent:terva/mieli** at 2026-09-11T20:43:36Z
+
+in-progress to ready: The attribution this ticket asked for first is done and criterion 1 is ticked. Nobody is holding the rest, and in-progress without a claim is a strict-check warning, so it goes back on the queue.
