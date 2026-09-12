@@ -68,10 +68,10 @@ describe('autoPlace', () => {
   });
 
   it('wraps a lane deeper than the cap into further columns, column-major', () => {
-    // Seven `ready` tickets against a cap of six. Ids sort a..g, so the fill
-    // order is visible in the output: six down the first column, then the
-    // seventh at the top of a second. Row-major would put b beside a instead,
-    // which reads as a reasonable board and orders the tickets differently.
+    // Seven `ready` tickets against a cap of five. Ids sort a..g, so the fill
+    // order is visible in the output: five down the first column, then the
+    // rest down a second. Row-major would put b beside a instead, which reads
+    // as a reasonable board and orders the tickets differently.
     const items = 'abcdefg'.split('').map(id => ({ id, status: 'ready' }));
     expect([...autoPlace(items, {}, ['ready'])]).toEqual([
       ['a', { x: 0, y: 0 }],
@@ -79,8 +79,8 @@ describe('autoPlace', () => {
       ['c', { x: 0, y: 538 }],
       ['d', { x: 0, y: 807 }],
       ['e', { x: 0, y: 1076 }],
-      ['f', { x: 0, y: 1345 }],
-      ['g', { x: 322, y: 0 }],
+      ['f', { x: 322, y: 0 }],
+      ['g', { x: 322, y: 269 }],
     ]);
   });
 
@@ -92,7 +92,8 @@ describe('autoPlace', () => {
     items.push({ id: 'z', status: 'done' });
     const statuses = ['draft', 'ready', 'done'];
     const placed = autoPlace(items, {}, statuses);
-    expect(placed.get('g'), 'the second column of lane 0').toEqual({ x: 322, y: 0 });
+    expect(placed.get('g'), 'the second row of the second column of lane 0')
+      .toEqual({ x: 322, y: 269 });
     expect(placed.get('z'), '`done` behind a wrapped lane and one 80px gap')
       .toEqual({ x: 724, y: 0 });
 
@@ -118,15 +119,15 @@ describe('autoPlace', () => {
   });
 
   it('keeps a pinned slot reserved across a column boundary', () => {
-    // Pin the sixth ticket, the last slot of the first column. The seventh
-    // must stay at the top of the second column rather than sliding up into
-    // the hole, or pinning one card reflows the lane around it.
+    // Pin the fifth ticket, the last slot of the first column. The sixth must
+    // stay at the top of the second column rather than sliding back into the
+    // hole, or pinning one card reflows the lane around it.
     const items = 'abcdefg'.split('').map(id => ({ id, status: 'ready' }));
     const loose = autoPlace(items, {}, ['ready']);
-    const pinned = autoPlace(items, { f: { x: -900, y: -900 } }, ['ready']);
-    expect(pinned.has('f'), 'a pinned ticket gets no automatic position').toBe(false);
-    for (const id of 'abcdeg') {
-      expect(pinned.get(id), `${id} after pinning f`).toEqual(loose.get(id));
+    const pinned = autoPlace(items, { e: { x: -900, y: -900 } }, ['ready']);
+    expect(pinned.has('e'), 'a pinned ticket gets no automatic position').toBe(false);
+    for (const id of 'abcdfg') {
+      expect(pinned.get(id), `${id} after pinning e`).toEqual(loose.get(id));
     }
   });
 

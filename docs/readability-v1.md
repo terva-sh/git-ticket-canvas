@@ -125,17 +125,22 @@ The reference board's tallest card is not the tallest that can exist, and the
 overlap check in `canvas-arrange.spec.ts` is what stands between that and an
 unreadable board. On this board it first fires at a pitch of 230.
 
-Height-aware packing would go tighter still, to 0.6307 at full and 0.7174 at
-compact against 0.605 and 0.614 for the static pitch. It is ruled out of the
-derivation path anyway, because measured heights differ by density, so a packed
-board reflows on a density toggle by construction. It could only live behind an
-explicit Arrange, which is a different design.
+Height-aware packing measured tighter still, 0.6307 at full and 0.7174 at
+compact against 0.605 and 0.614 for the static pitch. Both sides of that were
+measured at a lane cap of 6, and the cap of 5 has since taken the static pitch
+to 0.707 and 0.732, so the comparison is stale rather than reversed: nobody has
+measured packing at the new cap. It is ruled out of the derivation path anyway,
+because measured heights differ by density, so a packed board reflows on a
+density toggle by construction. It could only live behind an explicit Arrange,
+which is a different design.
 
 ### Lane depth
 
-`autoPlace` wraps a status lane at six cards and starts another column to its
+`autoPlace` wraps a status lane at five cards and starts another column to its
 right. TKT-01M290N0GA1DBBRGR3HJJQVDY2 (Wrap a deep status lane into more than one
-column) chose the cap, and `LANE_CAP` in `geometry.ts` carries the reasoning.
+column) added the wrap at six, and TKT-01M29EEPX6KCR7YC7XM941P40N (Lower the lane
+cap from 6 to 5) lowered it once the pitch had changed underneath it.
+`LANE_CAP` in `geometry.ts` carries the reasoning.
 
 Measured on the 30-card reference board at the 2048x1152 reference viewport:
 
@@ -146,8 +151,10 @@ Measured on the 30-card reference board at the 2048x1152 reference viewport:
 | wrapped, pitch 269, empty lanes kept | 3178 x 1571 | 2.02 | 0.500 |
 | wrapped, pitch 340, empty lanes dropped | 1890 x 1926 | 0.98 | 0.500 |
 | wrapped, pitch 269, empty lanes dropped | 1890 x 1571 | 1.20 | 0.605 |
-| wrapped, pitch 269, empty lanes at 80 px | 2210 x 1571 | 1.41 | 0.605 |
+| wrapped, pitch 269, empty lanes at 80 px, cap 6 | 2210 x 1571 | 1.41 | 0.605 |
 | the same at compact | 2110 x 1546 | 1.36 | 0.614 |
+| the same at cap 5 | 2210 x 1302 | 1.70 | 0.707 |
+| the same at cap 5, compact | 2110 x 1277 | 1.65 | 0.732 |
 
 The middle rows are the point. After wrapping, the tighter pitch alone changes
 the fit scale by nothing and dropping the empty lanes alone changes it by
@@ -155,15 +162,19 @@ the fit scale by nothing and dropping the empty lanes alone changes it by
 moves when both dimensions shrink, so either change measured on its own reads
 as worthless, and the pair had to land as one decision.
 
-The last two rows are the second point. Once the board is bound by height, an
-empty lane can have 80 px for nothing: 2210 px of width fits at the same 0.605
-as 1890 px.
+The cap-6 rows carried the second point, that an empty lane can have 80 px for
+nothing: while height bound the board, 2210 px of width fit at the same 0.605 as
+1890 px did. The cap of 5 ended that. It trades a row for a column, which makes
+width the binding dimension, so the four gaps now cost 1.7% of the scale, 0.7073
+against the 0.7194 that dropping them reaches. A visible boundary between two
+statuses is worth that much, but it is no longer free and the next gap will be
+charged the same way.
 
 The cap is a count, not a measurement of a card, so a density change still
-re-derives nothing. Six rows at the resulting scale is about one stage height,
-which is where the number comes from.
+re-derives nothing. The number was one screenful of rows and is now the best of
+a sweep across six board shapes, below.
 
-Fill order is column-major: down to six, then right. A status reads top to
+Fill order is column-major: down to five, then right. A status reads top to
 bottom the way it did before wrapping, and the sort by id keeps it deterministic.
 Row-major produces a board that looks just as reasonable and orders the tickets
 differently, so the choice is asserted rather than implied.
@@ -196,11 +207,13 @@ estimate that chose the cap assumed the window, and the suite measures the
 budget so a later disagreement says whether the board changed or the stage did.
 
 Wrapping alone left the board on the knee, 0.4997 by width against 0.5000 by
-height, which is too close to assert anything about. The tighter pitch moved it
-clear, and the empty-lane gaps spend part of the width that freed: 0.707 by
-width against 0.605 by height, where dropping the lanes entirely read 0.820.
-Height binds either way, and the suite asserts the ratio as well as the binding
-dimension, because that ratio is the budget any further gap comes out of.
+height, which is too close to assert anything about. The tighter pitch and the
+cap of 6 moved it clear, to 0.707 by width against 0.605 by height. The cap of 5
+has put it back: 0.7073 by width against 0.7194 by height, 1.7% apart, with
+width binding. So `canvas-arrange.spec.ts` asserts how far the fit sits from the
+knee rather than which dimension binds. Which side binds turns on measured card
+heights and CI renders other fonts, while the annotation records the dimension
+that each run saw.
 
 The cap is measured against six board shapes, and 6 is the wrong number.
 TKT-01M29E2EVNTD69ACSY0W6TRK52 (Measure the lane cap against board shapes other
@@ -224,8 +237,11 @@ one screenful of rows at a pitch of 340 and a fit near 0.49. The pitch is now
 269 and the fit near 0.72, and one screenful at those numbers is five rows.
 The arithmetic aged with the pitch.
 
-The code still says 6. Changing it moves the recorded numbers in
-`canvas-arrange.spec.ts` again, so it is its own change.
+`LANE_CAP` is 5 as of TKT-01M29EEPX6KCR7YC7XM941P40N. On the reference board
+that is six columns of five in place of five columns of six and a stray, spanY
+1571 down to 1302, and the fit 0.605 up to 0.707. Nothing overlaps at either
+density, and the render was looked at rather than inferred, which 20 px of pitch
+clearance is the reason for.
 
 The caveat this section used to carry, that an even spread across every status
 could be made worse by the cap, is answered and it was wrong. An even board is

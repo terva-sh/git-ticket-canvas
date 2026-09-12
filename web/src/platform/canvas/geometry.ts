@@ -95,31 +95,27 @@ const ROW_PITCH = 269;
  * new column to its right. A lane of 25 tickets is otherwise 8409 px tall
  * against 1890 px wide, and a viewport is the other way round.
  *
- * Six is a count, so it reads neither card width nor card height. That is the
+ * Five is a count, so it reads neither card width nor card height. That is the
  * point: derived positions recompute on every accepted store update, so a cap
  * that varied with density would leave the board alone on a density toggle and
  * then reflow it at the next unrelated update.
  *
- * Measured on the 30-card reference board, 25 `done` and 5 `draft`, at the
- * 2048x1152 reference viewport: wrapping alone took the fit scale from 0.120
- * to 0.500 and the span from 1890x8409 to 3178x1926. With empty lanes dropped
- * and the tighter row pitch it reaches 0.605, at 1890x1571.
+ * Five is measured against six board shapes, not one. It is best or tied on
+ * every one of them, and a cap of 6 never won on any: 6 gave up 14% to 16%
+ * wherever a board had one deep lane, and nothing where it did not. A cap of
+ * 4 or 3 turns a board width-bound and loses more than it saves.
  *
- * A cap of 7 was measured as well and it does not combine: at pitch 269 it
- * reaches 0.522, and dropping empty lanes on top adds nothing, because cap 7
- * is bound by height.
+ * The number means one screenful of rows, and that is why it moved. Six was a
+ * screenful at a row pitch of 340 and a fit near 0.49. At 269 and 0.72 a
+ * screenful is five rows, so 5 x 269 is about the stage height once scaled.
+ * The rule survived the pitch change and its arithmetic did not.
  *
- * Six is measured against six board shapes now, not one, and it is the wrong
- * number: 5 is better or tied on all of them and 6 never wins, giving up 14%
- * to 16% on a board with one deep lane. Six was one screenful of rows at a
- * pitch of 340 and a fit near 0.49; at 269 and 0.72 a screenful is five rows,
- * so the rule survived and its arithmetic did not.
- *
- * Still 6 here because changing it moves the numbers the arranged browser
- * spec records. See TKT-01M29E2EVNTD69ACSY0W6TRK52 and the Lane depth section
- * of docs/readability-v1.md for the per-shape table.
+ * On the reference board, at the 2048x1152 reference viewport, the fit scale
+ * went 0.120 unwrapped, 0.500 wrapped, 0.605 with the gap and the tighter
+ * pitch, and 0.707 here. The per-shape table is in the Lane depth section of
+ * docs/readability-v1.md.
  */
-const LANE_CAP = 6;
+const LANE_CAP = 5;
 
 /**
  * Lay every ticket out in status lanes, wrapping a lane deeper than `LANE_CAP`
