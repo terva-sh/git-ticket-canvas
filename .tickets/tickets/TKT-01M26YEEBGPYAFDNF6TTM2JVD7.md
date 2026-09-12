@@ -26,7 +26,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-11T00:38:56Z
-updated_at: 2026-09-12T01:38:56Z
+updated_at: 2026-09-12T18:54:30Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -114,3 +114,13 @@ Two things it says that the root doc does not. The extracted `.tickets` copy bes
 Both checksums in the README were checked against the files on disk rather than copied from the earlier note, `just tooling-test` still passes 79, and the new file changes nothing the suite reads.
 
 Every box on this epic is now ticked. It stays open on `blocks_on: children` for TKT-01M28QE4Z761Y2KBVYDMV1NYVZ (Route or bundle canvas edges through dense crossings), which is still in draft.
+
+**agent:terva/mieli** at 2026-09-12T18:54:30Z
+
+Supersedes the "Loose artifact" section of my verification note above.
+
+That note reported `docs/artifacts/canvas-review-baseline-2026-09-11/.tickets` as a second extracted store of 28 tickets that nothing references, and guessed it might be fixture provenance. The guess was wrong and the path no longer exists.
+
+TKT-01M29HX117P043SBQBMC5200XJ (Remove or document the unreferenced ticket snapshot in docs/artifacts) compared the two id sets. The 28 tickets shared none of the 30 ids in `ahpsh-tickets.tgz`, and all 28 are tickets from this repository's own store. It was a copy of git-ticket-canvas's own board committed under an artifact name, not fixture material, and it carried no `canvas/` directory so it held no layout. It has been deleted.
+
+The fixture is `ahpsh-tickets/ahpsh-tickets.tgz` and its extracted copy beside it. `ahpsh-tickets/README.md` records what was removed, so the next reader does not have to repeat the comparison.

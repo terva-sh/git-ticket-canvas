@@ -76,6 +76,12 @@ somebody writing down why.
 
 ## What is not here
 
-The `.tickets` directory one level up, beside `ahpsh-tickets/`, is not part of
-this fixture. It carries no board layout and nothing reads it.
-TKT-01M29HX117P043SBQBMC5200XJ decides what happens to it.
+A second `.tickets` directory used to sit one level up, beside this one, at
+`docs/artifacts/canvas-review-baseline-2026-09-11/.tickets`. Its name made it
+look like fixture material and it was not. Its 28 tickets were this project's
+own board, sharing none of the 30 ids in the tarball, and it carried no
+`canvas/` directory so it held no layout at all.
+TKT-01M29HX117P043SBQBMC5200XJ removed it.
+
+The fixture is the tarball in this directory. Do not add a second ticket store
+beside it.
