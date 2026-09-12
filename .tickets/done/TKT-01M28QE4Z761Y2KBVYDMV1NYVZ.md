@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M28QE4Z761Y2KBVYDMV1NYVZ
 title: Route or bundle canvas edges through dense crossings
 type: task
-status: ready
-status_reason: The user asked me to pick this up and measure the crossings first, which is the promotion.
+status: done
+status_reason: null
 priority: normal
 due_on: null
 labels:
@@ -19,17 +19,10 @@ origin: null
 dependencies: []
 blocks_on: none
 references: []
-claim:
-  actor: agent:terva/mieli
-  branch: main
-  worktree: null
-  commit: null
-  session: bd5cdc0f-a012-474a-a5a2-1a984b5207fa
-  claimed_at: 2026-09-12T20:53:59Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-11T17:14:55Z
-updated_at: 2026-09-12T20:57:23Z
+updated_at: 2026-09-12T21:32:10Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -53,7 +46,7 @@ Weigh this against the alternative of not doing it. Hover plus fading already an
 
 ## Acceptance criteria
 
-- [ ] A measured crossing count for the reference scene, before and after, recorded on the ticket.
+- [x] A measured crossing count for the reference scene, before and after, recorded on the ticket.
 - [ ] Edges between the same pair of cards no longer draw on top of each other.
 - [ ] The change keeps the 41 edges and 30 card positions the structural test asserts, and lands a new baseline entry saying what moved.
 - [ ] Routing degrades predictably on a board where no clear corridor exists, rather than producing a worse path than the straight curve.
@@ -140,3 +133,74 @@ Routing edges around cards is also a smaller prize than it looked: 6 edges cross
 ### Reproducing the "after"
 
 The probe was a throwaway and is deleted, so the numbers above are reproducible only by rebuilding it. If this work proceeds, the measurement should land as a committed spec first, because criterion 1 asks for before and after and an after that uses a differently-written probe is not comparable with this before.
+
+**agent:terva/mieli** at 2026-09-12T21:12:57Z
+
+The anchor spread was built and measured. It makes the crossing count worse, at every pitch tried.
+
+### What was built
+
+`web/src/platform/canvas/anchors.ts`, a pure planner with ten unit tests. It groups every relationship by the card side it uses, sorts each group by the other card's centre so the fan cannot cross itself as it leaves the card, and hands out slots at a fixed pitch, capped so the spread never exceeds 60% of the card side. `Edges.tsx` memoises the plan over the whole graph rather than over the edges the current mode draws, so selecting a card does not slide its neighbours' edges. Only the left and right sides spread, because a top or bottom anchor moves in x and `canvas-density.spec.ts` asserts that every anchor's x is a card's left edge, right edge or horizontal centre.
+
+None of that is the problem. The planner does exactly what step 2 of the plan described.
+
+### The measurement
+
+Taken with `tests/browser/edge-crossings.spec.ts`, the committed spec, so every row is comparable with every other row.
+
+| slot pitch | crossing points | crossing pairs | edges involved | edges over cards |
+| --- | --- | --- | --- | --- |
+| 0 (centred, shipped) | 26 | 23 | 16 | 6, 14 incidences |
+| 2 | 40 | 36 | 17 | 6, 14 incidences |
+| 8 | 34 | 33 | 17 | 6, 14 incidences |
+| 16 | 32 | 32 | 17 | 6, 14 incidences |
+| 32 | 33 | 32 | 17 | 6, 14 incidences |
+
+Every non-zero pitch is worse than none. The best of them costs six extra crossings and nine extra crossing pairs.
+
+### Why, which is the part worth keeping
+
+Spreading anchors moves where an edge starts. It does not change which edges have to get past which. A crossing between `A -> D` and `B -> C`, where A sits above B and C above D, exists because of where the four cards are. No anchor position removes it, and a 16 px shift only decides whether a near miss becomes a crossing or the other way round. On this board it decides against.
+
+The shape of the curve is the second half of it. A small pitch is the worst case, not the mildest: two edges leaving one card 2 px apart run nearly parallel for a long stretch and weave across each other several times before they separate, which is why pitch 2 scores 40 and pitch 32 scores 33. A spread has to be large enough to separate siblings cleanly or it should not exist.
+
+The card-crossing numbers do not move at all. 6 edges over 14 cards at every pitch, because an anchor offset of at most 16 px does not steer an edge around a 280 px card.
+
+### What this settles
+
+Criterion 1 now has its before and after, and the after is worse. Anchor spreading is not the fix, and the ticket should not carry it.
+
+The two candidates left from the description are routing around cards and reordering cards within a lane. Routing addresses the 6 edges over 14 cards and nothing else, which the earlier note already called a small prize. Reordering the cards in a lane by their neighbours' positions is the change that removes topological crossings, and it is placement work rather than edge work, so it belongs with the arrange ticket and not this one.
+
+The measurement spec stays committed either way. It cost the price of one throwaway probe and it is what turned a plausible fix into a measured refusal.
+
+**agent:terva/mieli** at 2026-09-12T21:32:08Z
+
+Task worklog for this ticket, from the session task board.
+
+### Tasks
+
+- [x] task-109 A measured crossing count for the reference scene, before and after, recorded on the ticket. — Both halves are on the ticket. The before is the baseline note: 26 crossing points, 23 pairs, 16 of 41 edges, 25 of 26 in the right cluster, 6 edges over 14 non-endpoint cards. The after is the anchor-spread note, a table over five slot pitches showing 40, 34, 32 and 33 against the 26 of centred anchors. Both were taken with the same committed spec, tests/browser/edge-crossings.spec.ts.
+- [ ] task-110 (cancelled) ~~Edges between the same pair of cards no longer draw on top of each other.~~ — Unsatisfiable on the reference board. tests/browser/edge-crossings.spec.ts asserts duplicatePairs is 0 exactly, so no pair of cards is joined by more than one edge and there is nothing to stop overlapping. Left unticked on the ticket.
+- [ ] task-111 (cancelled) ~~The change keeps the 41 edges and 30 card positions the structural test asserts, and lands a new baseline entry saying what moved.~~ — No behaviour change shipped, so there is no baseline entry to land. canvas-visual passes against the committed baseline unchanged. Left unticked on the ticket.
+- [ ] task-112 (cancelled) ~~Routing degrades predictably on a board where no clear corridor exists, rather than producing a worse path than the straight curve.~~ — Routing was never chosen. The measurement narrowed it to 6 edges over 14 non-endpoint cards, and the crossings it would not address are topological. Left unticked on the ticket.
+
+## Summary
+
+Closed on a measured refusal. No edge routing, bundling or anchor offset shipped, and the crossings on the reference board are exactly where they were: 26 crossing points, 23 pairs, 16 of 41 edges, 6 edges over 14 non-endpoint cards.
+
+What did ship is `tests/browser/edge-crossings.spec.ts` at commit 47457ad, the measurement itself. It samples every rendered relationship path at 160 points in scene space, counts intersections between distinct edges, clusters within 3 px, and discards intersections within 4 px of a card the two edges share. Crossing counts are asserted as upper bounds with the exact figures in a test annotation, because card heights come from wrapped text and CI renders different fonts. The structural numbers are exact.
+
+The anchor spread that the plan recommended was built in full, with a pure planner in the platform layer and ten unit tests, and it was reverted. Measured at slot pitches 2, 8, 16 and 32 it scored 40, 34, 32 and 33 crossings against the 26 of centred anchors. The reason is in the notes and it is the finding worth carrying: anchor position does not change which edges have to get past which, so a crossing that exists because of where four cards sit survives every offset. A small pitch is the worst case rather than the mildest, because two edges leaving a card 2 px apart weave across each other before they separate.
+
+Criterion 1 is ticked. The other three are not, and each has a reason.
+
+Criterion 2 has nothing to demonstrate. The spec asserts that no pair of cards on this board is joined by more than one edge, so overlapping duplicates do not occur here. It needs a fixture built for it or it should be dropped.
+
+Criterion 3 asks for a baseline entry saying what moved. Nothing moved, `just canvas-visual` matches the committed baseline pixel for pixel, and an entry recording a change that did not ship would be false in the one file that exists to record what did.
+
+Criterion 4 applies only to routing, which was not chosen. The measurement narrowed routing's prize to 6 edges over 14 cards and it addresses none of the crossings.
+
+What is left for whoever picks this up: reordering cards within a lane by their neighbours' positions is the change that removes topological crossings, and it is placement work rather than edge work. It belongs with the arrange ticket. Routing around cards remains available and remains small. Both now have a committed instrument to be judged against, which this ticket did not have when it was filed.
+
+Gates at close: `just check` green, `just browser-test` 68 passed and 6 skipped, `just canvas-visual` 7 passed.
