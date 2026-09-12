@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -621,7 +622,52 @@ func TestLiveConfigAndLayoutScopes(t *testing.T) {
 	}
 }
 
-func TestLiveStoreReplacementAndCancelledLifecycle(t *testing.T) {
+// TestLiveStoreLossAndRecovery covers a store that stops reading: the API keeps
+// serving the last valid snapshot, and recovers once the store reads again.
+//
+// It corrupts config.yml instead of moving or deleting anything. Go opens files
+// with FILE_SHARE_READ|FILE_SHARE_WRITE and no FILE_SHARE_DELETE, so on Windows
+// a delete or a rename fails while another handle on the path is open, and the
+// coordinator reads the store continuously. Overwriting contends with nothing,
+// because both handles already permit writes. TestLiveStoreDirectoryReplacement
+// covers the move itself where the platform allows one.
+func TestLiveStoreLossAndRecovery(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	s := New(st, Options{Actor: testActor})
+	h := startAPI(t, s)
+	before := boardRead(h, "/api/board")
+	config := filepath.Join(st.Path(), "config.yml")
+	valid, err := os.ReadFile(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config, []byte("schema: [unterminated\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, func() bool { return stateOf(s).Stale })
+	if after := boardRead(h, "/api/board"); !bytes.Equal(before.Body.Bytes(), after.Body.Bytes()) {
+		t.Fatal("unreadable store replaced last valid snapshot")
+	}
+	if err := os.WriteFile(config, valid, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, func() bool { state := stateOf(s); return !state.Stale && !state.Degraded })
+	old := stateOf(s)
+	saveFixture(t, st, fixtureTicket("TKT-01M245HJ7GBGQ8G8JGGY5RW2DY"))
+	waitGeneration(t, s, old)
+}
+
+// TestLiveStoreDirectoryReplacement covers the store directory being moved away
+// and put back, which is what watching the parent directory exists for. That
+// move is the one thing TestLiveStoreLossAndRecovery cannot reach by writing.
+func TestLiveStoreDirectoryReplacement(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows refuses to rename a directory while a handle on a file " +
+			"inside it is open without FILE_SHARE_DELETE, which Go never sets, and " +
+			"the coordinator reads the store continuously. Loss and recovery are " +
+			"covered on every platform by TestLiveStoreLossAndRecovery.")
+	}
 	t.Parallel()
 	st := newTestStore(t)
 	s := New(st, Options{Actor: testActor})
@@ -639,12 +685,17 @@ func TestLiveStoreReplacementAndCancelledLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	eventually(t, func() bool { state := stateOf(s); return !state.Stale && !state.Degraded })
-	card := fixtureTicket("TKT-01M245HJ7GBGQ8G8JGGY5RW2DY")
 	old := stateOf(s)
-	saveFixture(t, st, card)
+	saveFixture(t, st, fixtureTicket("TKT-01M245HJ7GBGQ8G8JGGY5RW2DY"))
 	waitGeneration(t, s, old)
+}
 
-	other := New(st, Options{Actor: testActor})
+// TestLiveCancelledLifecycle covers a cancelled context closing subscriptions.
+// It was the tail of the store-replacement test, so Windows never reached it:
+// the rename failed first and took this coverage with it.
+func TestLiveCancelledLifecycle(t *testing.T) {
+	t.Parallel()
+	other := New(newTestStore(t), Options{Actor: testActor})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	t.Cleanup(func() { _ = other.Close() })
