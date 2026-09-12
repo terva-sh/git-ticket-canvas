@@ -123,11 +123,13 @@ The JSON file records the fixture SHA-256, viewport, board, relationship mode, s
 
 ## Verification
 
-Eight consecutive captures produced identical PNG bytes. So did three captures across different builds: the default run that compiles the binary into the store, an ordinary VCS-stamped build reporting `v0.1.1-0.20260911142057-aec22cd52685`, and a `go build -buildvcs=false` build reporting `devel`. The committed baseline is a twelfth capture and matches all of them:
+The committed baseline is:
 
 ```text
-1688493a9730949f88f777dceb874d551670b09571f527e91886a6ef4f42dc4c  canvas-baseline.png
+dc6992174ad3d16d1aec17570fea064d64c102328de719486475be03bb05c947  canvas-baseline.png
 ```
+
+The determinism evidence behind it was gathered two baselines earlier, at `1688493a9730949f88f777dceb874d551670b09571f527e91886a6ef4f42dc4c`. Eight consecutive captures produced identical PNG bytes, and so did three captures across different builds: the default run that compiles the binary into the store, an ordinary VCS-stamped build reporting `v0.1.1-0.20260911142057-aec22cd52685`, and a `go build -buildvcs=false` build reporting `devel`. That evidence is about the capture rather than about one image, and the two baselines since have each reproduced on a single capture, which is weaker. Run the sweep again if you change the capture itself.
 
 To reproduce that check:
 
@@ -142,7 +144,7 @@ sha256sum /tmp/canvas-*.png | sort | uniq -c -w64
 
 Run it more than twice. The earlier baseline `ad4291f6651cf8211107002b25520b19b238581b7c3caf79e92d75df8161dd9a` passed a two-capture check and was still caught by the animation race, because two samples cannot tell a stable capture from one that agrees most of the time.
 
-Two baselines are superseded rather than reproducible. `ad4291f6...` predates the animation fix. `75fd5785ba7cafc07acd3acff6ca6f3d1cc7a49c4d70e55f156dfb27339e85cc` predates the version stub and the `Labels` filter button from TKT-01M26SB170M9TGNXHK8W7W5YSM, which added a toolbar control and pushed the card count and relationship selector onto a second row.
+Only the newest entry reproduces from current code. Every older one records a picture the app no longer draws, and two of them could not be reproduced even at the time. `ad4291f6651cf8211107002b25520b19b238581b7c3caf79e92d75df8161dd9a` predates the animation fix. `75fd5785ba7cafc07acd3acff6ca6f3d1cc7a49c4d70e55f156dfb27339e85cc` predates the version stub and the `Labels` filter button from TKT-01M26SB170M9TGNXHK8W7W5YSM, which added a toolbar control and pushed the card count and relationship selector onto a second row.
 
 The source archive is unchanged:
 

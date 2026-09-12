@@ -26,7 +26,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-11T00:38:56Z
-updated_at: 2026-09-11T20:13:44Z
+updated_at: 2026-09-12T00:34:41Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -48,15 +48,15 @@ The reference screenshot is currently available in the conversation but not as a
 
 ## Acceptance criteria
 
-- [ ] A test can copy the committed AHPSH ticket archive into an isolated store and open the default board with all 30 tickets and its saved layout.
-- [ ] A documented browser command reproduces the reference viewport, board, relationship mode, and readiness state before capturing evidence.
-- [ ] The fixture source remains unchanged by a test run, and the archive, extracted store, and capture metadata have stable project paths.
-- [ ] The suite provides a reviewable baseline and regression evidence for relationship rendering and card density.
-- [ ] A contributor can run the fixture suite and understand how to compare or intentionally update its visual baseline.
+- [x] A test can copy the committed AHPSH ticket archive into an isolated store and open the default board with all 30 tickets and its saved layout.
+- [x] A documented browser command reproduces the reference viewport, board, relationship mode, and readiness state before capturing evidence.
+- [x] The fixture source remains unchanged by a test run, and the archive, extracted store, and capture metadata have stable project paths.
+- [x] The suite provides a reviewable baseline and regression evidence for relationship rendering and card density.
+- [x] A contributor can run the fixture suite and understand how to compare or intentionally update its visual baseline.
 
 ## Definition of done
 
-- [ ] The fixture and capture commands pass from a clean checkout.
+- [x] The fixture and capture commands pass from a clean checkout.
 - [ ] The artifact paths and reproduction steps are documented next to the fixture.
 
 ## Implementation plan
@@ -72,3 +72,33 @@ The reference screenshot is currently available in the conversation but not as a
 **agent:terva/mieli** at 2026-09-11T20:13:44Z
 
 draft to ready: The user asked for the promotion. Six of its nine children are done: the fixture helper, the deterministic capture, the visual checks, relationship clutter, compact card density, and the lane-width measurement. Three remain in draft: edge routing, row pitch, and lane depth.
+
+**agent:terva/mieli** at 2026-09-12T00:34:38Z
+
+Verification pass over this epic's own boxes, at 887f740. No feature work. Five acceptance criteria ticked, one definition-of-done item ticked, one left open.
+
+Each criterion's evidence is on the task that closed it. The two things worth reading here are what the pass found.
+
+### The saved-layout claim was never asserted anywhere
+
+Criterion 1 says the board opens with its saved layout, and nothing in the suite checks that. `canvas-density.spec.ts` asserts the board name, 30 cards and 30 tickets served. The fixture helper checks that `default.yml` exists in the copy. Neither compares a rendered position against a saved one, so an automatic placement of all 30 cards would pass both.
+
+I verified it by hand instead: the 30 geometry rows in `canvas-baseline.json` against the 30 placements in the fixture's `default.yml`. They agree under one scale, 0.59079, and one offset, worst deviation 0.68 px, no rendered card without a saved placement. So the criterion is earned. It is earned by the artifact and by my arithmetic rather than by a test, which is worth knowing if somebody later changes how a board loads.
+
+### The baseline doc named a superseded image
+
+The Verification section of `docs/canvas-baseline.md` gave `1688493a...` as the committed baseline. Two baselines have landed since, for the relationship-clutter and card-density tickets, and the committed image is `dc699217...`. A contributor following that section to check reproducibility would have compared a correct capture against the wrong hash and concluded the capture was broken.
+
+Fixed in the doc as part of this pass. It now names `dc699217`, which I reproduced today, and attributes the eight-capture determinism sweep to the baseline it was actually run against. `baseline-history.json` was correct throughout, and `tests/tooling/canvas-baseline.test.mjs` holds the PNG, the metadata and the newest history entry together. The prose was the only thing that drifted, because nothing checks prose.
+
+### The definition-of-done item left open
+
+"The artifact paths and reproduction steps are documented next to the fixture" is unticked. The documentation is thorough and it lives at `docs/canvas-baseline.md`. Nothing sits in `docs/artifacts/canvas-review-baseline-2026-09-11/ahpsh-tickets/` pointing at it, so somebody who finds the archive first finds no way back to the instructions. A README of a few lines beside the archive would earn it. That is a decision about where docs belong, so I left the box honest rather than reading "next to" loosely.
+
+### Loose artifact
+
+`docs/artifacts/canvas-review-baseline-2026-09-11/.tickets` is a second extracted store, 31 tracked files with 28 tickets, and nothing in the repository references it. The fixture the suite uses is the one inside `ahpsh-tickets/`, which has 30 tickets and matches the tarball. Worth a chore to remove, but not this pass.
+
+### What ran
+
+The archive stayed at `a6162422` throughout. The whole artifact directory hashes to `8adb1326` before and after a browser run. From a detached worktree at HEAD with only `node_modules` linked in, the capture reproduced the committed PNG byte for byte, the fixture and baseline tooling tests passed 10, and the structural density spec passed 6. In the main tree: `just tooling-test` 79, `just canvas-visual` 7.
