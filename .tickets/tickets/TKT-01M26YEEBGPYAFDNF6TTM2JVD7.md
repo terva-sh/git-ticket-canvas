@@ -26,7 +26,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-11T00:38:56Z
-updated_at: 2026-09-12T00:34:41Z
+updated_at: 2026-09-12T01:38:56Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -57,7 +57,7 @@ The reference screenshot is currently available in the conversation but not as a
 ## Definition of done
 
 - [x] The fixture and capture commands pass from a clean checkout.
-- [ ] The artifact paths and reproduction steps are documented next to the fixture.
+- [x] The artifact paths and reproduction steps are documented next to the fixture.
 
 ## Implementation plan
 
@@ -102,3 +102,15 @@ Fixed in the doc as part of this pass. It now names `dc699217`, which I reproduc
 ### What ran
 
 The archive stayed at `a6162422` throughout. The whole artifact directory hashes to `8adb1326` before and after a browser run. From a detached worktree at HEAD with only `node_modules` linked in, the capture reproduced the committed PNG byte for byte, the fixture and baseline tooling tests passed 10, and the structural density spec passed 6. In the main tree: `just tooling-test` 79, `just canvas-visual` 7.
+
+**agent:terva/mieli** at 2026-09-12T01:38:56Z
+
+The last definition-of-done item is closed. `docs/artifacts/canvas-review-baseline-2026-09-11/ahpsh-tickets/README.md` now sits beside the archive.
+
+It is a map rather than a second copy of `docs/canvas-baseline.md`. It names what each of the five files in the directory is, carries the two checksums that identify the archive and the committed baseline, gives the four commands with their once-per-machine prerequisites, states the capture conditions, and states the one rule that matters: regenerate with the capture, never with `--update-snapshots`, and add a history entry. The reasoning stays in `docs/canvas-baseline.md`, which the README points at in its second sentence.
+
+Two things it says that the root doc does not. The extracted `.tickets` copy beside the tarball is for a person to read and no test reads it, because the helper unpacks the tarball into a fresh temporary store for every run. And the unreferenced `.tickets` directory one level up is not part of this fixture, with TKT-01M29HX117P043SBQBMC5200XJ (Remove or document the unreferenced ticket snapshot in docs/artifacts) named as the ticket that decides its fate.
+
+Both checksums in the README were checked against the files on disk rather than copied from the earlier note, `just tooling-test` still passes 79, and the new file changes nothing the suite reads.
+
+Every box on this epic is now ticked. It stays open on `blocks_on: children` for TKT-01M28QE4Z761Y2KBVYDMV1NYVZ (Route or bundle canvas edges through dense crossings), which is still in draft.
