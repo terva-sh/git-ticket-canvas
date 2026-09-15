@@ -21,7 +21,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install ledger checker
-        run: GOBIN=/usr/local/bin go install github.com/terva-sh/git-ticket/cmd/git-ticket@v0.14.3
+        run: GOBIN=/usr/local/bin go install github.com/terva-sh/git-ticket/cmd/git-ticket@v0.18.1
       - name: Verify embedded parity
         run: just parity-check
       - name: Validate release configuration

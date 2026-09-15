@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -204,6 +205,46 @@ func TestInternalTagLaneStillVerifies(t *testing.T) {
 	}
 	if !(parity >= 0 && parity < build && build < verify) {
 		t.Errorf("%s must run parity, build, and verify in order", path)
+	}
+}
+
+// The CLI the workflows install for `just tickets-check` has to be the version
+// go.mod requires.
+//
+// `check --strict` validates a store against the rules the binary knows, so a
+// CLI older than the library is a weaker gate than the code it guards: a rule
+// added between the two versions is a rule CI does not enforce, and a store
+// defect that a developer's own CLI reports would pass on a hosted runner. The
+// pin sat at v0.14.3 for four days after go.mod moved to v0.18.1, which is what
+// this catches.
+func TestWorkflowsInstallTheGitTicketGoModRequires(t *testing.T) {
+	mod, err := os.ReadFile("go.mod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	required := regexp.MustCompile(`(?m)^\s*github\.com/terva-sh/git-ticket (v\S+)$`).FindSubmatch(mod)
+	if required == nil {
+		t.Fatal("go.mod does not require github.com/terva-sh/git-ticket")
+	}
+	want := string(required[1])
+	pinned := regexp.MustCompile(`git-ticket/cmd/git-ticket@(v\S+)`)
+	installs := 0
+	for _, path := range workflowFiles(t) {
+		body, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, match := range pinned.FindAllSubmatch(body, -1) {
+			installs++
+			if got := string(match[1]); got != want {
+				t.Errorf("%s installs git-ticket %s; go.mod requires %s", path, got, want)
+			}
+		}
+	}
+	// Zero would pass the loop above while meaning the store check cannot run
+	// at all, so it is its own failure rather than a silent success.
+	if installs == 0 {
+		t.Error("no workflow installs the git-ticket CLI, so tickets-check cannot run")
 	}
 }
 
