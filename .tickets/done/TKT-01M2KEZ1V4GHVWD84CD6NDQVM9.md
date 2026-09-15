@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2KEZ1V4GHVWD84CD6NDQVM9
 title: Fix the Windows test lane the multi-store work broke
 type: task
-status: in-progress
+status: done
 status_reason: null
 priority: high
 due_on: null
@@ -25,17 +25,10 @@ references:
     path: null
   - ref: file:internal/api/merge_test.go
     path: null
-claim:
-  actor: agent:t3code/d30689a3
-  branch: t3code/orient-upstream-review-tickets
-  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-d30689a3
-  commit: 8b0ad27e60ca43edff0531cf21285714e997edda
-  session: null
-  claimed_at: 2026-09-15T21:18:37Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-15T21:18:30Z
-updated_at: 2026-09-15T21:28:20Z
+updated_at: 2026-09-15T21:30:30Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -91,7 +84,7 @@ user gets the same tickets twice under two ids.
 - [x] A configured tilde path and the same directory found by discovery merge into one store on Windows.
 - [x] Tests that need an absolute path build one for the platform they run on instead of hardcoding a POSIX root.
 - [x] The permission assertion states what it checks on a platform without Unix mode bits rather than failing there.
-- [ ] go test ./... passes on the GitHub Windows runner, evidenced by a green mirror-ci run and its id.
+- [x] go test ./... passes on the GitHub Windows runner, evidenced by a green mirror-ci run and its id.
 
 ## Implementation plan
 
@@ -158,3 +151,39 @@ three other tests drive a server clock the same way. `evictNow` in lazy_test.go
 now moves the registry's clock forward an hour and sweeps with a one-minute
 timeout, so the test asserts the eviction rule instead of the host's timer
 resolution. Both call sites use it.
+
+## Summary
+
+Windows passes. mirror-ci run 35025810603 at c1c6b06 completed success, taking
+the lane from fifteen failures to none across two commits.
+
+One product defect, in `internal/config/config.go`. `resolve` expanded a leading
+tilde only when the next byte was `filepath.Separator`, so on Windows `~/notes`
+was not expanded and was joined against the base instead. `afterTilde` now
+accepts a forward slash everywhere and the native separator as well where it
+differs. The visible symptom was a store served twice: deduplication compares
+resolved paths through `discover.Key`, and an unexpanded tilde path never
+matched the directory discovery walked.
+
+Everything else was the tests asserting the platform rather than the behavior.
+`internal/testpath` holds the two helpers that fix it. `Abs` builds a path that
+is absolute here, taking the volume from the working directory rather than
+assuming C:. `HomeEnv` names the variable `os.UserHomeDir` actually reads, which
+is `USERPROFILE` on Windows, so `t.Setenv("HOME", dir)` had been moving nothing.
+Around those: the scan tests normalize separators with `filepath.ToSlash` so one
+expected block serves both platforms, the 0600 assertion skips on Windows with
+the reason stated, and `TestHashedIDIsAlwaysAValidName` stops creating
+directories, which keeps the `....` case Windows refuses to create.
+
+The last failure was neither. `TestAStoreOpensOnFirstAccessAndReopensAfterEviction`
+set a one-nanosecond idle timeout and swept immediately, which assumes the clock
+ticked between the request and the sweep. It was reproduced on Linux by freezing
+the registry clock: the old approach evicted 0 stores, the number Windows
+reported, and `evictNow` evicted 1. The registry already documented its `now`
+field as the seam for exactly this.
+
+Worth recording for whoever reads this next: none of it was new. The break
+landed with the multi-store work and sat unobserved for four days because the
+mirror is the only place Windows runs, and nothing pushes the mirror except a
+release. A lane that only runs when somebody remembers to push is a lane that
+reports the state of the last push, not the state of the code.
