@@ -19,7 +19,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-15T17:09:40Z
-updated_at: 2026-09-15T17:09:49Z
+updated_at: 2026-09-15T17:25:32Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -148,6 +148,48 @@ Accepting the old slug as an alias that resolves to the canonical id would keep
 old links working and keep an id hand-typable. That is worth doing and is not
 in this ticket.
 
+### Symbolic links: resolve them, so one store has one id
+
+`discover.Key` already resolves links, and this ticket keeps that rather than
+hashing the lexical path. Verified against the real code: two roots, one a
+symbolic link to the other, produce two stores and not four, and both are
+reported at their real paths.
+
+The trade-off is worth naming, because it only has one good side. Hashing the
+resolved path means an id follows the store's physical location, so moving the
+real directory changes the id even when the symbolic link used to reach it did
+not move. Hashing the lexical path would keep the id stable across that move,
+and would give one store two ids when it is reachable two ways. Two ids means
+two registry entries, which means two servers, two watchers, and two locks over
+one set of tickets, each writing without knowing about the other. One store
+with one id and an id that can move is the better failure.
+
+Two findings make the resolution total, so there is no second case to design
+for:
+
+- `Key` falls back to the unresolved path when nothing resolves, which would
+  have been an unstable id, because a store that did not exist and then does
+  would hash differently once its links resolved. It cannot happen. A walk only
+  finds stores that exist, and a declared child that is not on disk is refused
+  with a warning rather than becoming a store, so every derived id belongs to a
+  store that is present and resolvable.
+- Paths reach `Key` already absolute, because `config.Load` resolves them
+  against the working directory. Verified: a relative `--root .` and an
+  absolute symbolically linked root over the same tree deduplicate to one store
+  each.
+
+### Which ids are hashed
+
+The rule is what the operator wrote, not where they wrote it. A name a person
+chose is kept, in a configuration file or as `--store name=path`. A name the
+canvas derived is hashed, which includes `--store path` with no name, where
+`DeriveName` takes the base name today.
+
+That is a small widening of the rule and it removes a sharp edge: two unnamed
+`--store` paths whose directories share a base name currently derive one name
+and fail at registration with a duplicate. Hashed, they differ.
+
+
 ### What it touches
 
 `derivedName` and `unique` in `internal/api/merge.go`, which is where both
@@ -165,6 +207,7 @@ is keyed on `data-store` and displays its name and path.
 - [ ] A store named on the command line or in a configuration file keeps that name as its id
 - [ ] A hash collision refuses startup and names both paths, rather than renaming either
 - [ ] Checked against the real 22-store workspace, with ids compared across two runs that differ by an added store
+- [ ] An unnamed --store PATH gets a hashed id, and two such paths sharing a base name no longer collide
 
 ## Definition of done
 
