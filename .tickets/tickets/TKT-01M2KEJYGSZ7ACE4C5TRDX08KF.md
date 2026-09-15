@@ -35,7 +35,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-15T21:11:54Z
-updated_at: 2026-09-15T22:07:23Z
+updated_at: 2026-09-15T22:11:19Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -115,3 +115,29 @@ That is deliberately left alone. A developer's own tooling is their
 environment, not something a repository change should reach into. Worth knowing
 if a store check ever passes locally and fails on CI. v0.18.1 reports
 `self-update` among its kinds, so upgrading is likely a single command.
+
+**agent:t3code/d30689a3** at 2026-09-15T22:11:19Z
+
+The new drift check failed on Windows, run 35029331252, reporting "go.mod does
+not require github.com/terva-sh/git-ticket" about a go.mod that requires it on
+the line above.
+
+A Windows checkout has CRLF endings. `.gitattributes` forces LF only for
+`.tickets/**/*.md`, so go.mod arrives with `\r\n`. In the pattern
+`^\s*github\.com/terva-sh/git-ticket (v\S+)$`, `\S` excludes `\r` because `\s`
+includes it, so `\S+` stops before the carriage return, while `$` under `(?m)`
+matches only before `\n`. The two positions differ by one byte and the match
+fails outright rather than capturing something wrong.
+
+Reproduced locally by copying go.mod with CRLF endings: no match, against a
+match on the same file with LF.
+
+Fixed by splitting on newlines and using strings.Fields, which discards `\r`
+as whitespace along with the leading tab. Verified by converting go.mod and all
+three workflow files to CRLF in a scratch copy and running all five workflow
+tests there, which pass.
+
+Worth noting what this says about the lane. The Windows job was restored two
+commits earlier and immediately caught a defect in the very change that
+followed it, in a test whose entire purpose is to catch drift. A gate that finds
+something in its first week was worth restoring.

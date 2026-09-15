@@ -222,11 +222,21 @@ func TestWorkflowsInstallTheGitTicketGoModRequires(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	required := regexp.MustCompile(`(?m)^\s*github\.com/terva-sh/git-ticket (v\S+)$`).FindSubmatch(mod)
-	if required == nil {
+	// Line by line rather than one regexp over the file. A Windows checkout
+	// has CRLF endings, \s covers \r, and $ matches only before \n, so an
+	// anchored pattern finds nothing there and reports a missing requirement
+	// that is present. That is how this test first failed.
+	want := ""
+	for _, line := range strings.Split(string(mod), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[0] == "github.com/terva-sh/git-ticket" {
+			want = fields[1]
+			break
+		}
+	}
+	if want == "" {
 		t.Fatal("go.mod does not require github.com/terva-sh/git-ticket")
 	}
-	want := string(required[1])
 	pinned := regexp.MustCompile(`git-ticket/cmd/git-ticket@(v\S+)`)
 	installs := 0
 	for _, path := range workflowFiles(t) {
