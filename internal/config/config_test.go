@@ -438,3 +438,19 @@ func TestSlugNameIsAlwaysValid(t *testing.T) {
 		}
 	}
 }
+
+func TestEffectiveExclude(t *testing.T) {
+	on, off := true, false
+	base := Config{Exclude: []string{"mine"}}
+	if got := base.EffectiveExclude(); len(got) != len(DefaultExclude)+1 {
+		t.Errorf("EffectiveExclude = %v, want the defaults plus mine", got)
+	}
+	base.ExcludeDefaults = &on
+	if got := base.EffectiveExclude(); len(got) != len(DefaultExclude)+1 {
+		t.Errorf("EffectiveExclude with defaults on = %v", got)
+	}
+	base.ExcludeDefaults = &off
+	if got := base.EffectiveExclude(); len(got) != 1 || got[0] != "mine" {
+		t.Errorf("EffectiveExclude with defaults off = %v, want [mine]", got)
+	}
+}

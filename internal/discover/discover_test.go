@@ -51,7 +51,7 @@ func found(t *testing.T, root string, result Result) []string {
 }
 
 func walkOne(root string, depth int) Result {
-	return Walk([]config.Root{{Path: root, Depth: depth}})
+	return Walk(config.Config{Roots: []config.Root{{Path: root, Depth: depth}}})
 }
 
 func assertFound(t *testing.T, got, want []string) {
@@ -201,14 +201,16 @@ func TestSeveralRootsAndOverlap(t *testing.T) {
 	store(t, root, "one", "project")
 	store(t, root, "two", "project")
 
-	result := Walk([]config.Root{
+	result := Walk(config.Config{Roots: []config.Root{
 		{Path: filepath.Join(root, "one"), Depth: 4},
 		{Path: filepath.Join(root, "two"), Depth: 4},
-	})
+	}})
 	assertFound(t, found(t, root, result), []string{"one/project", "two/project"})
 
 	// Overlapping roots must not report one store twice.
-	overlap := Walk([]config.Root{{Path: root, Depth: 4}, {Path: filepath.Join(root, "one"), Depth: 4}})
+	overlap := Walk(config.Config{Roots: []config.Root{
+		{Path: root, Depth: 4}, {Path: filepath.Join(root, "one"), Depth: 4},
+	}})
 	assertFound(t, found(t, root, overlap), []string{"one/project", "two/project"})
 }
 
@@ -230,10 +232,10 @@ func TestDepthIsRecordedRelativeToItsRoot(t *testing.T) {
 func TestAnUnreadableRootIsReportedNotFatal(t *testing.T) {
 	root := t.TempDir()
 	store(t, root, "fine")
-	result := Walk([]config.Root{
+	result := Walk(config.Config{Roots: []config.Root{
 		{Path: filepath.Join(root, "absent"), Depth: 4},
 		{Path: root, Depth: 4},
-	})
+	}})
 	assertFound(t, found(t, root, result), []string{"fine"})
 }
 

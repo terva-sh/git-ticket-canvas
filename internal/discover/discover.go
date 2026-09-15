@@ -65,15 +65,16 @@ type Result struct {
 // one unreadable root does not cost you the others. Walk returns no error
 // today; the signature keeps one because a later deadline or cancellation would
 // be a failure of the call rather than of any one directory.
-func Walk(roots []config.Root) Result {
+func Walk(cfg config.Config) Result {
 	var result Result
 	seen := make(map[string]bool)
-	for _, root := range roots {
+	global := cfg.EffectiveExclude()
+	for _, root := range cfg.Roots {
 		depth := root.Depth
 		if depth <= 0 {
 			depth = config.DefaultDepth
 		}
-		walkRoot(root.Path, depth, seen, &result)
+		walkRoot(root.Path, depth, NewMatcher(root.Path, global, root.Exclude), seen, &result)
 	}
 	sort.Slice(result.Stores, func(i, j int) bool { return result.Stores[i].Path < result.Stores[j].Path })
 	return result
@@ -85,7 +86,7 @@ type queued struct {
 	level int
 }
 
-func walkRoot(root string, depth int, seen map[string]bool, result *Result) {
+func walkRoot(root string, depth int, exclude *Matcher, seen map[string]bool, result *Result) {
 	queue := []queued{{path: root, level: 0}}
 	for len(queue) > 0 {
 		current := queue[0]
@@ -142,6 +143,10 @@ func walkRoot(root string, depth int, seen map[string]bool, result *Result) {
 				})
 			case !e.IsDir():
 				// A plain file is not a candidate and is not worth reporting.
+			case matchExcluded(exclude, child, result):
+				// Recorded by matchExcluded. Checking here, where a child is
+				// about to be enqueued, is what keeps an excluded subtree from
+				// being read at all rather than filtered out afterwards.
 			case isHidden(e.Name()):
 				// Do not descend into a hidden directory. This never applies to
 				// the .tickets test above, which looks for a hidden child
@@ -189,4 +194,18 @@ func storeAt(dir string) (bool, string) {
 // isHidden reports whether a directory name starts with a dot.
 func isHidden(name string) bool {
 	return strings.HasPrefix(name, ".")
+}
+
+// matchExcluded reports whether a directory is excluded, recording the entry
+// that excluded it so that a later --scan can name the line of configuration
+// responsible rather than only saying the directory was skipped.
+func matchExcluded(exclude *Matcher, dir string, result *Result) bool {
+	excluded, by := exclude.Match(dir)
+	if !excluded {
+		return false
+	}
+	result.Decisions = append(result.Decisions, Decision{
+		Path: dir, Action: "skip", Reason: "excluded by " + by,
+	})
+	return true
 }

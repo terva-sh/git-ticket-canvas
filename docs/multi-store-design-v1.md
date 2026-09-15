@@ -237,10 +237,33 @@ roots:
       - archive
 ```
 
-A repeatable `--exclude` flag does the same thing. An exclusion under a root is
-relative to that root. An exclusion at the top level is an absolute path or a
-pattern. The default value is `node_modules`, `vendor`, `target`, `dist`, and
-`build`. A hidden directory such as `.git` is already skipped.
+A repeatable `--exclude` flag does the same thing.
+
+An earlier version of this section said that an exclusion under a root is
+relative to that root and one at the top level is an absolute path or a pattern.
+Those two sentences did not cover the defaults, which are bare names at the top
+level and so are neither. An entry is classified by its own shape instead, and
+the same shape means the same thing wherever it appears:
+
+| Shape | Example | Meaning |
+|---|---|---|
+| Absolute path | `/home/you/workspace/some-org` | That directory and everything below it |
+| Holds `*`, `?`, or `[` | `**/node_modules` | A pattern against the path relative to the root, where `**` spans any number of segments |
+| Holds a separator | `old/stuff` | A relative path resolved against its root, and that subtree |
+| Bare name | `node_modules` | Any directory with that name, at any depth under the root |
+
+The bare-name rule is what makes `node_modules` work as a default, and it is
+what somebody means when they write one. A per-root bare name stays scoped to
+its root.
+
+`path.Match` has no `**` and its `*` does not cross a separator, so the matcher
+walks the segments itself and hands each ordinary segment to `path.Match`.
+
+The default value is `node_modules`, `vendor`, `target`, `dist`, and `build`. A
+hidden directory such as `.git` is already skipped. Setting `exclude` extends
+that list rather than replacing it, because losing the defaults by naming one
+extra directory is not what anybody means. To replace it, set
+`excludeDefaults: false`.
 
 Exclusions are applied during the walk, so an excluded subtree costs nothing
 rather than being filtered out afterward.

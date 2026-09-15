@@ -86,11 +86,12 @@ func (f *recursiveFlag) Set(value string) error {
 func (f *recursiveFlag) IsBoolFlag() bool { return true }
 
 func run() error {
-	var stores, roots stringList
+	var stores, roots, exclude stringList
 	var recursive recursiveFlag
 	flag.Var(&stores, "store", "a store to serve, as PATH or NAME=PATH; repeatable")
 	flag.Var(&roots, "root", "a directory to search for stores; repeatable")
 	flag.Var(&recursive, "R", "search for stores below each root, with an optional depth as -R=N")
+	flag.Var(&exclude, "exclude", "a name, path, or pattern to keep out of the search; repeatable")
 	var (
 		configPath = flag.String("config", "", "configuration file listing the stores to serve")
 		depth      = flag.Int("depth", 0, "how far below a root to search; the default is 4")
@@ -138,6 +139,8 @@ func run() error {
 			return err
 		}
 	}
+
+	cfg.Exclude = append(cfg.Exclude, exclude...)
 
 	if searching {
 		wanted := config.DefaultDepth
@@ -192,13 +195,18 @@ func run() error {
 	// still to come; this skips a discovered store whose path or name a
 	// configured one already holds, and says so.
 	if len(cfg.Roots) > 0 {
+		// An exclusion governs searching, so it cannot remove a store somebody
+		// named. Saying so beats resolving the contradiction in silence.
+		for _, warning := range discover.ExcludedExplicit(cfg) {
+			log.Printf("warn   %s", warning)
+		}
 		takenPath := make(map[string]bool, len(cfg.Stores))
 		takenName := make(map[string]bool, len(cfg.Stores))
 		for _, s := range cfg.Stores {
 			takenPath[s.Path] = true
 			takenName[s.Name] = true
 		}
-		for _, f := range discover.Walk(cfg.Roots).Stores {
+		for _, f := range discover.Walk(cfg).Stores {
 			name := config.SlugName(f.Root, f.Path)
 			if takenPath[f.Path] || takenName[name] {
 				log.Printf("found  %s  already configured, leaving it as named", f.Path)

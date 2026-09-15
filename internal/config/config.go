@@ -41,6 +41,18 @@ const MaxNameLen = 64
 // os.PathListSeparator.
 const EnvStores = "GIT_TICKET_CANVAS_STORES"
 
+// DefaultExclude is the set of directories a search skips unless told
+// otherwise.
+//
+// These are build and dependency directories: large, uninteresting, and
+// frequently deep. They are the default value of Exclude rather than a separate
+// prune list, because skipping node_modules and skipping a path you named are
+// the same request and two mechanisms would need two explanations.
+//
+// Nothing here can hide a store you name yourself. An exclusion governs
+// searching, and --store never searches.
+var DefaultExclude = []string{"node_modules", "vendor", "target", "dist", "build"}
+
 // Store is one configured ticket store.
 //
 // Path is absolute and cleaned. Actor and ReadOnly are the per-store overrides
@@ -71,6 +83,20 @@ type Config struct {
 	Roots   []Root   `yaml:"roots,omitempty"`
 	Stores  []Store  `yaml:"stores,omitempty"`
 	Exclude []string `yaml:"exclude,omitempty"`
+	// ExcludeDefaults turns the built-in list off when set to false, which is
+	// how Exclude is replaced rather than extended. A nil pointer means unset,
+	// and unset means the defaults apply.
+	ExcludeDefaults *bool `yaml:"excludeDefaults,omitempty"`
+}
+
+// EffectiveExclude is the built-in list, unless it was turned off, followed by
+// whatever was configured.
+func (c Config) EffectiveExclude() []string {
+	var all []string
+	if c.ExcludeDefaults == nil || *c.ExcludeDefaults {
+		all = append(all, DefaultExclude...)
+	}
+	return append(all, c.Exclude...)
 }
 
 // source names where a store came from, so a validation message can say which
