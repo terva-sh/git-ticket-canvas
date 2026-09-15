@@ -35,20 +35,23 @@ type childSpec struct {
 // does.
 func Declared(store string) Result {
 	var result Result
-	expandDeclared(store, store, nil, make(map[string]bool), 0, &result)
+	expandDeclared(store, store, "", nil, make(map[string]bool), 0, &result)
 	return result
 }
 
 // expandDeclared records the children one store declares, and their children in
 // turn.
 //
-// root is the root the paths are reported against, seen carries every store
-// already accepted so a cycle ends, and chain counts how many declarations deep
-// the expansion has gone.
-func expandDeclared(parent, root string, exclude *Matcher, seen map[string]bool, chain int, result *Result) {
+// root is the root a child's name and depth are derived against, section is the
+// root its decisions are grouped under, seen carries every store already
+// accepted so a cycle ends, and chain counts how many declarations deep the
+// expansion has gone. The two roots differ for a store named explicitly: its
+// children are named against it and reported beside it rather than under a
+// root nobody configured.
+func expandDeclared(parent, root, section string, exclude *Matcher, seen map[string]bool, chain int, result *Result) {
 	if chain >= MaxChildDepth {
 		result.Decisions = append(result.Decisions, Decision{
-			Path: parent, Action: "skip", Reason: "declared child chain limit reached",
+			Path: parent, Action: "skip", Reason: "declared child chain limit reached", Root: section,
 		})
 		return
 	}
@@ -62,7 +65,7 @@ func expandDeclared(parent, root string, exclude *Matcher, seen map[string]bool,
 			result.Warnings = append(result.Warnings, fmt.Sprintf(
 				"store %s declares the child %q, which is refused: %v", parent, spec.Path, err))
 			result.Decisions = append(result.Decisions, Decision{
-				Path: filepath.Join(parent, spec.Path), Action: "skip", Reason: err.Error(),
+				Path: filepath.Join(parent, spec.Path), Action: "skip", Reason: err.Error(), Root: section,
 			})
 			continue
 		}
@@ -71,7 +74,7 @@ func expandDeclared(parent, root string, exclude *Matcher, seen map[string]bool,
 			// coming back around. Recording it stops a cycle without needing to
 			// tell the two apart.
 			result.Decisions = append(result.Decisions, Decision{
-				Path: child, Action: "skip", Reason: "already found",
+				Path: child, Action: "skip", Reason: "already found", Root: section,
 			})
 			continue
 		}
@@ -84,17 +87,20 @@ func expandDeclared(parent, root string, exclude *Matcher, seen map[string]bool,
 			result.Warnings = append(result.Warnings, fmt.Sprintf(
 				"store %s declares the child %s, which the exclusion %q keeps out", parent, child, by))
 			result.Decisions = append(result.Decisions, Decision{
-				Path: child, Action: "skip", Reason: "excluded by " + by,
+				Path: child, Action: "skip", Reason: "excluded by " + by, Root: section,
 			})
 			continue
 		}
+		result.Examined++
 		if ok, reason := storeAt(child); !ok {
 			if reason == "" {
 				reason = "it is not a store"
 			}
 			result.Warnings = append(result.Warnings, fmt.Sprintf(
 				"store %s declares the child %q, which is refused: %s", parent, spec.Path, reason))
-			result.Decisions = append(result.Decisions, Decision{Path: child, Action: "skip", Reason: reason})
+			result.Decisions = append(result.Decisions, Decision{
+				Path: child, Action: "skip", Reason: reason, Root: section,
+			})
 			continue
 		}
 
@@ -118,10 +124,10 @@ func expandDeclared(parent, root string, exclude *Matcher, seen map[string]bool,
 			DeclaredBy: parent,
 		})
 		result.Decisions = append(result.Decisions, Decision{
-			Path: child, Action: "store", Reason: "declared by " + parent,
+			Path: child, Action: "store", Reason: "declared by " + parent, Root: section,
 		})
 
-		expandDeclared(child, root, exclude, seen, chain+1, result)
+		expandDeclared(child, root, section, exclude, seen, chain+1, result)
 	}
 }
 

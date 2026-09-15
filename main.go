@@ -98,6 +98,7 @@ func run() error {
 		addr       = flag.String("addr", "127.0.0.1:7777", "address to listen on")
 		actorID    = flag.String("actor", "", "actor to record writes as; defaults to each store's configured actor")
 		readOnly   = flag.Bool("read-only", false, "refuse every write, including card placement")
+		scan       = flag.Bool("scan", false, "print what discovery decided about every candidate, then exit")
 		version    = flag.Bool("version", false, "print build version and exit")
 		asJSON     = flag.Bool("json", false, "print --version as JSON")
 	)
@@ -166,6 +167,13 @@ func run() error {
 		}
 	}
 
+	// One discovery, whether it is being explained or served. An explanation of
+	// a discovery that is not the one being run would be worse than none.
+	found := discover.Scan(cfg)
+	if *scan {
+		return discover.Format(cfg, found, os.Stdout)
+	}
+
 	assets, err := fs.Sub(webFS, "web/dist")
 	if err != nil {
 		return err
@@ -173,31 +181,6 @@ func run() error {
 
 	// Assets are served once by the registry rather than by every store.
 	registry := api.NewRegistry(api.RegistryOptions{Assets: assets, Version: buildinfo.Read()})
-
-	takenPath := make(map[string]bool, len(cfg.Stores))
-	takenName := make(map[string]bool, len(cfg.Stores))
-	for _, s := range cfg.Stores {
-		takenPath[s.Path], takenName[s.Name] = true, true
-	}
-	// openFound serves a store nobody named: one a root was searched for, or one
-	// another store declared. The full merge rule, that an explicitly named
-	// store is always listed and that the two sets merge on resolved path, is
-	// still to come; this skips a store whose path or name is already held, and
-	// says so.
-	openFound := func(f discover.Found) error {
-		name := f.Name
-		if name == "" {
-			name = config.SlugName(f.Root, f.Path)
-		}
-		if takenPath[f.Path] || takenName[name] {
-			log.Printf("found  %s  already configured, leaving it as named", f.Path)
-			return nil
-		}
-		takenPath[f.Path], takenName[name] = true, true
-		return registry.OpenStore(api.StoreSpec{
-			Name: name, Path: f.Path, Actor: *actorID, ReadOnly: *readOnly || f.ReadOnly,
-		})
-	}
 
 	for _, configured := range cfg.Stores {
 		// A store's own configured actor wins over the global --actor, and a
@@ -216,36 +199,31 @@ func run() error {
 		}
 	}
 
-	// A store that names child stores in its own configuration exposes them
-	// however it was reached, so an explicitly named store is asked too rather
-	// than only one a walk found.
-	for _, configured := range cfg.Stores {
-		found := discover.Declared(configured.Path)
-		for _, warning := range found.Warnings {
-			log.Printf("warn   %s", warning)
-		}
-		for _, f := range found.Stores {
-			if err := openFound(f); err != nil {
-				return err
-			}
-		}
+	for _, warning := range found.Warnings {
+		log.Printf("warn   %s", warning)
 	}
-
-	// Stores found by searching a root.
-	if len(cfg.Roots) > 0 {
-		// An exclusion governs searching, so it cannot remove a store somebody
-		// named. Saying so beats resolving the contradiction in silence.
-		for _, warning := range discover.ExcludedExplicit(cfg) {
-			log.Printf("warn   %s", warning)
+	// Every store nobody named: one a root was searched for, or one another
+	// store declared. The full merge rule, that an explicitly named store is
+	// always listed and that the two sets merge on resolved path, is still to
+	// come; this skips a store whose name is already held, and says so.
+	taken := make(map[string]bool, len(cfg.Stores))
+	for _, s := range cfg.Stores {
+		taken[s.Name] = true
+	}
+	for _, f := range found.Stores {
+		name := f.Name
+		if name == "" {
+			name = config.SlugName(f.Root, f.Path)
 		}
-		found := discover.Walk(cfg)
-		for _, warning := range found.Warnings {
-			log.Printf("warn   %s", warning)
+		if taken[name] {
+			log.Printf("found  %s  already configured as %q, leaving it as named", f.Path, name)
+			continue
 		}
-		for _, f := range found.Stores {
-			if err := openFound(f); err != nil {
-				return err
-			}
+		taken[name] = true
+		if err := registry.OpenStore(api.StoreSpec{
+			Name: name, Path: f.Path, Actor: *actorID, ReadOnly: *readOnly || f.ReadOnly,
+		}); err != nil {
+			return err
 		}
 	}
 

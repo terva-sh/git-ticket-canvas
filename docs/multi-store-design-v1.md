@@ -294,18 +294,47 @@ answers, so the tool answers it directly:
 
 ```
 $ git-ticket-canvas --scan
-~/workspace  depth 4
-  ok   ledger                          store
-  ok   forge/org/project               store
-  skip forge/other-org                 excluded (config: exclude[0])
-  skip forge/org/project/docs          not descended (store boundary)
-  ok   forge/org/project/docs/fixture  child (declared by forge/org/project)
-  skip forge/org/project/node_modules  excluded (default)
+configured
+  ok    /home/sothr/ledger  named explicitly
+
+/home/sothr/workspace  depth 4
+  skip  .cache                          hidden directory
+  skip  forge/org/deep/a/b              depth limit reached
+  skip  forge/org/node_modules          excluded by node_modules
+  ok    forge/org/project               store
+  ok    forge/org/project/docs/fixture  declared by forge/org/project
+  skip  scratch                         has .tickets but no config.yml
+
+Nothing below a store is searched. A store inside another is listed only if the
+parent names it under canvas.children in its own .tickets/config.yml.
+
+3 stores, 4 skipped, 236 directories examined
 ```
 
 `--scan` runs discovery, prints one line per candidate with the reason, and
-exits without starting a server. It is also how the walk is tested: the test
-asserts against this output.
+exits without starting a server.
+
+Two things about that output are decisions rather than accidents.
+
+The store boundary is explained once, at the end, rather than on every store
+line. Nothing under a store is ever examined, so nothing under one can carry a
+decision of its own, and printing "not descended" for each subdirectory of each
+store would bury the page on a workspace holding twenty of them. The note
+answers "why is my store not listed" for every directory below a store, in two
+lines.
+
+A directory that was searched and held nothing gets no line at all, which is
+why the count of directories examined is there. A search that read 236
+directories and found nothing is a different problem from one that read 2, and
+no list of decisions tells the two apart.
+
+`--scan` is also the test harness for the walk. A test that asserts against
+this text covers depth, hidden directories, exclusions, boundaries, and declared
+children in one readable fixture, which is easier to review than a set of
+assertions over a returned structure.
+
+Serving and scanning run the same discovery, in `discover.Scan`. An explanation
+of a discovery that is not the one being run would be worse than none.
 
 ## Opening a store, and when
 

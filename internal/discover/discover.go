@@ -59,6 +59,9 @@ type Decision struct {
 	Path   string
 	Action string // "store", or "skip"
 	Reason string
+	// Root is the configured root this decision was reached under, empty for a
+	// store named explicitly and for anything that store declared.
+	Root string
 }
 
 // Result is everything one call to Walk concluded.
@@ -69,6 +72,10 @@ type Result struct {
 	// that was refused, a name that could not be used. None of them stops a
 	// store from being served.
 	Warnings []string
+	// Examined counts the directories the walk looked at. A search that read
+	// 400 directories and found nothing is a different problem from one that
+	// read 2, and no list of decisions tells the two apart.
+	Examined int
 }
 
 // Walk finds the stores under every root.
@@ -79,17 +86,26 @@ type Result struct {
 // be a failure of the call rather than of any one directory.
 func Walk(cfg config.Config) Result {
 	var result Result
-	seen := make(map[string]bool)
+	walkRoots(cfg, make(map[string]bool), &result)
+	sortStores(&result)
+	return result
+}
+
+// walkRoots searches every configured root, sharing one record of what has
+// already been examined.
+func walkRoots(cfg config.Config, seen map[string]bool, result *Result) {
 	global := cfg.EffectiveExclude()
 	for _, root := range cfg.Roots {
 		depth := root.Depth
 		if depth <= 0 {
 			depth = config.DefaultDepth
 		}
-		walkRoot(root.Path, depth, NewMatcher(root.Path, global, root.Exclude), seen, &result)
+		walkRoot(root.Path, depth, NewMatcher(root.Path, global, root.Exclude), seen, result)
 	}
+}
+
+func sortStores(result *Result) {
 	sort.Slice(result.Stores, func(i, j int) bool { return result.Stores[i].Path < result.Stores[j].Path })
-	return result
 }
 
 // queued is a directory waiting to be examined, with how deep it sits.
@@ -110,14 +126,15 @@ func walkRoot(root string, depth int, exclude *Matcher, seen map[string]bool, re
 			continue
 		}
 		seen[current.path] = true
+		result.Examined++
 
 		switch store, reason := storeAt(current.path); {
 		case store:
 			result.Stores = append(result.Stores, Found{Path: current.path, Root: root, Depth: current.level})
-			result.Decisions = append(result.Decisions, Decision{Path: current.path, Action: "store"})
+			result.Decisions = append(result.Decisions, Decision{Path: current.path, Action: "store", Root: root})
 			// The one way past the boundary below: the store itself names the
 			// directories under it that are also stores.
-			expandDeclared(current.path, root, exclude, seen, 0, result)
+			expandDeclared(current.path, root, root, exclude, seen, 0, result)
 			// A store's subtree is that store's own material. Not descending is
 			// what keeps a project's committed test fixtures out of the list at
 			// any depth, rather than only at the depth that happens to cut them
@@ -126,13 +143,15 @@ func walkRoot(root string, depth int, exclude *Matcher, seen map[string]bool, re
 		case reason != "":
 			// A .tickets is here and it does not qualify. It still marks the
 			// directory as somebody's, so treat it as a boundary.
-			result.Decisions = append(result.Decisions, Decision{Path: current.path, Action: "skip", Reason: reason})
+			result.Decisions = append(result.Decisions, Decision{
+				Path: current.path, Action: "skip", Reason: reason, Root: root,
+			})
 			continue
 		}
 
 		if current.level >= depth {
 			result.Decisions = append(result.Decisions, Decision{
-				Path: current.path, Action: "skip", Reason: "depth limit reached",
+				Path: current.path, Action: "skip", Reason: "depth limit reached", Root: root,
 			})
 			continue
 		}
@@ -140,7 +159,7 @@ func walkRoot(root string, depth int, exclude *Matcher, seen map[string]bool, re
 		entries, err := os.ReadDir(current.path)
 		if err != nil {
 			result.Decisions = append(result.Decisions, Decision{
-				Path: current.path, Action: "skip", Reason: err.Error(),
+				Path: current.path, Action: "skip", Reason: err.Error(), Root: root,
 			})
 			continue
 		}
@@ -153,12 +172,18 @@ func walkRoot(root string, depth int, exclude *Matcher, seen map[string]bool, re
 				// next case anyway. Naming it here records why, and makes the
 				// walk terminate because it cannot revisit a directory rather
 				// than because it noticed that it had.
-				result.Decisions = append(result.Decisions, Decision{
-					Path: child, Action: "skip", Reason: "symbolic link",
-				})
+				//
+				// Only a link that points at a directory is worth a decision. A
+				// link to a file was never a candidate, and reporting one buries
+				// the links that could have been stores.
+				if target, err := os.Stat(child); err == nil && target.IsDir() {
+					result.Decisions = append(result.Decisions, Decision{
+						Path: child, Action: "skip", Reason: "symbolic link to a directory, not followed", Root: root,
+					})
+				}
 			case !e.IsDir():
 				// A plain file is not a candidate and is not worth reporting.
-			case matchExcluded(exclude, child, result):
+			case matchExcluded(exclude, child, root, result):
 				// Recorded by matchExcluded. Checking here, where a child is
 				// about to be enqueued, is what keeps an excluded subtree from
 				// being read at all rather than filtered out afterwards.
@@ -168,7 +193,7 @@ func walkRoot(root string, depth int, exclude *Matcher, seen map[string]bool, re
 				// directly; the two rules are separate and collapsing them into
 				// one hidden check finds nothing at all.
 				result.Decisions = append(result.Decisions, Decision{
-					Path: child, Action: "skip", Reason: "hidden directory",
+					Path: child, Action: "skip", Reason: "hidden directory", Root: root,
 				})
 			default:
 				queue = append(queue, queued{path: child, level: current.level + 1})
@@ -214,13 +239,13 @@ func isHidden(name string) bool {
 // matchExcluded reports whether a directory is excluded, recording the entry
 // that excluded it so that a later --scan can name the line of configuration
 // responsible rather than only saying the directory was skipped.
-func matchExcluded(exclude *Matcher, dir string, result *Result) bool {
+func matchExcluded(exclude *Matcher, dir, root string, result *Result) bool {
 	excluded, by := exclude.Match(dir)
 	if !excluded {
 		return false
 	}
 	result.Decisions = append(result.Decisions, Decision{
-		Path: dir, Action: "skip", Reason: "excluded by " + by,
+		Path: dir, Action: "skip", Reason: "excluded by " + by, Root: root,
 	})
 	return true
 }
