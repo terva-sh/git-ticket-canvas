@@ -27,7 +27,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-15T21:11:16Z
-updated_at: 2026-09-15T21:52:10Z
+updated_at: 2026-09-15T21:52:53Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -195,6 +195,22 @@ Measured for criterion 2, so the before state is on the record: as of
 2026-09-16, `api.github.com/repos/terva-sh/git-ticket-canvas/releases/latest`
 returns tag v0.2.0, published 2026-09-12T02:43:24Z. That is what the documented
 one-line installer resolves today.
+
+**agent:t3code/d30689a3** at 2026-09-15T21:52:53Z
+
+Image evidence for v0.3.2, completing the publication checks in
+docs/releasing.md step 7.
+
+All three ghcr.io tags answer an anonymous manifest request with HTTP 200:
+`0.3.2`, the minor alias `0.3`, and `latest`. The token was fetched from
+`ghcr.io/token` with no credentials, so this is anonymous visibility rather than
+an authenticated push succeeding, which the runbook is careful to separate.
+
+What is not checked here: running the image. No container engine is installed on
+this machine. The release workflow did pull the pushed image inside its own
+runner and compare `--version --json` against the bytes it built from, and run
+35027424107 passed that step, but that is an authenticated pull in CI and not
+the documented local serving check. Left unticked rather than claimed.
 
 ## Summary
 
