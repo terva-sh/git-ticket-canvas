@@ -12,3 +12,8 @@ defaults:
   claim_expiry: null
 lock:
   timeout: 10s
+canvas:
+  children:
+    - path: docs/artifacts/canvas-review-baseline-2026-09-11/ahpsh-tickets
+      name: review-baseline
+      readOnly: true

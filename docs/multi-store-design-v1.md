@@ -209,12 +209,19 @@ so a declared path is checked before it is used:
 
 - The path must be relative. An absolute path is rejected.
 - After normalization and after symbolic links are resolved, the path must
-  still be inside the declaring store's own directory. That rejects an escape
-  through `..` and an escape through a symbolic link, which are two different
-  ways out.
+  still be strictly inside the declaring store's own directory. That rejects an
+  escape through `..` and an escape through a symbolic link, which are two
+  different ways out, and it rejects a path that resolves back to the declaring
+  store itself.
 - The child must pass the same validity test as any other candidate.
 - A chain of children is bounded, three deep by default, and every path visited
   is recorded by absolute path so that a cycle ends.
+- The declaration is what reaches the child, not the walk, so the depth limit
+  does not apply to it. A project can expose a store as deep inside itself as it
+  likes, and can expose nothing it did not name.
+- A declared `name` is used when a URL can hold it. A name that cannot is a
+  warning, and the child is served under a derived name instead. Losing the
+  store over its label would be the wrong trade.
 
 A declared child that fails any of these checks is a warning on the parent
 store, shown in the browser view. It is not a failure, because one bad entry
@@ -269,7 +276,10 @@ Exclusions are applied during the walk, so an excluded subtree costs nothing
 rather than being filtered out afterward.
 
 An exclusion overrides a store that declares itself a child of another. The
-person running the canvas outranks the project being served.
+person running the canvas outranks the project being served. The test asks
+about every directory between the child and the root rather than the child's
+own name alone, so a declared child inside `node_modules` is kept out by its
+ancestor.
 
 An exclusion does not apply to a store you named explicitly. A store you name
 is never discovered, so there is nothing for an exclusion to act on. Naming a

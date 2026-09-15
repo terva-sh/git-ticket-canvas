@@ -39,6 +39,14 @@ type Found struct {
 	// Depth is how many levels below Root the store sits. A workspace laid out
 	// as forge/org/repo gives 3.
 	Depth int
+	// Name is the name the declaring store asked for, empty when nobody asked.
+	Name string
+	// ReadOnly is set when the declaring store asked for the child to be served
+	// read-only.
+	ReadOnly bool
+	// DeclaredBy is the store that named this one in its own configuration,
+	// empty for a store the walk found on its own.
+	DeclaredBy string
 }
 
 // Decision records what the walk did with one directory and why.
@@ -57,6 +65,10 @@ type Decision struct {
 type Result struct {
 	Stores    []Found
 	Decisions []Decision
+	// Warnings are the things an operator should hear about: a declared child
+	// that was refused, a name that could not be used. None of them stops a
+	// store from being served.
+	Warnings []string
 }
 
 // Walk finds the stores under every root.
@@ -103,6 +115,9 @@ func walkRoot(root string, depth int, exclude *Matcher, seen map[string]bool, re
 		case store:
 			result.Stores = append(result.Stores, Found{Path: current.path, Root: root, Depth: current.level})
 			result.Decisions = append(result.Decisions, Decision{Path: current.path, Action: "store"})
+			// The one way past the boundary below: the store itself names the
+			// directories under it that are also stores.
+			expandDeclared(current.path, root, exclude, seen, 0, result)
 			// A store's subtree is that store's own material. Not descending is
 			// what keeps a project's committed test fixtures out of the list at
 			// any depth, rather than only at the depth that happens to cut them

@@ -173,6 +173,32 @@ func run() error {
 
 	// Assets are served once by the registry rather than by every store.
 	registry := api.NewRegistry(api.RegistryOptions{Assets: assets, Version: buildinfo.Read()})
+
+	takenPath := make(map[string]bool, len(cfg.Stores))
+	takenName := make(map[string]bool, len(cfg.Stores))
+	for _, s := range cfg.Stores {
+		takenPath[s.Path], takenName[s.Name] = true, true
+	}
+	// openFound serves a store nobody named: one a root was searched for, or one
+	// another store declared. The full merge rule, that an explicitly named
+	// store is always listed and that the two sets merge on resolved path, is
+	// still to come; this skips a store whose path or name is already held, and
+	// says so.
+	openFound := func(f discover.Found) error {
+		name := f.Name
+		if name == "" {
+			name = config.SlugName(f.Root, f.Path)
+		}
+		if takenPath[f.Path] || takenName[name] {
+			log.Printf("found  %s  already configured, leaving it as named", f.Path)
+			return nil
+		}
+		takenPath[f.Path], takenName[name] = true, true
+		return registry.OpenStore(api.StoreSpec{
+			Name: name, Path: f.Path, Actor: *actorID, ReadOnly: *readOnly || f.ReadOnly,
+		})
+	}
+
 	for _, configured := range cfg.Stores {
 		// A store's own configured actor wins over the global --actor, and a
 		// store configured read-only stays read-only whatever the flag says.
@@ -190,32 +216,34 @@ func run() error {
 		}
 	}
 
-	// Stores found by searching a root. The full rule, that an explicitly named
-	// store is always listed and that the two sets merge on resolved path, is
-	// still to come; this skips a discovered store whose path or name a
-	// configured one already holds, and says so.
+	// A store that names child stores in its own configuration exposes them
+	// however it was reached, so an explicitly named store is asked too rather
+	// than only one a walk found.
+	for _, configured := range cfg.Stores {
+		found := discover.Declared(configured.Path)
+		for _, warning := range found.Warnings {
+			log.Printf("warn   %s", warning)
+		}
+		for _, f := range found.Stores {
+			if err := openFound(f); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Stores found by searching a root.
 	if len(cfg.Roots) > 0 {
 		// An exclusion governs searching, so it cannot remove a store somebody
 		// named. Saying so beats resolving the contradiction in silence.
 		for _, warning := range discover.ExcludedExplicit(cfg) {
 			log.Printf("warn   %s", warning)
 		}
-		takenPath := make(map[string]bool, len(cfg.Stores))
-		takenName := make(map[string]bool, len(cfg.Stores))
-		for _, s := range cfg.Stores {
-			takenPath[s.Path] = true
-			takenName[s.Name] = true
+		found := discover.Walk(cfg)
+		for _, warning := range found.Warnings {
+			log.Printf("warn   %s", warning)
 		}
-		for _, f := range discover.Walk(cfg).Stores {
-			name := config.SlugName(f.Root, f.Path)
-			if takenPath[f.Path] || takenName[name] {
-				log.Printf("found  %s  already configured, leaving it as named", f.Path)
-				continue
-			}
-			takenPath[f.Path], takenName[name] = true, true
-			if err := registry.OpenStore(api.StoreSpec{
-				Name: name, Path: f.Path, Actor: *actorID, ReadOnly: *readOnly,
-			}); err != nil {
+		for _, f := range found.Stores {
+			if err := openFound(f); err != nil {
 				return err
 			}
 		}
