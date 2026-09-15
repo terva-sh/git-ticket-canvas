@@ -25,7 +25,6 @@ import (
 	"github.com/terva-sh/git-ticket-canvas/internal/api"
 	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
 	"github.com/terva-sh/git-ticket-canvas/internal/config"
-	"github.com/terva-sh/git-ticket/ticket"
 )
 
 //go:embed all:web/dist
@@ -91,43 +90,23 @@ func run() error {
 		return err
 	}
 
+	// Assets are served once by the registry rather than by every store.
 	registry := api.NewRegistry(api.RegistryOptions{Assets: assets, Version: buildinfo.Read()})
-	type opened struct {
-		name  string
-		path  string
-		actor ticket.Actor
-	}
-	var openedStores []opened
 	for _, configured := range cfg.Stores {
-		st, err := ticket.Discover(configured.Path)
-		if err != nil {
-			if ticket.CodeOf(err) == ticket.CodeStoreNotFound {
-				return fmt.Errorf("store %s: no .tickets store at or above %s; run `git-ticket init` first",
-					configured.Name, configured.Path)
-			}
-			return fmt.Errorf("store %s: %w", configured.Name, err)
-		}
 		// A store's own configured actor wins over the global --actor, and a
 		// store configured read-only stays read-only whatever the flag says.
-		// Both are applied here rather than left for the ticket that resolves
-		// actors per store, because accepting either setting and then ignoring
-		// it would attribute writes to the wrong person, or leave a store
-		// writable that somebody asked to protect.
 		want := *actorID
 		if configured.Actor != "" {
 			want = configured.Actor
 		}
-		actor, err := resolveActor(st, want)
-		if err != nil {
-			return fmt.Errorf("store %s: %w", configured.Name, err)
-		}
-		// Assets are served once by the registry rather than by every store.
-		if err := registry.Add(configured.Name, api.New(st, api.Options{
-			Actor: actor, ReadOnly: *readOnly || configured.ReadOnly, Version: buildinfo.Read(),
-		})); err != nil {
+		if err := registry.OpenStore(api.StoreSpec{
+			Name:     configured.Name,
+			Path:     configured.Path,
+			Actor:    want,
+			ReadOnly: *readOnly || configured.ReadOnly,
+		}); err != nil {
 			return err
 		}
-		openedStores = append(openedStores, opened{configured.Name, st.Path(), actor})
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -137,6 +116,38 @@ func run() error {
 	}
 	defer registry.Close()
 
+	// Report every store, including the ones that did not open. An unavailable
+	// store is loud here as well as visible in GET /api/stores, because a
+	// canvas that quietly serves four of your five repositories is worse than
+	// one that says which one it dropped.
+	available := 0
+	for _, s := range registry.Statuses() {
+		if !s.Available {
+			log.Printf("store  %s  %s  unavailable: %s", s.Name, s.Path, s.Reason)
+			continue
+		}
+		available++
+		mode := ""
+		if s.ReadOnly {
+			mode = "  (read-only)"
+		}
+		log.Printf("store  %s  %s%s", s.Name, s.Path, mode)
+		if s.Actor != "" {
+			log.Printf("actor  %s <%s>", s.Actor, s.ActorID)
+		}
+		if s.Reason != "" {
+			log.Printf("note   %s: %s", s.Name, s.Reason)
+		}
+		if s.Note != "" {
+			log.Printf("note   %s: %s", s.Name, s.Note)
+		}
+	}
+	// Serving nothing is not a degraded canvas, it is a broken invocation, and
+	// the reasons are already on stderr above.
+	if available == 0 {
+		return errors.New("no configured store could be opened")
+	}
+
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {
 		return err
@@ -144,15 +155,6 @@ func run() error {
 	http := &http.Server{
 		Handler:           registry.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
-	}
-
-	mode := ""
-	if *readOnly {
-		mode = "  (read-only)"
-	}
-	for _, s := range openedStores {
-		log.Printf("store  %s  %s", s.name, s.path)
-		log.Printf("actor  %s <%s>%s", s.actor.Name, s.actor.ID, mode)
 	}
 	log.Printf("canvas http://%s", ln.Addr())
 
@@ -174,33 +176,4 @@ func run() error {
 		defer cancel()
 		return http.Shutdown(shutdown)
 	}
-}
-
-// resolveActor decides who writes are recorded as.
-//
-// It refuses rather than inventing one. The library refuses a create with no
-// actor for a good reason — attributing a write to somebody who did not ask
-// for it is worse than failing — and a server that guessed a name from the
-// environment would put that guess in every ticket's updated_by.
-func resolveActor(st *ticket.Store, want string) (ticket.Actor, error) {
-	cfg := st.Config()
-	if want != "" {
-		for _, a := range cfg.Actors {
-			if a.ID == want || a.Name == want {
-				return a, nil
-			}
-		}
-		// An actor the store does not list is still usable; the allowlist for
-		// actors is not enforced the way series are. Taking it as an ID keeps
-		// `--actor me@example.com` working in a store that never declared one.
-		return ticket.Actor{ID: want, Name: want}, nil
-	}
-	a, declared, ok := cfg.DefaultActor()
-	if !ok {
-		return ticket.Actor{}, errors.New("this store declares no actor; pass --actor")
-	}
-	if !declared {
-		log.Printf("note: no defaults.actor in config.yml; writing as %q, the first listed actor", a.Name)
-	}
-	return a, nil
 }

@@ -118,9 +118,9 @@ func TestStoresIndexListsEveryStore(t *testing.T) {
 		t.Errorf("names = %q, %q; want alpha, beta in configured order",
 			index.Stores[0].Name, index.Stores[1].Name)
 	}
-	for _, entry := range index.Stores {
-		if entry.Path == "" {
-			t.Errorf("store %s has no path", entry.Name)
+	for _, row := range index.Stores {
+		if row.Path == "" {
+			t.Errorf("store %s has no path", row.Name)
 		}
 	}
 }
@@ -291,10 +291,10 @@ func TestReadOnlyCanDifferPerStore(t *testing.T) {
 		`{"title":"Refused"}`, http.StatusForbidden), "read_only")
 
 	index := decodeResponse[storesResponse](t, request(t, s, "GET", "/api/stores", "", http.StatusOK))
-	for _, entry := range index.Stores {
-		want := entry.Name == "protected"
-		if entry.ReadOnly != want {
-			t.Errorf("store %s reports readOnly=%v, want %v", entry.Name, entry.ReadOnly, want)
+	for _, row := range index.Stores {
+		want := row.Name == "protected"
+		if row.ReadOnly != want {
+			t.Errorf("store %s reports readOnly=%v, want %v", row.Name, row.ReadOnly, want)
 		}
 	}
 }
