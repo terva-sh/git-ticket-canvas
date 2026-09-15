@@ -35,7 +35,9 @@ type childSpec struct {
 // does.
 func Declared(store string) Result {
 	var result Result
-	expandDeclared(store, store, "", nil, make(map[string]bool), 0, &result)
+	seen := newVisited()
+	seen.record(store)
+	expandDeclared(store, store, "", nil, seen, 0, &result)
 	return result
 }
 
@@ -48,7 +50,7 @@ func Declared(store string) Result {
 // expansion has gone. The two roots differ for a store named explicitly: its
 // children are named against it and reported beside it rather than under a
 // root nobody configured.
-func expandDeclared(parent, root, section string, exclude *Matcher, seen map[string]bool, chain int, result *Result) {
+func expandDeclared(parent, root, section string, exclude *Matcher, seen *visited, chain int, result *Result) {
 	if chain >= MaxChildDepth {
 		result.Decisions = append(result.Decisions, Decision{
 			Path: parent, Action: "skip", Reason: "declared child chain limit reached", Root: section,
@@ -69,15 +71,13 @@ func expandDeclared(parent, root, section string, exclude *Matcher, seen map[str
 			})
 			continue
 		}
-		if seen[child] {
-			// Already accepted, whether through another declaration or by
-			// coming back around. Recording it stops a cycle without needing to
-			// tell the two apart.
+		if seen.paths[child] {
 			result.Decisions = append(result.Decisions, Decision{
 				Path: child, Action: "skip", Reason: "already found", Root: section,
 			})
 			continue
 		}
+		seen.paths[child] = true
 		// An exclusion governs what gets searched, and the person running the
 		// canvas outranks the project it serves. Ask about every directory
 		// between the child and the root rather than only the child's own name:
@@ -114,7 +114,14 @@ func expandDeclared(parent, root, section string, exclude *Matcher, seen map[str
 			}
 		}
 
-		seen[child] = true
+		// Already accepted under another path, or declared twice. Recording the
+		// identity stops a cycle without needing to tell the two apart.
+		if held, fresh := seen.record(child); !fresh {
+			result.Decisions = append(result.Decisions, Decision{
+				Path: child, Action: "skip", Reason: "the same store, already listed at " + held, Root: section,
+			})
+			continue
+		}
 		result.Stores = append(result.Stores, Found{
 			Path:       child,
 			Root:       root,

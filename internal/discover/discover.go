@@ -86,14 +86,14 @@ type Result struct {
 // be a failure of the call rather than of any one directory.
 func Walk(cfg config.Config) Result {
 	var result Result
-	walkRoots(cfg, make(map[string]bool), &result)
+	walkRoots(cfg, newVisited(), &result)
 	sortStores(&result)
 	return result
 }
 
 // walkRoots searches every configured root, sharing one record of what has
 // already been examined.
-func walkRoots(cfg config.Config, seen map[string]bool, result *Result) {
+func walkRoots(cfg config.Config, seen *visited, result *Result) {
 	global := cfg.EffectiveExclude()
 	for _, root := range cfg.Roots {
 		depth := root.Depth
@@ -114,7 +114,7 @@ type queued struct {
 	level int
 }
 
-func walkRoot(root string, depth int, exclude *Matcher, seen map[string]bool, result *Result) {
+func walkRoot(root string, depth int, exclude *Matcher, seen *visited, result *Result) {
 	queue := []queued{{path: root, level: 0}}
 	for len(queue) > 0 {
 		current := queue[0]
@@ -122,14 +122,22 @@ func walkRoot(root string, depth int, exclude *Matcher, seen map[string]bool, re
 
 		// Two roots can overlap, and a directory examined once does not need
 		// examining again.
-		if seen[current.path] {
+		if seen.walked(current.path) {
 			continue
 		}
-		seen[current.path] = true
 		result.Examined++
 
 		switch store, reason := storeAt(current.path); {
 		case store:
+			// A store already in the list, reached by another path. Say where it
+			// is rather than listing it twice, and still do not descend: this is
+			// the same store, so the boundary applies here as well.
+			if held, fresh := seen.record(current.path); !fresh {
+				result.Decisions = append(result.Decisions, Decision{
+					Path: current.path, Action: "skip", Reason: "the same store, already listed at " + held, Root: root,
+				})
+				continue
+			}
 			result.Stores = append(result.Stores, Found{Path: current.path, Root: root, Depth: current.level})
 			result.Decisions = append(result.Decisions, Decision{Path: current.path, Action: "store", Root: root})
 			// The one way past the boundary below: the store itself names the

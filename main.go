@@ -182,47 +182,18 @@ func run() error {
 	// Assets are served once by the registry rather than by every store.
 	registry := api.NewRegistry(api.RegistryOptions{Assets: assets, Version: buildinfo.Read()})
 
-	for _, configured := range cfg.Stores {
-		// A store's own configured actor wins over the global --actor, and a
-		// store configured read-only stays read-only whatever the flag says.
-		want := *actorID
-		if configured.Actor != "" {
-			want = configured.Actor
-		}
-		if err := registry.OpenStore(api.StoreSpec{
-			Name:     configured.Name,
-			Path:     configured.Path,
-			Actor:    want,
-			ReadOnly: *readOnly || configured.ReadOnly,
-		}); err != nil {
-			return err
-		}
-	}
-
+	// Which stores to serve, what they are called, and how each is configured.
+	// The rule lives beside the registry because a later rescan needs it and
+	// main will not be running then.
+	specs, notes := api.Merge(cfg, found, api.MergeOptions{Actor: *actorID, ReadOnly: *readOnly})
 	for _, warning := range found.Warnings {
 		log.Printf("warn   %s", warning)
 	}
-	// Every store nobody named: one a root was searched for, or one another
-	// store declared. The full merge rule, that an explicitly named store is
-	// always listed and that the two sets merge on resolved path, is still to
-	// come; this skips a store whose name is already held, and says so.
-	taken := make(map[string]bool, len(cfg.Stores))
-	for _, s := range cfg.Stores {
-		taken[s.Name] = true
+	for _, note := range notes {
+		log.Printf("note   %s", note)
 	}
-	for _, f := range found.Stores {
-		name := f.Name
-		if name == "" {
-			name = config.SlugName(f.Root, f.Path)
-		}
-		if taken[name] {
-			log.Printf("found  %s  already configured as %q, leaving it as named", f.Path, name)
-			continue
-		}
-		taken[name] = true
-		if err := registry.OpenStore(api.StoreSpec{
-			Name: name, Path: f.Path, Actor: *actorID, ReadOnly: *readOnly || f.ReadOnly,
-		}); err != nil {
+	for _, spec := range specs {
+		if err := registry.OpenStore(spec); err != nil {
 			return err
 		}
 	}

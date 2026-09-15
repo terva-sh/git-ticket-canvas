@@ -66,11 +66,24 @@ in the list is not the same as being healthy: a store you named that is no
 longer on disk appears as unavailable, with the reason, rather than vanishing.
 
 When a walk finds a store you also named, the two are one entry. The merge key
-is the absolute path after symbolic links are resolved, so `~/src/foo`,
-`/home/you/src/foo`, and a discovered `/home/you/src/foo` are one store and not
-three. Everything the explicit entry sets wins: its name, its actor, and its
-read-only setting. Discovery contributes only the fact that the store was also
-found.
+is the nearest store at or above the path, with symbolic links resolved, so
+`~/src/foo`, `/home/you/src/foo`, and a discovered `/home/you/src/foo` are one
+store and not three. Walking up matters as much as resolving the links:
+`--store .` run from inside a repository names a subdirectory while a search
+finds the repository, and `ticket.Discover` opens the same store for both, so a
+key that did not walk up would serve one set of tickets twice under two names.
+
+Everything the explicit entry sets wins: its name, its actor, and its read-only
+setting. Discovery contributes only the fact that the store was also found. The
+global `--read-only` still forces read-only over either, because a flag that
+only sometimes refuses writes is worse than no flag.
+
+The identity test runs inside the walk rather than as a pass over its results,
+so a candidate that is a store already in the list never becomes a result and
+`--scan` says which entry it matched. Deciding what the stores are called and
+how each is configured is separate, and lives beside the registry, because a
+later rescan needs the same rule and the process that parsed the flags will not
+be running then.
 
 ## Walking a tree
 
@@ -380,9 +393,17 @@ A store's id appears in URLs, so it is restricted to letters, digits, `-`, and
 
 A store you named uses that name. A store found by a walk derives one from its
 path relative to its root, with `/` becoming `_` and any other illegal
-character becoming `-`. A collision between two roots is broken by a short hash
-of the path. A declared child derives its id from its parent's id and its
+character becoming `-`. A declared child keeps the name its parent gave it when
+a URL can hold one, and otherwise takes its parent's id joined to its own
 relative path, which makes children sort next to their parent.
+
+A collision between two roots is broken by appending six hexadecimal characters
+of a hash of the store's resolved key, with the name truncated first if the two
+together would pass the 64-character limit. Two roots each laid out as
+`org/repo` is an ordinary workspace rather than a mistake, so both stores are
+kept. The hash is taken over the resolved key rather than a counter, so an id
+is the same on the next run and does not move when another store is added ahead
+of it.
 
 Favorites and the record of the last store used are keyed by absolute path and
 never by id. Changing `--root` changes every derived id at once, and a favorite

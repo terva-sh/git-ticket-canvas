@@ -100,12 +100,13 @@ func TestScanRecordsAnExplicitStoreOnce(t *testing.T) {
   ok    <root>/project  named explicitly
 
 <root>  depth 3
-  ok    other  store
+  ok    other    store
+  skip  project  the same store, already listed at project
 
 Nothing below a store is searched. A store inside another is listed only if the
 parent names it under canvas.children in its own .tickets/config.yml.
 
-2 stores, 0 skipped, 3 directories examined`)
+2 stores, 1 skipped, 4 directories examined`)
 }
 
 func TestScanGroupsByRoot(t *testing.T) {

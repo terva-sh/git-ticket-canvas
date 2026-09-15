@@ -23,13 +23,19 @@ import (
 // come with it, is still to come.
 func Scan(cfg config.Config) Result {
 	var result Result
-	seen := make(map[string]bool)
+	seen := newVisited()
 
 	for _, s := range cfg.Stores {
-		if seen[s.Path] {
+		// The path itself is deliberately not marked as walked. A root that
+		// reaches this store gets to examine it, find the identity already
+		// claimed, and say so, which is what makes the overlap visible instead
+		// of silent.
+		if held, fresh := seen.record(s.Path); !fresh {
+			result.Decisions = append(result.Decisions, Decision{
+				Path: s.Path, Action: "skip", Reason: "the same store, already listed at " + held,
+			})
 			continue
 		}
-		seen[s.Path] = true
 		result.Examined++
 		result.Decisions = append(result.Decisions, Decision{
 			Path: s.Path, Action: "store", Reason: "named explicitly",
