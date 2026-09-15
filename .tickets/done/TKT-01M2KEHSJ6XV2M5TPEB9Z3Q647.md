@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2KEHSJ6XV2M5TPEB9Z3Q647
 title: Publish releases from GitHub and stop publishing from Forgejo
 type: task
-status: in-progress
+status: done
 status_reason: null
 priority: high
 due_on: null
@@ -24,17 +24,10 @@ references:
     path: null
   - ref: file:.forgejo/workflows/tag-verify.yml
     path: null
-claim:
-  actor: agent:t3code/d30689a3
-  branch: t3code/orient-upstream-review-tickets
-  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-d30689a3
-  commit: 9007d4025388359e54d63c6567d968aa9e45e1d8
-  session: null
-  claimed_at: 2026-09-15T21:11:22Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-15T21:11:16Z
-updated_at: 2026-09-15T21:25:44Z
+updated_at: 2026-09-15T21:52:10Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -81,8 +74,8 @@ its own workflow, so no token needs configuring for publication.
 
 ## Acceptance criteria
 
-- [ ] The GitHub mirror holds the same main commit and the v0.3.1 tag as origin, and a non-draft v0.3.1 GitHub release carries five archives plus checksums.txt.
-- [ ] install.sh, run unmodified against the public API, resolves v0.3.1 rather than v0.2.0.
+- [x] The GitHub mirror holds the same main commit and the v0.3.1 tag as origin, and a non-draft v0.3.1 GitHub release carries five archives plus checksums.txt.
+- [x] install.sh, run unmodified against the public API, resolves v0.3.1 rather than v0.2.0.
 - [x] No workflow in the tree uploads a release artifact to Forgejo, and scripts/publish-forgejo.py with its test are gone from the tree.
 - [x] The Forgejo tag lane still runs parity, builds, and verifies archives, and holds only contents: read.
 - [x] A test fails if a second forge gains a publish step, rather than only asserting the order of the steps GitHub has.
@@ -202,3 +195,49 @@ Measured for criterion 2, so the before state is on the record: as of
 2026-09-16, `api.github.com/repos/terva-sh/git-ticket-canvas/releases/latest`
 returns tag v0.2.0, published 2026-09-12T02:43:24Z. That is what the documented
 one-line installer resolves today.
+
+## Summary
+
+GitHub is the only publisher, and v0.3.2 is the first release to prove it on
+both sides at once.
+
+Published: https://github.com/terva-sh/git-ticket-canvas/releases/tag/v0.3.2,
+non-draft, not a prerelease, at 2026-09-15T21:50:59Z, from run 35027424107 with
+both the windows and release jobs green. Six assets: five archives plus
+checksums.txt. Forgejo ran `verify` for the same tag and it succeeded, and its
+release list still ends at v0.3.1, so the internal lane checked the tag and
+uploaded nothing. That is the change working from both directions rather than
+only the absence of a second upload.
+
+The installer criterion was measured before and after. Before,
+`api.github.com/.../releases/latest` returned v0.2.0 from 2026-09-12; now it
+returns v0.3.2. Running `install.sh` unmodified into a temporary prefix
+downloaded `git-ticket-canvas_0.3.2_linux_amd64.tar.gz`, verified its SHA-256
+against checksums.txt, and installed a binary reporting version v0.3.2, commit
+b0ab0935d32db2c07b7f5a250aec8eda8a9ec882, modified=false. That binary is byte
+identical to the one inside the downloaded release archive.
+
+The tag is v0.3.2 rather than v0.3.1 because v0.3.1 names 9007d40, which
+predates the Windows fix. `needs: windows` would have stopped the publishing job
+and left a tag on the mirror with no release behind it. v0.3.1 stays on Forgejo
+as the record of what was built there.
+
+In the tree: `.forgejo/workflows/release.yml` is now `tag-verify.yml`, with the
+same parity gate, build, and archive verification, no upload step, and
+`contents: read`. `scripts/publish-forgejo.py` and its test are gone, and
+`tests/tooling/release-verifier.test.mjs` no longer runs the second script.
+`TestReleaseWorkflowsGatePublication` required a publish step in both workflows
+and could not survive the change, so it became three properties: the ordering
+check applied to the one publisher, a check that the internal lane still
+verifies, and `TestExactlyOneWorkflowPublishes`, which fails if any second
+workflow gains a publish step. That last one was falsified twice, by re-adding
+the Forgejo publisher and by dropping `--skip=publish`.
+
+One thing found on the way and worth keeping visible: pushing the mirror
+uncovered that Windows had been broken since the multi-store work, four days
+earlier. The mirror is the only place Windows runs and nothing pushes it except
+a release, so the lane reported the state of the last push rather than the state
+of the code. Fixed under TKT-01M2KEZ1V4GHVWD84CD6NDQVM9 (Fix the Windows test
+lane the multi-store work broke). Now that a release requires the mirror, that
+particular blind spot is narrower, but it is not closed: main still reaches
+GitHub only when somebody pushes it.
