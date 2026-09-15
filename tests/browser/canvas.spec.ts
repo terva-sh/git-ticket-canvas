@@ -46,7 +46,7 @@ test('a pending save retains its original board after a switch', async ({ page, 
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })
   let captured: { board: string } | undefined
-  await page.route('**/api/layout', async route => {
+  await page.route('**/layout', async route => {
     captured = route.request().postDataJSON()
     await gate; await route.continue()
   })
@@ -65,13 +65,13 @@ test('an earlier save completion does not replace an active second drag', async 
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })
   let calls = 0
-  await page.route('**/api/layout', async route => { if (++calls === 1) await gate; await route.continue() })
+  await page.route('**/layout', async route => { if (++calls === 1) await gate; await route.continue() })
   await page.goto(app.url); const target = card(page, ticket.id); await expect(target).toBeVisible()
   await startDrag(page, target, 50, 0); await page.mouse.up()
   await expect.poll(() => calls).toBe(1)
   await startDrag(page, target, 45, 20)
   const second = await target.getAttribute('style')
-  const saved = page.waitForResponse(r => r.url().includes('/api/layout'))
+  const saved = page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/layout'))
   release(); await saved
   await expect(target).toHaveAttribute('style', second!)
   await page.mouse.up()
@@ -140,7 +140,7 @@ test('a dependency created by dragging is still there after a reload', async ({ 
 
 test('a failed dependency save reports the error and draws no edge', async ({ page, app }) => {
   const a = await app.create('Prerequisite', { x: 0, y: 0 }), b = await app.create('Dependent', { x: 350, y: 0 })
-  await page.route('**/api/tickets/**', route =>
+  await page.route('**/tickets/**', route =>
     route.request().method() === 'PATCH'
       ? route.fulfill({ status: 500, contentType: 'application/json', body: '{"code":"internal","message":"disk full"}' })
       : route.continue())

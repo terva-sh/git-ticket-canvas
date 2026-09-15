@@ -103,3 +103,12 @@ export type LayoutRequest = { board: string; cards: CardChanges; frames?: FrameC
   | { routing?: never; expect?: LayoutExpectation }
   | { routing: Routing; expect: LayoutExpectation & { routing: Routing } }
 )
+
+/** One store this canvas can serve, as GET /api/stores reports it. */
+export interface StoreSummary {
+  name: string; path: string; available: boolean; active: boolean; favorite: boolean
+  readOnly: boolean; actor?: string; actorId?: string; reason?: string; note?: string
+}
+export interface StoresResponse { stores: StoreSummary[] }
+export interface FavoritesResponse { stores: string[]; paths: string[]; lastStore?: string; lastStoreId?: string }
+export interface RescanResponse { added: number; removed: number; stores: StoreSummary[] }

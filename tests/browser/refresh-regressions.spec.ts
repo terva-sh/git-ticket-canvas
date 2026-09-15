@@ -3,7 +3,7 @@ import { conditional, diagnostics, counters, counterDelta, network, settle } fro
 import type { Page } from '@playwright/test'
 
 async function visibilityRefresh(page: Page) {
-  const response = page.waitForResponse(r => new URL(r.url()).pathname === '/api/board')
+  const response = page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/board'))
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
   await response
   await settle(page)
@@ -54,7 +54,7 @@ test('an equivalent 200 refresh preserves drafts without rendering or placement'
   await settle(page)
   // Force a server 200 by removing the validator on the upstream test request.
   // The browser still sends its own validator, and receives a real full snapshot.
-  await page.route('**/api/board?*', async route => {
+  await page.route('**/board?*', async route => {
     const headers = { ...route.request().headers() }
     delete headers['if-none-match']
     const response = await route.fetch({ headers })
@@ -85,8 +85,8 @@ test('two tabs retain independent snapshots and recover after a failed read', as
     // refresh. This case verifies fallback-mode independent snapshots and
     // failed-read recovery; SSE convergence is covered by
     // live-update-regressions.spec.ts.
-    await page.route('**/api/events', route => route.abort())
-    await second.route('**/api/events', route => route.abort())
+    await page.route('**/events', route => route.abort())
+    await second.route('**/events', route => route.abort())
     await page.goto(app.url); await second.goto(app.url)
     await expect(page.locator('.card-title')).toHaveText('Two tab snapshot')
     await expect(second.locator('.card-title')).toHaveText('Two tab snapshot')
@@ -97,12 +97,12 @@ test('two tabs retain independent snapshots and recover after a failed read', as
     await visibilityRefresh(second)
     await expect(second.locator('.card-title')).toHaveText('Observed separately')
     const before = await page.locator('#toolbarRoot').getAttribute('data-store-publications')
-    await page.route('**/api/board?*', route => route.abort('failed'), { times: 1 })
-    const failed = page.waitForEvent('requestfailed', r => r.url().includes('/api/board'))
+    await page.route('**/board?*', route => route.abort('failed'), { times: 1 })
+    const failed = page.waitForEvent('requestfailed', r => new URL(r.url()).pathname.endsWith('/board'))
     await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
     await failed
     await expect(page.locator('.card-title')).toHaveText('Observed separately')
-    const recovery = page.waitForResponse(r => r.url().includes('/api/board'))
+    const recovery = page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/board'))
     await visibilityRefresh(page)
     if (conditional) {
       expect((await recovery).status()).toBe(304)
@@ -122,7 +122,7 @@ test('a changed response arriving during drag waits until cancellation', async (
   let release!: () => void, captured!: () => void
   const held = new Promise<void>(resolve => { release = resolve })
   const ready = new Promise<void>(resolve => { captured = resolve })
-  await page.route('**/api/board?*', async route => {
+  await page.route('**/board?*', async route => {
     const response = await route.fetch()
     captured(); await held
     await route.fulfill({ response })
@@ -136,7 +136,7 @@ test('a changed response arriving during drag waits until cancellation', async (
   await page.mouse.down()
   await page.mouse.move(box.x + 150, box.y + 65, { steps: 5 })
   const preview = await card.getAttribute('style')
-  const arrived = page.waitForResponse(r => new URL(r.url()).pathname === '/api/board')
+  const arrived = page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/board'))
   release(); await arrived; await settle(page)
   await expect(card).toHaveAttribute('style', preview!)
   await expect(card.locator('.card-title')).toHaveText('Before held refresh')

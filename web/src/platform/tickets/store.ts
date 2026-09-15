@@ -11,12 +11,14 @@ function acceptedLayout(board: Board, name: string): NormalizedBoard {
 }
 
 export interface PersistedState extends Routing {
+  /** The store being shown, or null on a canvas that serves only one. */
+  store: string | null
   board: string; tickets: Map<string, Ticket>; cards: Cards; frames: Frames; boards: string[]
   config: Schema | null; storePath: string; readOnly: boolean; layoutSchema: number | null; captureToken: string | null
 }
 export class TicketStore {
   state: PersistedState = {
-    captureToken: null, board: 'default', tickets: new Map(), cards: {}, frames: {}, ...emptyRouting(), boards: [], config: null, storePath: '', readOnly: false, layoutSchema: null,
+    store: null, captureToken: null, board: 'default', tickets: new Map(), cards: {}, frames: {}, ...emptyRouting(), boards: [], config: null, storePath: '', readOnly: false, layoutSchema: null,
   }
   sync: SyncMetadata | undefined
   onWriteSettled?: () => void
@@ -28,7 +30,33 @@ export class TicketStore {
   // Valid only for the current accepted board, never for an optimistic edit.
   private validator: string | undefined
 
-  constructor(private readonly client: TicketClient) {}
+  // Replaced by selectStore rather than repointed, so a request already in
+  // flight belongs to the client that issued it and cannot be applied here.
+  constructor(private client: TicketClient) {}
+
+  /** Point this store at a different ticket store, discarding everything the
+   *  previous one put here.
+   *
+   *  This resets more than selectBoard does, and the ticket map is why. It is
+   *  keyed by ticket ID, and reconcileTickets reuses an entry whose ID it
+   *  recognizes, so an ID that exists in both stores would survive the switch
+   *  and show the previous store's title. The schema, the board list, the
+   *  validator, the sync metadata, and the capture token are all equally the
+   *  previous store's, and the epoch and generation counters are bumped so a
+   *  read already in flight is rejected when it returns.
+   */
+  selectStore(store: string, client: TicketClient) {
+    this.client = client
+    this.generation++
+    this.read++
+    this.epoch++
+    this.validator = undefined
+    this.sync = undefined
+    this.state = {
+      store, board: 'default', tickets: new Map(), cards: {}, frames: {}, ...emptyRouting(),
+      boards: [], config: null, storePath: '', readOnly: false, layoutSchema: null, captureToken: null,
+    }
+  }
 
   selectBoard(board: string) {
     if (board === this.state.board) return

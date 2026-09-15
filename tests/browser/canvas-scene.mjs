@@ -66,7 +66,7 @@ export async function stubBuildIdentity(page) {
   await page.route('**/api/version', route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify(stubbedVersion),
   }))
-  await page.route('**/api/board*', async route => {
+  await page.route('**/board*', async route => {
     const response = await route.fetch()
     // A conditional read answers 304 with no body to rewrite.
     if (response.status() !== 200) { await route.fulfill({ response }); return }

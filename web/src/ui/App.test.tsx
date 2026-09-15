@@ -3,7 +3,7 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { App } from './App'
-import { TicketClient, type BoardRead } from '../platform/tickets/client'
+import { RegistryClient, TicketClient, type BoardRead } from '../platform/tickets/client'
 import type { BoardResponse, Ticket } from '../platform/tickets/types'
 
 vi.mock('./canvas/grid', () => ({ drawGrid: vi.fn() }))
@@ -44,9 +44,18 @@ function counts() {
 async function refresh() {
   await act(async () => { document.dispatchEvent(new Event('visibilitychange')); await vi.advanceTimersByTimeAsync(1) })
 }
+// The canvas asks which stores there are before it reads a board, so every
+// mount answers that first. One store, which is what a canvas over a single
+// repository reports.
+function registryFixture(stores = [{ name: 'fixture', path: '/fixture/.tickets', available: true, active: false, favorite: false, readOnly: false }]) {
+  vi.spyOn(RegistryClient.prototype, 'stores').mockResolvedValue({ stores })
+  vi.spyOn(RegistryClient.prototype, 'favorites').mockResolvedValue({ stores: [], paths: [] })
+}
 async function mount() {
+  registryFixture()
   const read = vi.spyOn(TicketClient.prototype, 'board').mockResolvedValue(modified())
   await act(async () => { render(<App />, root) })
+  await act(async () => { await vi.advanceTimersByTimeAsync(0) })
   await act(async () => { await vi.advanceTimersByTimeAsync(0) })
   expect(root.querySelectorAll('.card')).toHaveLength(2)
   return read
@@ -77,7 +86,7 @@ function streamFixture() {
   }
 }
 it('fetches the build identity once and loads the board even when that fails', async () => {
-  const version = vi.spyOn(TicketClient.prototype, 'version').mockRejectedValue(new Error('offline'))
+  const version = vi.spyOn(RegistryClient.prototype, 'version').mockRejectedValue(new Error('offline'))
   await mount()
   expect(version).toHaveBeenCalledTimes(1)
   expect(element('#version > summary').textContent).toBe('unknown')
@@ -85,7 +94,7 @@ it('fetches the build identity once and loads the board even when that fails', a
   expect(version).toHaveBeenCalledTimes(1)
 })
 it('shows the server version with the modified marker', async () => {
-  vi.spyOn(TicketClient.prototype, 'version').mockResolvedValue(
+  vi.spyOn(RegistryClient.prototype, 'version').mockResolvedValue(
     { schemaVersion: 1, kind: 'version', version: 'v0.1.0', commit: 'a1ee5a5000000000', go: 'go1.25.0', modified: true })
   await mount()
   expect(element('#version > summary').textContent).toBe('v0.1.0+dirty')
@@ -164,4 +173,40 @@ it('keeps a focused inspector draft through unchanged and changed responses', as
   read.mockResolvedValueOnce(modified(next)); await refresh()
   expect(field.value).toBe('Unfinished draft'); expect(document.activeElement).toBe(field)
   expect(patch).not.toHaveBeenCalled()
+})
+
+it('opens the store named in the address and rebuilds the stream when it changes', async () => {
+  const opened: string[] = []
+  const closed: string[] = []
+  class Source {
+    onopen: (() => void) | null = null
+    onmessage: ((event: { data: string }) => void) | null = null
+    onerror: (() => void) | null = null
+    constructor(readonly url: string) { opened.push(url) }
+    close = () => { closed.push(this.url) }
+  }
+  vi.stubGlobal('EventSource', Source)
+  location.hash = '#store=second'
+  registryFixture([
+    { name: 'first', path: '/first/.tickets', available: true, active: false, favorite: true, readOnly: false },
+    { name: 'second', path: '/second/.tickets', available: true, active: false, favorite: false, readOnly: false },
+  ])
+  const read = vi.spyOn(TicketClient.prototype, 'board').mockResolvedValue(modified())
+  await act(async () => { render(<App />, root) })
+  await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+  await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+
+  // The address wins over the favorite, and every read is scoped to it.
+  expect(opened).toEqual(['/api/stores/second/events'])
+  expect(read.mock.instances.map(client => (client as TicketClient).base)).toContain('/api/stores/second')
+  expect(root.querySelectorAll('.card')).toHaveLength(2)
+
+  await act(async () => {
+    location.hash = '#store=first'
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+    await vi.advanceTimersByTimeAsync(0)
+  })
+  expect(closed).toEqual(['/api/stores/second/events'])
+  expect(opened).toEqual(['/api/stores/second/events', '/api/stores/first/events'])
+  location.hash = ''
 })

@@ -3,7 +3,9 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { externalTitle } from './refresh-support'
 
-export const eventURL = /\/api\/events(?:\?.*)?$/
+// The canvas scopes every request to its store, so the stream is
+// /api/stores/{store}/events on a canvas over several and /api/events on one.
+export const eventURL = /\/events(?:\?.*)?$/
 export const card = (page: Page, id: string) => page.locator(`.card[data-id="${id}"]`)
 export const description = (page: Page) => page.locator('#inspBody .field')
   .filter({ has: page.locator('label', { hasText: /^Description$/ }) }).locator('textarea')
@@ -36,8 +38,8 @@ export async function liveTraffic(page: Page) {
   const streamIDs = new Set<string>()
   cdp.on('Network.requestWillBeSent', ({ requestId, request }) => {
     const path = new URL(request.url).pathname
-    if (path === '/api/board') boardReads.push({ atMs: performance.now() - start, url: request.url })
-    if (path !== '/api/events') return
+    if (path.endsWith('/board')) boardReads.push({ atMs: performance.now() - start, url: request.url })
+    if (!path.endsWith('/events')) return
     streamIDs.add(requestId)
     attempts.push({ atMs: performance.now() - start, method: request.method, url: request.url })
   })

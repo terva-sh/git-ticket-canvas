@@ -6,7 +6,7 @@ test('failed layout save discards the drag preview without changing persisted da
   const card = page.locator(`.card[data-id="${ticket.id}"]`)
   await expect(card).toBeVisible()
   const before = await card.getAttribute('style')
-  await page.route('**/api/layout', route => route.fulfill({ status: 500, contentType: 'application/json',
+  await page.route('**/layout', route => route.fulfill({ status: 500, contentType: 'application/json',
     body: JSON.stringify({ code: 'layout_error', message: 'Test layout refusal' }) }))
   const box = (await card.boundingBox())!
   await page.mouse.move(box.x + 100, box.y + 30)

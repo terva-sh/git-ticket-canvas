@@ -2,7 +2,7 @@ import type { RenderableProps } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import type { PublicationBridge, Publication } from '../platform/canvas/publications'
 import type { CommittedSampling, SamplingPublication } from './canvas/committedSampling'
-import { TicketClient, ApiError } from '../platform/tickets/client'
+import { TicketClient, RegistryClient, ApiError, storeBase } from '../platform/tickets/client'
 import { TicketStore, LayoutWriter } from '../platform/tickets/store'
 import { LiveUpdates, type LiveStatus } from '../platform/tickets/live'
 import type { CardChanges, Cards, Frame, Op, Ticket, VersionInfo } from '../platform/tickets/types'
@@ -19,6 +19,12 @@ import { Inspector } from './Inspector'
 import { Composer, type ComposerPosition } from './Composer'
 import { FeedbackMessage, type Feedback } from './Feedback'
 
+/** The store named in the address, which a reload and a shared link both keep. */
+function storeInAddress() {
+  if (typeof location === 'undefined') return null
+  return new URLSearchParams(location.hash.replace(/^#/, '')).get('store')
+}
+
 interface InterfaceState {
   selected: string | null; selection: Set<string>; query: string; filters: Set<string>
   labelFilters: LabelFilters
@@ -29,8 +35,14 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
   const [probe] = useState(() => samplingProbe)
   const samplingPublication = useRef<SamplingPublication | null>(null)
   const publication = useRef<Publication | null>(null)
-  const [client] = useState(() => new TicketClient())
-  const [store] = useState(() => new TicketStore(client))
+  const [registry] = useState(() => new RegistryClient())
+  const [store] = useState(() => new TicketStore(new TicketClient()))
+  // The store being shown. Null until the canvas has asked which stores there
+  // are, and on a canvas that serves one store under the flat routes.
+  const [storeId, setStoreId] = useState<string | null>(null)
+  // False until the canvas knows which store it is showing, so the first board
+  // read is not issued against a base that is about to change.
+  const [booted, setBooted] = useState(false)
   const [snapshot, setSnapshot] = useState(store.state)
   // undefined while the one-time fetch is in flight, null once it failed.
   // The label never renders blank: it waits, then shows a version or unknown.
@@ -286,26 +298,86 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
     if (store.state.readOnly || frameRequest.current) return
     if (confirm('Lay every card out in status lanes? This replaces the positions on this board.')) canvas.current?.arrange()
   }
+  // Switching stores builds a new client and a new live connection rather than
+  // repointing either. Anything already in flight then belongs to the client
+  // that issued it, and the store's own epoch and generation counters reject it
+  // when it returns.
+  const openStore = (name: string, remember = true) => {
+    if (name === storeId) return
+    // The store is in the address, so a reload comes back to it and a link to
+    // one store is a link somebody can send.
+    if (remember && typeof window !== 'undefined') {
+      window.history.replaceState(null, '', `#store=${encodeURIComponent(name)}`)
+    }
+    store.selectStore(name, new TicketClient(undefined, storeBase(name)))
+    setStoreId(name)
+    histories.current.clear()
+    setUI(current => ({ ...current, selected: null, selection: new Set(), composer: null, generation: current.generation + 1 }))
+    setFrameUI({ selected: null, draft: null, key: 0 })
+    setSnapshot(store.state)
+    published.current = store.state
+  }
   const actions = useRef({ refresh, closeComposer, closeInspector, closeFrames, remove })
   actions.current = { refresh, closeComposer, closeInspector, closeFrames, remove }
+  // Which stores this canvas serves, and which one to open. A canvas over one
+  // store answers with that one; a canvas over a tree answers with all of them
+  // and the browser picks the store last looked at.
   useEffect(() => {
-    mounted.current = true
-    publication.current = bridge?.publish(published.current, generation.current) ?? null
+    let cancelled = false
+    void (async () => {
+      try {
+        const [listed, favorites] = await Promise.all([registry.stores(), registry.favorites().catch(() => undefined)])
+        if (cancelled) return
+        const usable = listed.stores.filter(s => s.available)
+        const asked = storeInAddress()
+        const wanted = usable.find(s => s.name === asked)
+          ?? usable.find(s => s.name === favorites?.lastStoreId)
+          ?? usable.find(s => s.favorite) ?? usable[0]
+        if (wanted) openStore(wanted.name, wanted.name !== asked)
+      } catch {
+        // No store list: an older server, or one that could not answer. The
+        // flat routes still work for a canvas over a single store, so fall
+        // through to them rather than showing nothing.
+      }
+      if (!cancelled) setBooted(true)
+    })()
+    const followAddress = () => {
+      const asked = storeInAddress()
+      if (asked) openStore(asked, false)
+    }
+    window.addEventListener('hashchange', followAddress)
+    return () => { cancelled = true; window.removeEventListener('hashchange', followAddress) }
+  }, [registry])
+
+  useEffect(() => {
+    if (!booted) return
     let first = true
     const updates = new LiveUpdates({
       read: () => { const fit = first; first = false; return actions.current.refresh(fit) },
       board: () => store.state.board,
       status: status => { if (mounted.current) setSync(status) },
+      url: storeId ? `${storeBase(storeId)}/events` : undefined,
     })
     live.current = updates
     store.onWriteSettled = () => updates.request()
     updates.start()
-    // Build identity is fixed for the life of the process, so one read is
-    // enough. It is independent of the board: a failure here must not stop
-    // loading, and a board failure must not hide which build is running.
-    client.version().then(info => { if (mounted.current) setVersion(info) },
-      () => { if (mounted.current) setVersion(null) })
     const visible = () => { if (!document.hidden) updates.request() }
+    document.addEventListener('visibilitychange', visible)
+    return () => {
+      updates.stop(); live.current = undefined; store.onWriteSettled = undefined
+      document.removeEventListener('visibilitychange', visible)
+    }
+  }, [store, booted, storeId])
+
+  useEffect(() => {
+    mounted.current = true
+    publication.current = bridge?.publish(published.current, generation.current) ?? null
+    // Build identity is fixed for the life of the process, so one read is
+    // enough. It is independent of the board and of the store: a failure here
+    // must not stop loading, and a board failure must not hide which build is
+    // running.
+    registry.version().then(info => { if (mounted.current) setVersion(info) },
+      () => { if (mounted.current) setVersion(null) })
     const keyboard = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable
@@ -328,17 +400,14 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
         if (ticket) void actions.current.remove(ticket)
       }
     }
-    document.addEventListener('visibilitychange', visible)
     document.addEventListener('keydown', keyboard)
     return () => {
       mounted.current = false
       bridge?.dispose(); probe?.hold()
-      updates.stop(); live.current = undefined; store.onWriteSettled = undefined
       cancelAnimationFrame(fitFrame.current)
-      document.removeEventListener('visibilitychange', visible)
       document.removeEventListener('keydown', keyboard)
     }
-  }, [store, client])
+  }, [store, registry])
   const matches = (ticket: Ticket) =>
     matchesTicket(ticket, { statuses: ui.filters, labels: ui.labelFilters, query: ui.query })
   const syncMessage = sync.readFailed ? snapshot.config

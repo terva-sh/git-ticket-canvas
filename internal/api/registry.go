@@ -815,8 +815,12 @@ type favoritesResponse struct {
 	// Paths are the favorites as stored, including any that this canvas is not
 	// serving, so that a canvas started on a different root does not look like
 	// it lost them.
-	Paths     []string `json:"paths"`
-	LastStore string   `json:"lastStore,omitempty"`
+	Paths []string `json:"paths"`
+	// LastStore is the path last looked at, and LastStoreID is the id this
+	// canvas serves it under, empty when this canvas does not serve it. The
+	// browser routes by id and cannot map a path to one.
+	LastStore   string `json:"lastStore,omitempty"`
+	LastStoreID string `json:"lastStoreId,omitempty"`
 }
 
 type favoriteRequest struct {
@@ -883,8 +887,12 @@ func (r *Registry) favorites() favoritesResponse {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, name := range r.order {
-		if marked[discover.Key(r.entries[name].spec.Path)] {
+		key := discover.Key(r.entries[name].spec.Path)
+		if marked[key] {
 			out.Stores = append(out.Stores, name)
+		}
+		if key == snapshot.LastStore {
+			out.LastStoreID = name
 		}
 	}
 	return out

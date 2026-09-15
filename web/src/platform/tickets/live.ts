@@ -12,6 +12,9 @@ interface Options {
   board: () => string
   status: (status: LiveStatus) => void
   connect?: () => Stream
+  /** This store's event stream. One connection belongs to one store, so
+   *  switching stores builds a new LiveUpdates rather than repointing this one. */
+  url?: string
 }
 
 /** Notifications request authoritative reads; they never modify the board. */
@@ -79,7 +82,7 @@ export class LiveUpdates {
   private open() {
     if (this.stopped) return
     try {
-      const source = this.options.connect ? this.options.connect() : new EventSource('/api/events')
+      const source = this.options.connect ? this.options.connect() : new EventSource(this.options.url ?? '/api/events')
       this.source = source
       let first = true
       // Headers alone do not establish synchronization. Wait for a valid message.

@@ -90,7 +90,7 @@ async function arrange(page: Page) {
   page.once('dialog', dialog => void dialog.accept())
   await Promise.all([
     page.waitForResponse(response =>
-      response.request().method() === 'PUT' && response.url().includes('/api/layout')),
+      response.request().method() === 'PUT' && new URL(response.url()).pathname.endsWith('/layout')),
     page.locator('#btnArrange').click(),
   ])
 }

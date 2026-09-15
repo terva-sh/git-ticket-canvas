@@ -8,7 +8,7 @@ async function layout(page: Page): Promise<Layout> {
   return (await response.json()).layout
 }
 async function saved(page: Page, action: () => Promise<unknown>) {
-  const response = page.waitForResponse(r => r.url().endsWith('/api/layout') && r.request().method() === 'PUT')
+  const response = page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/layout') && r.request().method() === 'PUT')
   await action()
   expect((await response).status()).toBe(200)
   await expect(page.locator('#framePanel').getByText('Saving.', { exact: false })).toHaveCount(0)
@@ -145,7 +145,7 @@ test('frame history survives board switches and delayed saves stay on their init
   await expect(page.locator('#boardSelect option[value="other"]')).toHaveCount(1)
   let finish!: () => void
   const hold = new Promise<void>(resolve => { finish = resolve })
-  await page.route('**/api/layout', async route => {
+  await page.route('**/layout', async route => {
     const response = await route.fetch()
     await hold
     await route.fulfill({ response })
@@ -159,7 +159,7 @@ test('frame history survives board switches and delayed saves stay on their init
   await expect(page.locator('.canvas-frame')).toHaveCount(0)
   const other = await page.request.get(`${app.url}/api/board?board=other`)
   expect((await other.json()).layout.frames).toEqual({})
-  await page.unroute('**/api/layout')
+  await page.unroute('**/layout')
   await page.locator('#boardSelect').selectOption('default')
   await expect(page.locator('.canvas-frame')).toHaveCount(1)
   await expect(page.locator('#btnFrameUndo')).toBeEnabled()
@@ -195,7 +195,7 @@ test('failed frame saves and cancelled drafts leave persisted state unchanged; r
   await expect(page.locator('.card')).toHaveCount(1)
   await createFrame(page, 'Delivery', 40, 60, 500, 500)
   const baseline = await layout(page)
-  await page.route('**/api/layout', route => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 'failed', message: 'Simulated frame save failure' }) }))
+  await page.route('**/layout', route => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 'failed', message: 'Simulated frame save failure' }) }))
   const panel = page.locator('#framePanel')
   await panel.getByLabel('X', { exact: true }).fill('140')
   await panel.getByRole('button', { name: 'Move frame and members', exact: true }).click()
@@ -204,7 +204,7 @@ test('failed frame saves and cancelled drafts leave persisted state unchanged; r
   await panel.getByLabel('X', { exact: true }).press('Escape')
   await expect(panel.getByLabel('X', { exact: true })).toHaveValue('40')
   expect(await layout(page)).toEqual(baseline)
-  await page.unroute('**/api/layout')
+  await page.unroute('**/layout')
   await page.goto(await app.readOnlyURL())
   await expect(page.locator('#btnFrame')).toBeDisabled()
   await page.locator('.canvas-frame-title').click()

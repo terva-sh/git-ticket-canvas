@@ -4,7 +4,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { App } from './App'
 import { CommittedSampling } from './canvas/committedSampling'
-import { TicketClient, type BoardRead } from '../platform/tickets/client'
+import { RegistryClient, TicketClient, type BoardRead } from '../platform/tickets/client'
 import type { Board, BoardResponse, Ticket } from '../platform/tickets/types'
 import { PublicationBridge } from '../platform/canvas/publications'
 import { PlacementSnapshots } from '../platform/canvas/snapshots'
@@ -54,7 +54,8 @@ function setup() {
 }
 async function mount(bridge?: PublicationBridge, samplingProbe?: CommittedSampling) {
   const read = vi.spyOn(TicketClient.prototype, 'board').mockImplementation(async name => modified(data(name)))
-  await act(async () => { render(<App publicationBridge={bridge} samplingProbe={samplingProbe} />, root) }); await flush()
+  // Two flushes: one for the store list, one for the board read it unblocks.
+  await act(async () => { render(<App publicationBridge={bridge} samplingProbe={samplingProbe} />, root) }); await flush(); await flush()
   expect(root.querySelectorAll('.card')).toHaveLength(1)
   return read
 }
@@ -68,7 +69,11 @@ beforeEach(() => {
     unobserve() {}; disconnect() {}
   })
   vi.stubGlobal('EventSource', undefined)
-  vi.spyOn(TicketClient.prototype, 'version').mockRejectedValue(new Error('fixture'))
+  vi.spyOn(RegistryClient.prototype, 'version').mockRejectedValue(new Error('fixture'))
+  // The canvas asks which stores there are before it reads a board.
+  vi.spyOn(RegistryClient.prototype, 'stores').mockResolvedValue({ stores: [
+    { name: 'fixture', path: '/fixture/.tickets', available: true, active: false, favorite: false, readOnly: false }] })
+  vi.spyOn(RegistryClient.prototype, 'favorites').mockResolvedValue({ stores: [], paths: [] })
   vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.matches('.card') ? height : this.matches('.canvas-frame-title, .canvas-frame-resize') ? 26 : 0 })
   vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(100)
   vi.spyOn(HTMLElement.prototype, 'offsetParent', 'get').mockImplementation(function (this: HTMLElement) { return this.closest('.canvas-frame') })
@@ -111,7 +116,7 @@ it('keeps default App disconnected and captures injection once for the mount', a
   const publish = vi.spyOn(PublicationBridge.prototype, 'publish'), accept = vi.spyOn(PlacementSnapshots.prototype, 'accept')
   await mount(); expect(publish).not.toHaveBeenCalled(); expect(accept).not.toHaveBeenCalled()
   const { bridge } = setup()
-  await act(async () => { render(<App publicationBridge={bridge} />, root) }); await refresh()
+  await act(async () => { render(<App publicationBridge={bridge} />, root) }); await flush(); await refresh()
   expect(publish).not.toHaveBeenCalled(); expect(accept).not.toHaveBeenCalled(); expect(samplePublish).not.toHaveBeenCalled()
 })
 it.each([200, 304])('accepts the initial committed publication but not unchanged %s reads', async status => {

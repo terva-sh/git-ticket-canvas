@@ -59,7 +59,7 @@ export async function diagnostics(page: Page) {
     const send = window.fetch.bind(window)
     window.fetch = async (...args) => {
       const response = await send(...args)
-      if (new URL(response.url).pathname === '/api/board') win.__refreshFetchResults.push(response.status)
+      if (new URL(response.url).pathname.endsWith('/board')) win.__refreshFetchResults.push(response.status)
       return response
     }
     win.__refreshDOM = { all: 0, content: 0, cards: 0, inspector: 0, diagnostics: 0 }
@@ -137,7 +137,7 @@ export async function network(page: Page) {
   const pending = new Set<Promise<void>>()
   const started = performance.now()
   cdp.on('Network.requestWillBeSent', event => {
-    if (!new URL(event.request.url).pathname.endsWith('/api/board')) return
+    if (!new URL(event.request.url).pathname.endsWith('/board')) return
     const headers = extraRequests.get(event.requestId) || event.request.headers
     rows.set(event.requestId, { id: event.requestId, startedMs: performance.now() - started,
       url: event.request.url, method: event.request.method, ifNoneMatch: header(headers, 'if-none-match'),

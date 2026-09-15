@@ -85,7 +85,7 @@ test('an SSE-triggered response held across a manual drag waits for cancellation
   let release!: () => void
   let captured = false
   const held = new Promise<void>(resolve => { release = resolve })
-  await page.route('**/api/board?*', async route => {
+  await page.route('**/board?*', async route => {
     const response = await route.fetch()
     captured = true; await held
     await route.fulfill({ response })
@@ -99,7 +99,7 @@ test('an SSE-triggered response held across a manual drag waits for cancellation
     await page.mouse.move(box.x + 80, box.y + 25); await page.mouse.down()
     await page.mouse.move(box.x + 150, box.y + 65, { steps: 5 })
     const preview = await target.getAttribute('style')
-    const arrived = page.waitForResponse(response => new URL(response.url()).pathname === '/api/board')
+    const arrived = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/board'))
     release(); await arrived; await settle(page)
     await expect(target).toHaveAttribute('style', preview!)
     await expect(target.locator('.card-title')).toHaveText('Before live drag')
