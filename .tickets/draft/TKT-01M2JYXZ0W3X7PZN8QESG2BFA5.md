@@ -18,7 +18,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-15T16:38:17Z
-updated_at: 2026-09-15T16:38:28Z
+updated_at: 2026-09-15T17:01:15Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -83,29 +83,39 @@ the frontend never sees, so the frontend would have to re-implement "an
 explicit name wins" and would still get the unavailable case wrong. One rule,
 one place, and `--scan` and the startup log can use it later.
 
-### Rejected: hashing the id instead
+### The derived id does not survive depth
 
-The other way to shorten a row is to replace the derived id with a short hash,
-which would also keep the workspace path out of the URL. Rejected on
-measurement:
+The rejected alternative here was replacing the id with a fixed-size hash. It
+was rejected on the shallow case and then measured on the deep one, where it
+turns out to be right. Recorded here because this ticket's display name is what
+makes that change affordable, and because the reasoning was wrong once already.
 
-- It does not bound anything new. `config.MaxNameLen` is already 64 and the
-  real workspace tops out at 50.
-- It does not hide the path. `StoreStatus` ships `path`, every browser row
-  renders it, the toolbar shows it, and startup logs it. A hash hides the path
-  from the URL and from nowhere else.
-- It costs the case that needs the id most. This workspace holds `git-ticket`
-  and `git-ticket-canvas` on both `git.local.sothr.com` and `github.com`, and
-  one of each pair is a mirror. Today the address says which one you are about
-  to write a ticket into. Two hex strings would not.
-- It buys no stability. A hash and a slug are both derived from the path, so
-  both change when a repository moves.
+`SlugName` keeps the tail when a name exceeds `MaxNameLen`, on the reasoning
+that a repository name carries more than the forge it was mirrored from. Two
+stores that differ only near the root therefore lose the only part that told
+them apart. Reproduced with two trees sharing a long tail:
 
-Keeping the URL id opaque is a real but separate question, because a URL can be
-read without its page: pasted into a public issue, a bookmark, or synced
-browser history, `#store=git-local-sothr-com_Sothr-Containers_alpine` names an
-internal forge and an organisation. That trades diagnosability for privacy, it
-belongs behind an opt-in flag rather than in the default, and it is not filed.
+    alpha-organisation/platform-services/data-plane/ingestion/collectors/otel-collector
+    beta-organisation/platform-services/data-plane/ingestion/collectors/otel-collector
+
+Both trim to one 64-character name, collide, and the second takes a hash
+suffix on a remainder already cut mid-word, `m-services`. Neither id says alpha
+or beta.
+
+Adding a third organisation that sorts before both then moved an existing id:
+`alpha` went from the bare name to a suffixed one, and the bare name now
+resolves to the new store instead. A bookmarked `#store=` fragment opens a
+different store than it did, silently. Favorites are unaffected only because
+`state.go` keys them on resolved paths rather than ids.
+
+So `unique` does guarantee uniqueness, through its `taken` map, but it does not
+guarantee that an id is stable against an unrelated store appearing. The
+comment at `merge.go:99` claims the second property and only has the first: the
+suffix is stable, while whether a store carries one is not.
+
+The real workspace does not hit this. Its longest id is 50 of 64 with no
+collisions, so this is latent rather than live, and two more path segments
+reach it.
 
 ### What it touches
 
@@ -129,3 +139,9 @@ in the browser suite do not move.
 
 - [ ] just check passes
 - [ ] just browser-test-embedded passes against a freshly built bundle
+
+## Notes
+
+**agent:t3code/d30689a3** at 2026-09-15T17:01:15Z
+
+Reproduction for the depth finding, should anyone want to see it fail before fixing it. Create two trees under one root sharing a long tail, differing only in their first segment, so that the joined relative path exceeds 64 characters. Run the canvas with --root over them and -R --depth 10. Both derive the same trimmed id and the second takes a hash suffix. Then add a third first segment that sorts before both and run again: the id of the middle store changes, and the bare id it used to hold now points at the new store. The probe trees were built under /tmp and removed.
