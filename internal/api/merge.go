@@ -73,6 +73,8 @@ func Merge(cfg config.Config, found discover.Result, opts MergeOptions) ([]Store
 			Path:     f.Path,
 			Actor:    opts.Actor,
 			ReadOnly: opts.ReadOnly || f.ReadOnly,
+			Root:     f.Root,
+			Parent:   named[f.DeclaredBy],
 		})
 	}
 	return specs, notes

@@ -5,7 +5,7 @@ import type { CommittedSampling, SamplingPublication } from './canvas/committedS
 import { TicketClient, RegistryClient, ApiError, storeBase } from '../platform/tickets/client'
 import { TicketStore, LayoutWriter } from '../platform/tickets/store'
 import { LiveUpdates, type LiveStatus } from '../platform/tickets/live'
-import type { CardChanges, Cards, Frame, Op, Ticket, VersionInfo } from '../platform/tickets/types'
+import type { CardChanges, Cards, Frame, Op, StoreSummary, Ticket, VersionInfo } from '../platform/tickets/types'
 import { FrameHistory, applyFrameOperation, assertFrameOperation, createFrame, moveFrame, resizeFrame, updateFrame, deleteFrame, setMembership } from '../platform/canvas/frames'
 import type { FrameOperation, FrameState, Point } from '../platform/canvas/frames'
 import type { Density } from '../platform/canvas/geometry'
@@ -14,6 +14,7 @@ import { cycleLabel, labelUniverse, matchesTicket, type LabelFilters } from '../
 import { FramePanel, FrameMembership } from './FramesPanel'
 import { Canvas, type CanvasHandle } from './Canvas'
 import { Toolbar } from './Toolbar'
+import { StoreBrowser } from './StoreBrowser'
 import type { RelationshipMode } from './canvas/Edges'
 import { Inspector } from './Inspector'
 import { Composer, type ComposerPosition } from './Composer'
@@ -43,6 +44,12 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
   // False until the canvas knows which store it is showing, so the first board
   // read is not issued against a base that is about to change.
   const [booted, setBooted] = useState(false)
+  const [stores, setStores] = useState<StoreSummary[]>([])
+  const [browsing, setBrowsing] = useState(false)
+  const [rescanning, setRescanning] = useState(false)
+  // The stores looked at this session, most recent first. Session state, like
+  // the relationship mode: the durable record of what matters is the favorites.
+  const recent = useRef<string[]>([])
   const [snapshot, setSnapshot] = useState(store.state)
   // undefined while the one-time fetch is in flight, null once it failed.
   // The label never renders blank: it waits, then shows a version or unknown.
@@ -311,11 +318,32 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
     }
     store.selectStore(name, new TicketClient(undefined, storeBase(name)))
     setStoreId(name)
+    recent.current = [name, ...recent.current.filter(had => had !== name)].slice(0, 8)
+    setBrowsing(false)
     histories.current.clear()
     setUI(current => ({ ...current, selected: null, selection: new Set(), composer: null, generation: current.generation + 1 }))
     setFrameUI({ selected: null, draft: null, key: 0 })
     setSnapshot(store.state)
     published.current = store.state
+  }
+  const toggleFavorite = async (name: string, favorite: boolean) => {
+    // Answered with the whole list, so the rows follow the file rather than an
+    // optimistic guess that a failed write would leave wrong.
+    try {
+      const updated = await registry.setFavorite(name, favorite)
+      const marked = new Set(updated.stores)
+      setStores(current => current.map(store => ({ ...store, favorite: marked.has(store.name) })))
+    } catch (error) { report(error) }
+  }
+  const rescan = async () => {
+    setRescanning(true)
+    try {
+      const result = await registry.rescan()
+      setStores(result.stores)
+      toast(result.added || result.removed
+        ? `Found ${result.added} new ${result.added === 1 ? 'store' : 'stores'}, dropped ${result.removed}.`
+        : 'No change to the stores on disk.')
+    } catch (error) { report(error) } finally { setRescanning(false) }
   }
   const actions = useRef({ refresh, closeComposer, closeInspector, closeFrames, remove })
   actions.current = { refresh, closeComposer, closeInspector, closeFrames, remove }
@@ -328,6 +356,7 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       try {
         const [listed, favorites] = await Promise.all([registry.stores(), registry.favorites().catch(() => undefined)])
         if (cancelled) return
+        setStores(listed.stores)
         const usable = listed.stores.filter(s => s.available)
         const asked = storeInAddress()
         const wanted = usable.find(s => s.name === asked)
@@ -438,7 +467,12 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
         const filters = new Set(current.filters); filters.has(status) ? filters.delete(status) : filters.add(status)
         return { ...current, filters }
       })} onBoard={name => { void changeBoard(name) }} onNewBoard={() => { void newBoard() }}
+      stores={stores.length ? { stores, current: storeId, recent: recent.current,
+        onOpen: openStore, onBrowse: () => setBrowsing(true) } : undefined}
       onNew={() => canvas.current?.composeCentre()} onFit={() => canvas.current?.fit()} onArrange={arrange} /></div>
+    {browsing && <StoreBrowser stores={stores} current={storeId} busy={rescanning}
+      onOpen={openStore} onFavorite={(name, favorite) => { void toggleFavorite(name, favorite) }}
+      onRescan={() => { void rescan() }} onClose={() => setBrowsing(false)} />}
     <Canvas key={ui.generation} ref={canvas} board={snapshot.board} tickets={snapshot.tickets} cards={displayed.cards}
       publicationBridge={bridge} publication={publication.current}
       samplingProbe={probe} samplingPublication={samplingPublication.current}

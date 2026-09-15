@@ -108,6 +108,10 @@ export type LayoutRequest = { board: string; cards: CardChanges; frames?: FrameC
 export interface StoreSummary {
   name: string; path: string; available: boolean; active: boolean; favorite: boolean
   readOnly: boolean; actor?: string; actorId?: string; reason?: string; note?: string
+  /** The configured root this store was found under, absent when it was named. */
+  root?: string
+  /** The store that declared this one as a child, absent for everything else. */
+  parent?: string
 }
 export interface StoresResponse { stores: StoreSummary[] }
 export interface FavoritesResponse { stores: string[]; paths: string[]; lastStore?: string; lastStoreId?: string }

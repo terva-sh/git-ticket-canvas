@@ -130,6 +130,56 @@ input.tool, select.tool { color: var(--ink); }
 .label-filter-head { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
 .label-filter-body .chip-row { flex-wrap: wrap; max-height: 320px; overflow-y: auto; }
 .label-filter-empty { margin: 0; font-size: 11px; color: var(--ink-faint); }
+
+/* The store picker is compact by construction: it shows the current store and
+   a short list, and everything that grows with the number of stores lives in
+   the browser view below. */
+.store-picker { position: relative; }
+.store-picker > summary { list-style: none; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.store-picker > summary::-webkit-details-marker { display: none; }
+.store-picker[open] > summary { color: var(--ink); border-color: var(--ink-faint); }
+.store-picker-body {
+  position: absolute; left: 0; top: calc(100% + 6px); z-index: 30;
+  display: grid; gap: 8px; width: max-content; min-width: 220px; max-width: min(460px, calc(100vw - 24px));
+  padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 7px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.18);
+}
+.store-quick { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 320px; overflow-y: auto; }
+.store-quick-item {
+  width: 100%; text-align: left; padding: 4px 6px; border: 1px solid transparent; border-radius: 5px;
+  background: none; color: var(--ink-dim); font: inherit; cursor: pointer;
+}
+.store-quick-item:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-faint); }
+.store-quick-item[aria-current="true"] { color: var(--ink); background: var(--accent-soft); }
+.store-quick-item:disabled { color: var(--ink-faint); cursor: default; }
+
+.store-browser {
+  position: fixed; inset: 56px 12px 12px; z-index: 40; display: grid; grid-template-rows: auto 1fr;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.28); overflow: hidden;
+}
+.store-browser-head { display: flex; gap: 8px; align-items: center; padding: 10px; border-bottom: 1px solid var(--line); }
+.store-browser-head #storeSearch { flex: 1; }
+.store-browser-body { overflow-y: auto; padding: 6px 10px 12px; }
+.store-group-label { margin: 12px 0 4px; font-size: 11px; font-weight: 500; color: var(--ink-faint); font-family: var(--mono); }
+.store-list { list-style: none; margin: 0; padding: 0; }
+.store-row { display: flex; gap: 6px; align-items: center; }
+.store-open {
+  flex: 1; display: flex; gap: 10px; align-items: baseline; min-width: 0;
+  padding: 5px 6px; border: 1px solid transparent; border-radius: 5px;
+  background: none; color: var(--ink-dim); font: inherit; text-align: left; cursor: pointer;
+}
+.store-open:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-faint); }
+.store-open[aria-current="true"] { color: var(--ink); background: var(--accent-soft); }
+/* An unavailable store stays on the page, dimmed, carrying its reason. Hiding
+   it would leave a mistyped path diagnosable only from the server log. */
+.store-open:disabled { cursor: default; opacity: .75; }
+.store-name { font-family: var(--mono); }
+.store-path { color: var(--ink-faint); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.store-flag { flex: none; }
+.store-favorite { border: none; background: none; color: var(--ink-faint); font-size: 14px; cursor: pointer; padding: 2px 6px; }
+.store-favorite[aria-pressed="true"] { color: var(--accent); }
+.store-empty { margin: 12px 4px; font-size: 12px; color: var(--ink-faint); }
 /* The three states differ by border, colour, and a leading mark, so none of
    them needs a hover or a tooltip to be told apart. */
 .label-chip .mark { font-family: var(--mono); width: 7px; text-align: center; }
@@ -303,7 +353,7 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
 #composer .muted { margin-top: 6px; display: block; }
 [hidden] { display: none !important; }
 </style>
-  <script type="module" crossorigin src="./assets/index-fXtPZyIi.js"></script>
+  <script type="module" crossorigin src="./assets/index-D1un4HwZ.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-3zWs_XiM.css">
 </head>
 <body>

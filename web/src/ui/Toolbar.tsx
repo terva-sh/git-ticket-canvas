@@ -2,6 +2,7 @@ import type { Schema, VersionInfo } from '../platform/tickets/types'
 import type { LabelFilters, LabelState } from '../platform/tickets/filters'
 import type { Density } from '../platform/canvas/geometry'
 import type { RelationshipMode } from './canvas/Edges'
+import { StorePicker, type StorePickerProps } from './StorePicker'
 
 export interface ToolbarProps {
   storePath: string; readOnly: boolean; boards: string[]; board: string; query: string
@@ -17,6 +18,8 @@ export interface ToolbarProps {
   /** Every label the store offers, configured or carried by a ticket. */
   labels?: readonly string[]; labelFilters?: LabelFilters
   onLabelFilter?(label: string): void; onClearLabelFilters?(): void
+  /** Absent on a canvas serving one store, which needs no picker. */
+  stores?: StorePickerProps
 }
 
 const stateWords: Record<LabelState | 'off', string> = {
@@ -91,6 +94,7 @@ export function Toolbar(p: ToolbarProps) {
   return <div id="toolbar">
     <div class="brand">git-ticket <span id="storePath">{p.storePath}</span></div>
     <Version version={p.version} />
+    {p.stores && <StorePicker {...p.stores} />}
     <select id="boardSelect" class="tool" title="Board" value={p.board} onChange={e => p.onBoard(e.currentTarget.value)}>
       {[...new Set([...p.boards, p.board])].map(board => <option key={board} value={board}>{board}</option>)}
     </select>

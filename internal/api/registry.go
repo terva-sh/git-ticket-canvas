@@ -91,6 +91,12 @@ type StoreSpec struct {
 	Path     string
 	Actor    string
 	ReadOnly bool
+	// Root is the configured root this store was found under, empty for a
+	// store somebody named. The browser groups by it.
+	Root string
+	// Parent is the id of the store that declared this one as a child, empty
+	// for everything else. The browser renders a child under its parent.
+	Parent string
 }
 
 // StoreStatus is what the registry knows about one store.
@@ -107,7 +113,12 @@ type StoreStatus struct {
 	// Favorite is whether the person using the canvas marked this store. The
 	// picker orders on it, so it is answered here rather than in a second
 	// request.
-	Favorite bool   `json:"favorite"`
+	Favorite bool `json:"favorite"`
+	// Root is the configured root this store was found under, and Parent is the
+	// store that declared it as a child. Both are what the browser groups and
+	// nests by, and neither is derivable from a path alone.
+	Root     string `json:"root,omitempty"`
+	Parent   string `json:"parent,omitempty"`
 	ReadOnly bool   `json:"readOnly"`
 	Actor    string `json:"actor,omitempty"`
 	ActorID  string `json:"actorId,omitempty"`
@@ -497,7 +508,8 @@ func (r *Registry) Statuses() []StoreStatus {
 		e := r.entries[name]
 		list = append(list, StoreStatus{
 			Name: e.name, Path: e.path, Available: e.reason == "" || e.server != nil,
-			Active: e.server != nil, Favorite: r.favorite(e), ReadOnly: e.readOnly,
+			Active: e.server != nil, Favorite: r.favorite(e),
+			Root: e.spec.Root, Parent: e.spec.Parent, ReadOnly: e.readOnly,
 			Actor: e.actor.Name, ActorID: e.actor.ID,
 			Reason: e.reason, Note: e.note,
 		})
