@@ -469,7 +469,7 @@ the last store first.
 The store key goes in the path.
 
 ```
-GET    /api/stores                        the list, with tier, favorite, and root
+GET    /api/stores                        the list, with tier, favorite, root, and parent
 GET    /api/stores/{store}/board?board=
 GET    /api/stores/{store}/schema
 GET    /api/stores/{store}/events
@@ -477,6 +477,7 @@ POST   /api/stores/{store}/tickets
 PATCH  /api/stores/{store}/tickets/{id}
 DELETE /api/stores/{store}/tickets/{id}
 PUT    /api/stores/{store}/layout
+GET    /api/favorites
 PUT    /api/favorites
 POST   /api/stores/rescan
 GET    /api/version                       build identity, not tied to a store
@@ -494,10 +495,21 @@ the discovered set and must not disturb a store that is currently active.
 
 ### One store behaves exactly as it does today
 
-When exactly one store is configured, the flat routes stay mounted and behave
-as they do now, so `git-ticket-canvas --store .` is unchanged. The flat routes
-are deliberately not mounted when there is more than one store, because then
-they would have to guess which store they meant.
+When exactly one store is registered, the flat routes answer and behave as they
+did, so `git-ticket-canvas --store .` and every script written against it are
+unchanged. They are refused when there is more than one store, because then
+they would have to guess which store they meant, and the decision is made per
+request rather than when the handler is built, for the reason in "Opening a
+store, and when".
+
+The browser is the exception, and deliberately. It scopes every request to a
+store even when there is only one, so there is one code path to reason about
+rather than two, and so a read in flight during a switch belongs unambiguously
+to the client that issued it. The flat routes are for the people and the
+scripts that use the API directly.
+
+The store being shown is in the address as `#store=name`, so a reload comes
+back to it and a link to one store is a link somebody can send.
 
 ## Where the code changes
 
@@ -528,7 +540,13 @@ whether the store is available.
 Favorites live in a state file outside every repository, keyed by absolute
 path. They are not written into the configuration file, because that file is
 written by hand and a tool that rewrites it would lose the comments and the
-formatting.
+formatting. See "What the canvas remembers".
+
+Grouping is a pure function, `groupStores`, rather than something the component
+works out while rendering. That is what lets the awkward cases be tested without
+rendering anything: a root that is not a prefix of the store's path, a child
+whose parent the search removed, two roots with the same leading segments, and
+an unavailable store that has to survive filtering.
 
 ## Risks
 
@@ -545,3 +563,44 @@ network mount, so the walk needs a timeout as well.
 
 Discovery changes the list underneath a running browser. A rescan must let the
 picker reconcile its list without disturbing the store being viewed.
+
+## What changed while this was built
+
+Every one of these was a decision in an earlier draft of this document that the
+work overturned. They are listed together because the document is the record,
+and a design that quietly disagrees with the code is worse than no design.
+
+**Activation is lazy.** The first draft opened every store at startup. A walk of
+the workspace finds 22 stores and the machine reports 128 inotify instances
+shared with every editor on it, so the measurement reversed the decision. See
+"Opening a store, and when".
+
+**The store boundary is explained once, not per line.** `--scan` was going to
+print "not descended" beside each subdirectory of a store. On 22 stores that is
+the same clause 22 times, and nothing below a store is ever examined, so no such
+line could be produced honestly. It is a closing note instead.
+
+**The `--scan` example in the first draft could not happen.** Two of its lines
+were for directories inside a store, which the walk never examines.
+
+**A `.tickets` that is a symbolic link is not a store.** The walk used `os.Stat`,
+which follows links, so a workspace root with a convenience link to one
+project's store looked like a store itself and hid the 21 below it. `os.Lstat`
+fixed it. The original survey never caught this because `find -type d` does not
+match a link either.
+
+**A symbolic link is reported only when it points at a directory.** Reporting
+every link buried the links that could have been stores under links to shared
+files.
+
+**The browser scopes its requests even for a single store.** One code path, and
+an unambiguous owner for a read in flight during a switch.
+
+**The identity of a store includes walking up.** Resolving symbolic links is not
+enough: `--store .` run inside a repository names a subdirectory while a search
+finds the repository, and `ticket.Discover` opens the same store for both.
+
+**Two stores that derive the same name are both kept.** The first implementation
+skipped the second with a log line, which silently costs a store for the
+ordinary case of two roots each laid out as `org/repo`. A hash of the resolved
+key breaks the tie and does not move between runs.
