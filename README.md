@@ -5,6 +5,24 @@ One Go binary serves the Preact frontend and HTTP API. The frontend uses
 TypeScript and Vite; its built assets are committed in `web/dist` and embedded
 in the binary. No Node process or database is required at runtime.
 
+![Thirty tickets on the canvas, fitted to the window. Solid arrows are dependencies, faint dashed ones are parent links.](docs/images/canvas.png)
+
+Selecting a card opens the inspector: every field, acceptance criteria,
+definition of done, notes, comments, claim and archive, edited in place against
+the same library mutations the CLI uses.
+
+![One ticket selected, with the inspector open on the right showing status, priority, labels, description, plan and acceptance criteria.](docs/images/inspector.png)
+
+One canvas can serve several stores. The picker shows the open store, favorites,
+and the way into the full list; a store that cannot be opened is listed with the
+reason rather than hidden.
+
+![The store picker open over the board, listing the open store and a starred favorite.](docs/images/stores.png)
+
+These three images are generated from a committed ticket-store archive by
+`just readme-shots`, so they can be regenerated whenever the canvas changes.
+See [README images](docs/readme-images.md).
+
 ## Build and run
 
 From a source checkout, build with Go using the committed frontend assets.

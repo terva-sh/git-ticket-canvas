@@ -33,7 +33,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-15T22:09:52Z
-updated_at: 2026-09-15T22:12:06Z
+updated_at: 2026-09-15T22:22:46Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -77,10 +77,63 @@ runner for a reason that is not a defect.
 
 ## Acceptance criteria
 
-- [ ] One command regenerates every README image, and running it twice with no code change produces the same bytes.
-- [ ] Every image is 1920x1080 at device scale factor 1.
+- [x] One command regenerates every README image, and running it twice with no code change produces the same bytes.
+- [x] Every image is 1920x1080 at device scale factor 1.
 - [ ] The images show the canvas with relationships, a selected ticket's inspector, and the multi-store browser.
-- [ ] Nothing per-build or per-machine appears in an image: the version, commit, and store path are held constant, and the capture fails rather than emitting an image if they are not.
-- [ ] The README displays the images, and a reader can find the command that regenerates them.
-- [ ] No CI job byte-compares these images, because the runner and a developer machine render text differently.
-- [ ] The generator takes a tarballed ticket store as its data seed, defaults to the committed example bundle, and captures a named bundle without editing the script.
+- [x] Nothing per-build or per-machine appears in an image: the version, commit, and store path are held constant, and the capture fails rather than emitting an image if they are not.
+- [x] The README displays the images, and a reader can find the command that regenerates them.
+- [x] No CI job byte-compares these images, because the runner and a developer machine render text differently.
+- [x] The generator takes a tarballed ticket store as its data seed, defaults to the committed example bundle, and captures a named bundle without editing the script.
+
+## Notes
+
+**agent:t3code/d30689a3** at 2026-09-15T22:22:46Z
+
+Criterion 3 is deliberately unticked, because what was built is not what it
+asked for and the difference should be a decision rather than a quiet
+substitution.
+
+It asks for the multi-store browser. The browser was captured first and is a
+poor picture: `#storeBrowser` is a full-screen view, so at three stores it is a
+search field, three rows, and nine tenths of empty panel. It is an accurate
+picture of the component and a misleading picture of the product.
+
+The shot that replaced it is the store picker open over the loaded board. It
+carries the same information a reader needs, the open store, a starred favorite,
+and the count behind "Browse all stores (3)", while showing it in the place it
+actually appears. Marking the second store a favorite through `PUT
+/api/favorites` is what makes the quick list longer than one row, since that
+list is the current store plus recent and favorite ones, and a canvas that has
+opened one store has a menu of one.
+
+The unavailable store is still configured and still listed; it is simply behind
+the "Browse all stores" button rather than in the frame. If the reason text on
+an unopenable store is worth its own image, the browser shot can be added as a
+fourth. That is a call about what the README should argue, not a technical
+obstacle.
+
+Verified for the other criteria rather than asserted:
+
+Reproducibility. Two consecutive runs with no change produced byte-identical
+PNGs for all three images, checked with sha256sum -c. The wait on the canvas
+transform is what makes that true; Fit animates with requestAnimationFrame,
+which Playwright's `animations: 'disabled'` does not govern.
+
+The identity guard. Falsified by changing the stubbed version to "not-stubbed"
+and re-running: the capture threw "toolbar version reads \"not-stubbed\",
+expected \"baseline\"" and wrote no image, and the three committed images still
+matched their previous hashes afterwards.
+
+The shared scene module. `loadScene` gained an optional `store`, because a
+canvas serving more than one store answers 404 store_required on the unprefixed
+board route. The default is unchanged, and the review baseline capture was
+re-run to confirm it still produces its scene.
+
+One thing to know about that re-run: `npm run capture:canvas-baseline` rewrites
+the committed artifacts in place. It did, and they were restored with `git
+checkout --`; the restored PNG hashes to dc699217..., which is the value
+`canvas-baseline.json` records, so the pair is self-consistent again.
+
+`just canvas-visual` fails on this machine, and did so identically with this
+change reverted, 1 failed and 6 passed either way. That is the local-versus-CI
+font difference the recipe's own comment documents, not a regression here.

@@ -71,6 +71,12 @@ browser-test *args:
 canvas-visual *args:
     CANVAS_VISUAL=1 npm exec -- playwright test tests/browser/canvas-density.spec.ts "$@"
 
+# Regenerate the README images from a tarballed ticket store. Local only, for
+# the same reason as canvas-visual: a runner and this machine disagree on text.
+# Pass --fixture to shoot a different bundle. See docs/readme-images.md.
+readme-shots *args:
+    npm run capture:readme-shots -- "$@"
+
 # Install the locked frontend dependencies.
 web-setup:
     npm ci

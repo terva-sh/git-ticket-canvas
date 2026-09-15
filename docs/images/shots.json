@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "generator": "scripts/capture-readme-shots.mjs",
+  "seed": {
+    "archive": "docs/artifacts/canvas-review-baseline-2026-09-11/ahpsh-tickets/ahpsh-tickets.tgz",
+    "sha256": "a6162422b117d113e77b17323fbb7d736df19ae68016051e62605a2c6dd240ab"
+  },
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "deviceScaleFactor": 1,
+    "colorScheme": "dark"
+  },
+  "stores": [
+    {
+      "directory": "arkham-photo-hunt",
+      "seeded": true
+    },
+    {
+      "directory": "halloween-archive",
+      "seeded": true
+    },
+    {
+      "directory": "moved-last-week",
+      "seeded": false
+    }
+  ],
+  "openedStore": {
+    "id": "arkham-photo-hunt-30f746904232",
+    "display": "arkham-photo-hunt"
+  },
+  "favoriteStore": {
+    "id": "halloween-archive-a987401d11f4",
+    "display": "halloween-archive"
+  },
+  "cards": 30,
+  "relationships": 41,
+  "selectedTicket": "TKT-01M24GA0PMGWEM80RBS502FGVY",
+  "renderedChrome": {
+    "version": "baseline",
+    "storePath": "/canvas-fixture/.tickets"
+  },
+  "appVersion": {
+    "schemaVersion": 1,
+    "kind": "version",
+    "version": "baseline",
+    "commit": "baseline",
+    "go": "baseline",
+    "modified": false
+  },
+  "images": [
+    {
+      "name": "canvas",
+      "file": "docs/images/canvas.png",
+      "sha256": "2c75a71ec0da99b8665c1a7e0ed19d5124de355c680d376a4153fa81dee57e52",
+      "notes": "the board fitted, dependency and parent edges drawn"
+    },
+    {
+      "name": "inspector",
+      "file": "docs/images/inspector.png",
+      "sha256": "92388a7417092e05329111b78bec5eb932bd94d51ea1dde33b3a3cc13928d656",
+      "notes": "one ticket selected, every field on the right"
+    },
+    {
+      "name": "stores",
+      "file": "docs/images/stores.png",
+      "sha256": "a100009c11efa9b6c3a2134db29026afcf30205d060c6088dd4922295f781da3",
+      "notes": "the store picker open over the board, one store per row"
+    }
+  ]
+}

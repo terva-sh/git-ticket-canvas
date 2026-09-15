@@ -9,6 +9,7 @@
     "pretest:browser": "npm run build",
     "test:browser": "playwright test",
     "capture:canvas-baseline": "node scripts/capture-canvas-baseline.mjs",
+    "capture:readme-shots": "node scripts/capture-readme-shots.mjs",
     "test:unit": "vitest run --config vitest.config.ts"
   },
   "devDependencies": {

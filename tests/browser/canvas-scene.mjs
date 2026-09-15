@@ -106,12 +106,18 @@ export async function assertStableChrome(page) {
  */
 export async function loadScene(page, url, options = {}) {
   const relationshipMode = options.relationshipMode ?? SCENE.relationshipMode
-  await page.goto(url, { waitUntil: 'domcontentloaded' })
-  const response = await page.request.get(`${url}/api/board?board=${SCENE.board}`)
+  // A canvas serving more than one store has no unprefixed board route: it
+  // answers 404 store_required rather than guessing which store was meant. A
+  // caller that names one is addressed the way a person addresses it, by
+  // fragment, so the page and the request agree on the store.
+  const store = options.store ?? null
+  await page.goto(store ? `${url}/#store=${store}` : url, { waitUntil: 'domcontentloaded' })
+  const board = store ? `/api/stores/${store}/board` : '/api/board'
+  const response = await page.request.get(`${url}${board}?board=${SCENE.board}`)
   if (!response.ok()) {
     throw new Error(`board request failed ${response.status()}: ${await response.text()}`)
   }
-  const board = await response.json()
+  const payload = await response.json()
   await page.locator('#relationshipMode').selectOption(relationshipMode)
   await page.locator('#cards').waitFor({ state: 'attached' })
   await page.locator('#cards .card').first().waitFor({ state: 'attached' })
@@ -121,7 +127,7 @@ export async function loadScene(page, url, options = {}) {
   if (unmeasured.length) {
     throw new Error(`cards have no measured bounds: ${unmeasured.map(([id]) => id).join(', ')}`)
   }
-  return { board, cardCount, geometry }
+  return { board: payload, cardCount, geometry }
 }
 
 /** Select the reference ticket and wait for the inspector and the first edge. */
