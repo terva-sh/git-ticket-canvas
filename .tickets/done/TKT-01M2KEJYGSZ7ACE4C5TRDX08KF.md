@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2KEJYGSZ7ACE4C5TRDX08KF
 title: Match the CI git-ticket pin to the version go.mod requires
 type: task
-status: in-progress
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -25,17 +25,10 @@ references:
     path: null
   - ref: file:release_config_test.go
     path: null
-claim:
-  actor: agent:t3code/d30689a3
-  branch: t3code/orient-upstream-review-tickets
-  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-d30689a3
-  commit: 24033a9b2b64e9387055f6c343ddb7d0a9718595
-  session: null
-  claimed_at: 2026-09-15T22:05:11Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-15T21:11:54Z
-updated_at: 2026-09-15T22:11:19Z
+updated_at: 2026-09-15T22:13:41Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -69,8 +62,8 @@ should match the module requirement so the gate and the code agree.
 
 ## Acceptance criteria
 
-- [ ] The three workflow files install the same git-ticket version go.mod requires.
-- [ ] A check fails if the pinned CLI version and the go.mod requirement drift apart again.
+- [x] The three workflow files install the same git-ticket version go.mod requires.
+- [x] A check fails if the pinned CLI version and the go.mod requirement drift apart again.
 
 ## Implementation plan
 
@@ -141,3 +134,38 @@ Worth noting what this says about the lane. The Windows job was restored two
 commits earlier and immediately caught a defect in the very change that
 followed it, in a test whose entire purpose is to catch drift. A gate that finds
 something in its first week was worth restoring.
+
+## Summary
+
+The three workflows install git-ticket v0.18.1, the version go.mod requires,
+where they had installed v0.14.3 since the library moved on 2026-09-14.
+
+Nothing had been failing, which is the interesting part. Both versions enforce
+ticket schema 3, so the old CLI read the store fine and the drift was invisible.
+What it cost was gate strength rather than correctness: `check --strict`
+validates against the rules the binary knows, so CI was enforcing a rule set
+four minor versions behind the library the application links. Verified before
+changing the pin rather than after, by installing v0.18.1 to a temporary GOBIN
+and running the exact CI command against this store.
+
+`TestWorkflowsInstallTheGitTicketGoModRequires` compares go.mod's requirement
+against every `cmd/git-ticket@` pin under `.github/` and `.forgejo/`. It holds
+no version literal, so the next upgrade does not have to remember it. Falsified
+by reverting one workflow to v0.14.3, and by deleting the install step from all
+three, which fails with its own message because a workflow that installs no CLI
+cannot run tickets-check at all.
+
+The test then failed on Windows for a reason worth keeping: a Windows checkout
+has CRLF endings, `\s` covers `\r`, and `$` under `(?m)` matches only before
+`\n`, so the anchored pattern reported a missing requirement that was present.
+Reproduced against a CRLF copy, fixed by splitting on newlines and using
+`strings.Fields`, and verified by converting go.mod and all three workflow files
+to CRLF in a scratch checkout and running the five workflow tests there.
+
+Green on both forges: mirror-ci run 35029670419 and the Forgejo parity run for
+the same commit. Note that the Forgejo run passed the version that failed on
+Windows, so the internal lane alone would not have caught this.
+
+Left alone deliberately: the CLI on this machine is v0.17.1, so local and CI
+runs are again on different binaries, by a smaller gap and in the other
+direction. A developer's own tooling is their environment.

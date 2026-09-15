@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2KHX3QNR779RE8M9MM36V9V
 title: Generate the README screenshots from a re-runnable script
 type: task
-status: draft
+status: in-progress
 status_reason: null
 priority: normal
 due_on: null
@@ -14,11 +14,26 @@ parent: null
 origin: null
 dependencies: []
 blocks_on: none
-references: []
-claim: null
+references:
+  - ref: file:scripts/capture-readme-shots.mjs
+    path: null
+  - ref: file:README.md
+    path: null
+  - ref: file:justfile
+    path: null
+  - ref: file:tests/browser/canvas-scene.mjs
+    path: null
+claim:
+  actor: agent:t3code/d30689a3
+  branch: t3code/orient-upstream-review-tickets
+  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-d30689a3
+  commit: 3ae743a46c44237abf83652e0cb1d71767e7395d
+  session: null
+  claimed_at: 2026-09-15T22:12:06Z
+  expires_at: null
 archive: null
 created_at: 2026-09-15T22:09:52Z
-updated_at: 2026-09-15T22:09:52Z
+updated_at: 2026-09-15T22:12:06Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -68,3 +83,4 @@ runner for a reason that is not a defect.
 - [ ] Nothing per-build or per-machine appears in an image: the version, commit, and store path are held constant, and the capture fails rather than emitting an image if they are not.
 - [ ] The README displays the images, and a reader can find the command that regenerates them.
 - [ ] No CI job byte-compares these images, because the runner and a developer machine render text differently.
+- [ ] The generator takes a tarballed ticket store as its data seed, defaults to the committed example bundle, and captures a named bundle without editing the script.
