@@ -268,7 +268,10 @@ func TestRescanAddsAndRemovesWithoutTouchingActiveStores(t *testing.T) {
 
 	r := NewRegistry(RegistryOptions{Rescan: RescanSource{Config: cfg}})
 	defer r.Close()
-	if err := r.Register(StoreSpec{Name: "first", Path: first}); err != nil {
+	// The id has to be the one Merge derives, or the rescan below reads this
+	// store as a second one that happens to share a path.
+	firstID := hashedID(first)
+	if err := r.Register(StoreSpec{Name: firstID, Path: first}); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.Start(context.Background()); err != nil {
@@ -276,8 +279,8 @@ func TestRescanAddsAndRemovesWithoutTouchingActiveStores(t *testing.T) {
 	}
 	server := httptest.NewServer(r.Handler())
 	defer server.Close()
-	request(t, server, "GET", "/api/stores/first/board", "", http.StatusOK)
-	opened, _ := r.Lookup("first")
+	request(t, server, "GET", "/api/stores/"+firstID+"/board", "", http.StatusOK)
+	opened, _ := r.Lookup(firstID)
 
 	storeDir(t, root, "second")
 	added, removed, err := r.Rescan()
@@ -287,7 +290,7 @@ func TestRescanAddsAndRemovesWithoutTouchingActiveStores(t *testing.T) {
 	if added != 1 || removed != 0 {
 		t.Errorf("rescan added %d and removed %d, want 1 and 0", added, removed)
 	}
-	if again, _ := r.Lookup("first"); again != opened {
+	if again, _ := r.Lookup(firstID); again != opened {
 		t.Error("the rescan replaced a store somebody was reading")
 	}
 
@@ -306,7 +309,7 @@ func TestRescanAddsAndRemovesWithoutTouchingActiveStores(t *testing.T) {
 	if removed != 1 {
 		t.Errorf("rescan removed %d stores, want the closed one", removed)
 	}
-	if _, still := r.Lookup("first"); !still {
+	if _, still := r.Lookup(firstID); !still {
 		t.Error("the rescan dropped a store somebody was reading")
 	}
 }

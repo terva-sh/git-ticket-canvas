@@ -8,8 +8,6 @@ import (
 	"testing"
 
 	"github.com/terva-sh/git-ticket/ticket"
-
-	"github.com/terva-sh/git-ticket-canvas/internal/config"
 )
 
 // declares writes a canvas key into a store's own configuration, keeping what
@@ -295,8 +293,13 @@ func TestDeclaredWorksWithoutARoot(t *testing.T) {
 		t.Fatalf("found %+v, want the one child", result.Stores)
 	}
 	got := result.Stores[0]
-	if name := config.SlugName(got.Root, got.Path); name != "inner" {
-		t.Errorf("SlugName = %q, want it derived against the declaring store", name)
+	// The child is rooted at the store that declared it, which is what makes
+	// its position relative to that store rather than to the search root.
+	if got.Root != parent {
+		t.Errorf("root = %q, want the declaring store %q", got.Root, parent)
+	}
+	if rel, err := filepath.Rel(got.Root, got.Path); err != nil || rel != "inner" {
+		t.Errorf("path below the declaring store = %q (%v), want %q", rel, err, "inner")
 	}
 	if got.Depth != 1 {
 		t.Errorf("depth = %d, want 1", got.Depth)

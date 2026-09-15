@@ -32,10 +32,11 @@ type MergeOptions struct {
 //
 // This lives beside the registry rather than in main, because a rescan needs
 // the same rule and main will not be running then.
-func Merge(cfg config.Config, found discover.Result, opts MergeOptions) ([]StoreSpec, []string) {
+func Merge(cfg config.Config, found discover.Result, opts MergeOptions) ([]StoreSpec, []string, error) {
 	var specs []StoreSpec
 	var notes []string
-	taken := make(map[string]bool, len(cfg.Stores)+len(found.Stores))
+	// taken maps an id to the path that holds it, so a collision can name both.
+	taken := make(map[string]string, len(cfg.Stores)+len(found.Stores))
 	// named maps a store's own directory to the id it ended up with, so a
 	// declared child can be named after its parent.
 	named := make(map[string]string, len(cfg.Stores)+len(found.Stores))
@@ -46,12 +47,20 @@ func Merge(cfg config.Config, found discover.Result, opts MergeOptions) ([]Store
 		if actor == "" {
 			actor = opts.Actor
 		}
+		name := s.Name
+		if s.Derived {
+			name = hashedID(s.Path)
+		}
+		if held, clash := taken[name]; clash {
+			return nil, nil, collision(name, held, s.Path)
+		}
 		byKey[discover.Key(s.Path)] = len(specs)
-		taken[s.Name], named[s.Path] = true, s.Name
+		taken[name], named[s.Path] = s.Path, name
 		specs = append(specs, StoreSpec{
-			Name: s.Name,
-			// A name somebody wrote is also what they want to read.
-			Display:  s.Name,
+			Name: name,
+			// A name somebody wrote is also what they want to read. A derived
+			// one is replaced by the directory, as a discovered store's is.
+			Display:  displayFor(s),
 			Path:     s.Path,
 			Actor:    actor,
 			ReadOnly: opts.ReadOnly || s.ReadOnly,
@@ -68,8 +77,11 @@ func Merge(cfg config.Config, found discover.Result, opts MergeOptions) ([]Store
 				specs[at].Name, f.Path))
 			continue
 		}
-		name := unique(derivedName(f, named), f.Path, taken)
-		taken[name], named[f.Path] = true, name
+		name := hashedID(f.Path)
+		if held, clash := taken[name]; clash {
+			return nil, nil, collision(name, held, f.Path)
+		}
+		taken[name], named[f.Path] = f.Path, name
 		display := f.Name
 		if display == "" {
 			display = DisplayName(f.Path)
@@ -84,7 +96,26 @@ func Merge(cfg config.Config, found discover.Result, opts MergeOptions) ([]Store
 			Parent:   named[f.DeclaredBy],
 		})
 	}
-	return specs, notes
+	return specs, notes, nil
+}
+
+// displayFor is what a configured store is called to a person.
+func displayFor(s config.Store) string {
+	if s.Derived {
+		return DisplayName(s.Path)
+	}
+	return s.Name
+}
+
+// collision refuses two stores that hashed the same.
+//
+// Refusing is the point. Lengthening the hash or numbering the duplicates would
+// make an id depend on what else exists, which is the defect this scheme was
+// built to remove, and it would reintroduce it in the rarest and least
+// reproducible case.
+func collision(id, held, wants string) error {
+	return fmt.Errorf("stores %s and %s both hash to the id %q; "+
+		"name one of them explicitly to separate them", held, wants, id)
 }
 
 // DisplayName is what a store is called to a person: the directory that holds
@@ -101,65 +132,43 @@ func DisplayName(path string) string {
 	return trimmed
 }
 
-// derivedName is what a store nobody named is called.
+// IDLeafLen is how much of the readable prefix an id keeps, and IDHashLen is
+// how many hexadecimal characters of hash follow it.
 //
-// A declared child keeps the name its parent gave it when a URL can hold one,
-// and otherwise takes its parent's id joined to its own relative path, so that
-// children sort next to their parent. Everything else is named for its path
-// below the root it was found under.
-func derivedName(f discover.Found, named map[string]string) string {
-	if f.Name != "" {
-		return f.Name
-	}
-	if parent, ok := named[f.DeclaredBy]; ok {
-		return trimName(parent + "_" + config.SlugName(f.DeclaredBy, f.Path))
-	}
-	return config.SlugName(f.Root, f.Path)
-}
-
-// unique keeps two stores that derive the same name.
+// Twelve hexadecimal characters is 48 bits. At ten thousand stores the chance
+// that any two collide is about 1.8e-07 and at a hundred thousand about
+// 1.8e-05, which is why a collision can be a refusal rather than a rule.
 //
-// The alternative, skipping the second, silently costs you a store: two roots
-// holding org/repo is an ordinary way to lay out a workspace, not a mistake to
-// be punished. The suffix is a hash of the store's identity rather than a
-// counter, so it is the same on the next run and does not move when another
-// store is added ahead of it.
-func unique(name, path string, taken map[string]bool) string {
-	if !taken[name] {
-		return name
-	}
-	suffix := "-" + shortHash(discover.Key(path))
-	candidate := trimName(name, len(suffix)) + suffix
-	for i := 2; taken[candidate]; i++ {
-		numbered := fmt.Sprintf("%s-%d", suffix, i)
-		candidate = trimName(name, len(numbered)) + numbered
-	}
-	return candidate
-}
+// Twenty characters of leaf covers every repository name in a real workspace,
+// and cutting it costs nothing: the hash carries the uniqueness, so the
+// readable part is free to be trimmed. That is the whole reason an id can be
+// short and readable at once, where the slug it replaced could not.
+const (
+	IDLeafLen = 20
+	IDHashLen = 12
+)
 
-// trimName cuts a name to the length a URL path segment is allowed, leaving
-// room for a suffix.
+// hashedID is a store's id: its directory name, trimmed, and a hash of where
+// the store really is.
 //
-// The tail is kept rather than the head: the repository name carries more
-// meaning than the forge it was mirrored from, which is the same choice
-// config.SlugName makes.
-func trimName(name string, reserve ...int) string {
-	limit := config.MaxNameLen
-	for _, r := range reserve {
-		limit -= r
+// The hash is taken over discover.Key, the resolved absolute path, which is the
+// identity the rest of the canvas already uses to deduplicate stores and to key
+// favorites. Three consequences follow, and all three are the point. An id does
+// not move when another store is added, removed, or found in a different order.
+// An id does not move when --root changes. Two paths reaching one store through
+// a symbolic link produce one id rather than two entries fighting over one set
+// of tickets.
+func hashedID(path string) string {
+	// DeriveName carries the rule for what a name may hold, so the leaf goes
+	// through it rather than through a second copy of that rule here.
+	leaf := config.DeriveName(DisplayName(path))
+	if len(leaf) > IDLeafLen {
+		leaf = strings.TrimRight(leaf[:IDLeafLen], "-_")
 	}
-	if limit < 1 {
-		limit = 1
+	sum := sha256.Sum256([]byte(discover.Key(path)))
+	hash := hex.EncodeToString(sum[:])[:IDHashLen]
+	if leaf == "" {
+		return hash
 	}
-	if len(name) <= limit {
-		return name
-	}
-	return strings.TrimLeft(name[len(name)-limit:], "-_")
-}
-
-// shortHash is six hexadecimal characters of a path's hash, enough to separate
-// the handful of stores that collide without making the id unreadable.
-func shortHash(path string) string {
-	sum := sha256.Sum256([]byte(filepath.Clean(path)))
-	return hex.EncodeToString(sum[:3])
+	return leaf + "-" + hash
 }

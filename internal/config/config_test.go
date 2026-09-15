@@ -408,37 +408,6 @@ roots:
 	}
 }
 
-func TestSlugName(t *testing.T) {
-	for _, tc := range []struct{ root, path, want string }{
-		{"/ws", "/ws/forge.example.com/org/repo", "forge-example-com_org_repo"},
-		{"/ws", "/ws/ledger", "ledger"},
-		{"/ws", "/ws/a b/c", "a-b_c"},
-		// The root itself, and a path outside the root, fall back to the base
-		// name rather than producing "." or a string of dots.
-		{"/ws", "/ws", "ws"},
-		{"/ws", "/elsewhere/thing", "thing"},
-	} {
-		if got := SlugName(tc.root, tc.path); got != tc.want {
-			t.Errorf("SlugName(%q, %q) = %q, want %q", tc.root, tc.path, got, tc.want)
-		}
-	}
-}
-
-// Every derived name has to be usable as a URL path segment.
-func TestSlugNameIsAlwaysValid(t *testing.T) {
-	for _, path := range []string{
-		"/ws/forge.example.com/org/repo",
-		"/ws/weird name/with.dots/and~chars",
-		"/ws/" + strings.Repeat("long", 40) + "/tail",
-		"/ws/....",
-	} {
-		name := SlugName("/ws", path)
-		if err := ValidName(name); err != nil {
-			t.Errorf("SlugName(%q) = %q, which is not a valid name: %v", path, name, err)
-		}
-	}
-}
-
 func TestEffectiveExclude(t *testing.T) {
 	on, off := true, false
 	base := Config{Exclude: []string{"mine"}}

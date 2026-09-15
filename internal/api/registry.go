@@ -665,7 +665,12 @@ func (r *Registry) Rescan() (added, removed int, err error) {
 	if len(cfg.Stores) == 0 && len(cfg.Roots) == 0 {
 		return 0, 0, errors.New("this canvas was not started with a configuration to search again")
 	}
-	specs, _ := Merge(cfg, discover.Scan(cfg), r.opts.Rescan.Merge)
+	// A collision here is a refusal rather than a rename, so a rescan that hits
+	// one changes nothing and says why.
+	specs, _, err := Merge(cfg, discover.Scan(cfg), r.opts.Rescan.Merge)
+	if err != nil {
+		return 0, 0, err
+	}
 
 	wanted := make(map[string]StoreSpec, len(specs))
 	for _, spec := range specs {

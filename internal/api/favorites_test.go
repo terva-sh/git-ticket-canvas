@@ -76,7 +76,10 @@ func TestFavoritesRefusedWithoutState(t *testing.T) {
 // An id is derived from a path relative to a root, so changing --root renames
 // every store at once. A favorite keyed by id would be lost by a flag that was
 // meant to change nothing about which stores exist.
-func TestAFavoriteSurvivesARootChangeThatRenamesEverything(t *testing.T) {
+// A root change used to rename every store, which is why favorites are keyed
+// on resolved paths. Hashing an id over discover.Key removed the rename, so
+// this now holds the stronger property: the id does not move either.
+func TestARootChangeMovesNeitherTheFavoriteNorTheID(t *testing.T) {
 	root := t.TempDir()
 	path := storeDir(t, root, "org", "repo")
 	remembered, _ := stateIn(t)
@@ -84,7 +87,10 @@ func TestAFavoriteSurvivesARootChangeThatRenamesEverything(t *testing.T) {
 	serve := func(rootPath string, depth int) []StoreStatus {
 		t.Helper()
 		cfg := config.Config{Roots: []config.Root{{Path: rootPath, Depth: depth}}}
-		specs, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
+		specs, _, err := Merge(cfg, discover.Scan(cfg), MergeOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
 		r := NewRegistry(RegistryOptions{State: remembered})
 		defer r.Close()
 		for _, spec := range specs {
@@ -96,20 +102,27 @@ func TestAFavoriteSurvivesARootChangeThatRenamesEverything(t *testing.T) {
 	}
 
 	first := serve(root, 3)
-	if len(first) != 1 || first[0].Name != "org_repo" {
-		t.Fatalf("stores = %+v, want one called org_repo", first)
+	if len(first) != 1 {
+		t.Fatalf("stores = %+v, want one", first)
 	}
 	if err := remembered.SetFavorite(discover.Key(path), true); err != nil {
 		t.Fatal(err)
 	}
 
-	// Same store, a root one level down, so the derived id is different.
+	// The same store, reached under a root one level down. The id is derived
+	// from the store's own resolved path, so nothing about it depends on this.
 	second := serve(filepath.Join(root, "org"), 2)
-	if len(second) != 1 || second[0].Name != "repo" {
-		t.Fatalf("stores = %+v, want one called repo", second)
+	if len(second) != 1 {
+		t.Fatalf("stores = %+v, want one", second)
+	}
+	if second[0].Name != first[0].Name {
+		t.Errorf("--root moved the id from %q to %q", first[0].Name, second[0].Name)
+	}
+	if second[0].Display != "repo" {
+		t.Errorf("store displays %q, want %q", second[0].Display, "repo")
 	}
 	if !second[0].Favorite {
-		t.Error("the favorite was lost when --root renamed the store")
+		t.Error("the favorite was lost across the root change")
 	}
 }
 

@@ -59,7 +59,12 @@ var DefaultExclude = []string{"node_modules", "vendor", "target", "dist", "build
 // of the global --actor and --read-only settings; an empty Actor means the
 // store resolves its own from its config.yml.
 type Store struct {
-	Name     string `yaml:"name"`
+	Name string `yaml:"name"`
+	// Derived is true when nobody wrote this name and the canvas took it from
+	// the path. A written name is kept as the store's id; a derived one is
+	// replaced by a hash, because a name taken from a path is not unique and
+	// was never chosen.
+	Derived  bool   `yaml:"-"`
 	Path     string `yaml:"path"`
 	Actor    string `yaml:"actor,omitempty"`
 	ReadOnly bool   `yaml:"readOnly,omitempty"`
@@ -276,7 +281,7 @@ func parseEntry(value, base string) (Store, error) {
 		return Store{}, fmt.Errorf("%q: %w", value, err)
 	}
 	if name == "" {
-		name = DeriveName(resolved)
+		return Store{Name: DeriveName(resolved), Derived: true, Path: resolved}, nil
 	}
 	return Store{Name: name, Path: resolved}, nil
 }
@@ -454,43 +459,4 @@ func (c *Config) AddRoots(paths []string, depth int, base string) error {
 		c.Roots = append(c.Roots, Root{Path: resolved, Depth: depth})
 	}
 	return nil
-}
-
-// SlugName derives a store name from a path relative to the root it was found
-// under.
-//
-// A discovered store needs a name that is stable between runs, unique across a
-// root, and usable in a URL. The path relative to its root is all three, once
-// the separators and the characters a name may not hold are replaced:
-// forge.example.com/org/repo becomes forge-example-com_org_repo.
-//
-// A name derived this way changes if the root changes, so anything that has to
-// outlive a configuration change, such as a favorite, is keyed by absolute path
-// instead.
-func SlugName(root, path string) string {
-	rel, err := filepath.Rel(root, path)
-	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
-		return DeriveName(path)
-	}
-	var b strings.Builder
-	for _, r := range filepath.ToSlash(rel) {
-		switch {
-		case validNameRune(r):
-			b.WriteRune(r)
-		case r == '/':
-			b.WriteRune('_')
-		default:
-			b.WriteRune('-')
-		}
-	}
-	name := strings.Trim(b.String(), "-_")
-	if name == "" {
-		return DeriveName(path)
-	}
-	if len(name) > MaxNameLen {
-		// Keep the tail: the repository name carries more meaning than the
-		// forge it is mirrored from.
-		name = strings.TrimLeft(name[len(name)-MaxNameLen:], "-_")
-	}
-	return name
 }

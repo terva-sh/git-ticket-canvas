@@ -47,7 +47,7 @@ func TestMergeServesAnExplicitStoreWhateverTheSearchSays(t *testing.T) {
 		},
 		Roots: []config.Root{{Path: root, Depth: 4}},
 	}
-	specs, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
+	specs, _, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
 	if got := names(specs); strings.Join(got, ",") != "outside,deliberate" {
 		t.Errorf("stores = %v, want both named entries", got)
 	}
@@ -59,7 +59,7 @@ func TestMergeKeepsANamedStoreThatIsNotThere(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "gone")
 	cfg := config.Config{Stores: []config.Store{{Name: "gone", Path: missing}}}
 
-	specs, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
+	specs, _, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
 	if len(specs) != 1 || specs[0].Path != missing {
 		t.Fatalf("specs = %+v, want the missing store kept", specs)
 	}
@@ -84,7 +84,7 @@ func TestMergeLetsTheExplicitEntryWin(t *testing.T) {
 		Stores: []config.Store{{Name: "mine", Path: path, Actor: "human:me", ReadOnly: true}},
 		Roots:  []config.Root{{Path: root, Depth: 4}},
 	}
-	specs, notes := Merge(cfg, discover.Scan(cfg), MergeOptions{Actor: "agent:other"})
+	specs, notes, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{Actor: "agent:other"})
 	if len(specs) != 1 {
 		t.Fatalf("stores = %v, want one", names(specs))
 	}
@@ -113,7 +113,7 @@ func TestMergeDropsADiscoveredDuplicateOfANamedStore(t *testing.T) {
 		Stores: []config.Store{{Name: "mine", Path: path}},
 		Roots:  []config.Root{{Path: root, Depth: 4}},
 	}
-	specs, notes := Merge(cfg, discover.Walk(cfg), MergeOptions{})
+	specs, notes, _ := Merge(cfg, discover.Walk(cfg), MergeOptions{})
 	if got := names(specs); len(got) != 1 || got[0] != "mine" {
 		t.Errorf("stores = %v, want only the named entry", got)
 	}
@@ -136,7 +136,7 @@ func TestMergeJoinsPathsThatDifferByASymbolicLink(t *testing.T) {
 		Stores: []config.Store{{Name: "named", Path: filepath.Join(link, "project")}},
 		Roots:  []config.Root{{Path: filepath.Dir(real), Depth: 2}},
 	}
-	specs, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
+	specs, _, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
 	if got := names(specs); len(got) != 1 || got[0] != "named" {
 		t.Errorf("stores = %v, want one entry under the configured name", got)
 	}
@@ -156,7 +156,7 @@ func TestMergeJoinsATildePathWithADiscoveredOne(t *testing.T) {
 	if err := cfg.AddRoots([]string{home}, 2, home); err != nil {
 		t.Fatal(err)
 	}
-	specs, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
+	specs, _, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
 	if len(specs) != 1 {
 		t.Errorf("stores = %v, want one", names(specs))
 	}
@@ -176,7 +176,7 @@ func TestMergeJoinsAPathInsideAStoreWithTheStore(t *testing.T) {
 		Stores: []config.Store{{Name: "named", Path: inside}},
 		Roots:  []config.Root{{Path: root, Depth: 4}},
 	}
-	specs, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
+	specs, _, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
 	if got := names(specs); len(got) != 1 || got[0] != "named" {
 		t.Errorf("stores = %v, want one entry", got)
 	}
@@ -193,7 +193,7 @@ func TestMergeKeepsBothStoresWhenTheNamesCollide(t *testing.T) {
 		{Path: filepath.Join(root, "one"), Depth: 3},
 		{Path: filepath.Join(root, "two"), Depth: 3},
 	}}
-	specs, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
+	specs, _, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
 	if len(specs) != 2 {
 		t.Fatalf("stores = %v, want both", names(specs))
 	}
@@ -205,22 +205,39 @@ func TestMergeKeepsBothStoresWhenTheNamesCollide(t *testing.T) {
 			t.Errorf("name %q is not usable in a URL: %v", s.Name, err)
 		}
 	}
-	again, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
+	again, _, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
 	if strings.Join(names(again), ",") != strings.Join(names(specs), ",") {
 		t.Errorf("names moved between runs: %v then %v", names(specs), names(again))
 	}
 }
 
-func TestMergeNamesADeclaredChildAfterItsParent(t *testing.T) {
+// An id is a function of a path alone, so a child's id no longer spells out its
+// parent. The relationship travels in Parent, which is what the browser nests
+// by, and in the display name, which is what a person reads.
+func TestMergeRecordsAChildsParentRatherThanEncodingIt(t *testing.T) {
 	root := t.TempDir()
 	parent := storeDir(t, root, "project")
-	storeDir(t, parent, "fixtures", "inner")
+	inner := storeDir(t, parent, "fixtures", "inner")
 	declareChild(t, parent, "fixtures/inner")
 
 	cfg := config.Config{Roots: []config.Root{{Path: root, Depth: 3}}}
-	specs, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
-	if got := names(specs); strings.Join(got, ",") != "project,project_fixtures_inner" {
-		t.Errorf("stores = %v, want the child named after its parent", got)
+	specs, _, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{})
+	byPath := map[string]StoreSpec{}
+	for _, s := range specs {
+		byPath[s.Path] = s
+	}
+	child, ok := byPath[inner]
+	if !ok {
+		t.Fatalf("the declared child is missing from %v", names(specs))
+	}
+	if child.Parent != byPath[parent].Name {
+		t.Errorf("child parent = %q, want the parent's id %q", child.Parent, byPath[parent].Name)
+	}
+	if strings.Contains(child.Name, byPath[parent].Name) {
+		t.Errorf("child id %q spells out its parent; an id is a function of its own path", child.Name)
+	}
+	if child.Display != "inner" {
+		t.Errorf("child displays %q, want %q", child.Display, "inner")
 	}
 }
 
@@ -233,7 +250,7 @@ func TestMergeGlobalReadOnlyBeatsEveryStore(t *testing.T) {
 		Stores: []config.Store{{Name: "writable", Path: storeDir(t, root, "named")}},
 		Roots:  []config.Root{{Path: root, Depth: 3}},
 	}
-	specs, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{ReadOnly: true})
+	specs, _, _ := Merge(cfg, discover.Scan(cfg), MergeOptions{ReadOnly: true})
 	for _, s := range specs {
 		if !s.ReadOnly {
 			t.Errorf("store %q is writable under --read-only", s.Name)
@@ -241,12 +258,26 @@ func TestMergeGlobalReadOnlyBeatsEveryStore(t *testing.T) {
 	}
 }
 
-func TestTrimNameKeepsNamesInsideTheURLLimit(t *testing.T) {
-	long := strings.Repeat("a", config.MaxNameLen*2)
-	taken := map[string]bool{trimName(long): true}
-	for _, name := range []string{trimName(long), unique(trimName(long), "/some/path", taken)} {
-		if err := config.ValidName(name); err != nil {
-			t.Errorf("name %q: %v", name, err)
+// Every id has to be usable as a URL path segment, whatever the path it came
+// from. The hash is hexadecimal and the leaf is trimmed, so the only way this
+// fails is a leaf that ends in a separator after trimming.
+func TestHashedIDIsAlwaysAValidName(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{
+		"repo",
+		"weird name",
+		"with.dots",
+		strings.Repeat("long", 40),
+		"....",
+		"-leading-dash",
+	} {
+		dir := storeDir(t, root, name)
+		id := hashedID(dir)
+		if err := config.ValidName(id); err != nil {
+			t.Errorf("hashedID for %q = %q, which is not a valid name: %v", name, id, err)
+		}
+		if len(id) > IDLeafLen+1+IDHashLen {
+			t.Errorf("hashedID for %q = %q, %d characters, over the bound", name, id, len(id))
 		}
 	}
 }
@@ -314,7 +345,7 @@ func TestMergeFillsDisplayNames(t *testing.T) {
 		{Path: twinB, Root: root},
 		{Path: child, Root: root, Name: "declared-name", DeclaredBy: deep},
 	}}
-	specs, _ := Merge(cfg, found, MergeOptions{})
+	specs, _, _ := Merge(cfg, found, MergeOptions{})
 
 	display := map[string]string{}
 	for _, spec := range specs {
@@ -350,6 +381,105 @@ func TestMergeFillsDisplayNames(t *testing.T) {
 	for _, id := range twins {
 		if strings.Contains(id, "docs-") && len(id) < 10 {
 			t.Errorf("id %q looks like a disambiguating suffix on the display name", id)
+		}
+	}
+}
+
+// The defect this scheme replaced: an id moved when an unrelated store was
+// added, and the bare id it vacated began resolving to the new store.
+func TestAnIDDoesNotMoveWhenAnotherStoreIsAdded(t *testing.T) {
+	root := t.TempDir()
+	tail := filepath.Join("platform-services", "data-plane", "ingestion", "collectors", "otel-collector")
+	alpha := storeDir(t, root, "alpha-organisation", tail)
+	beta := storeDir(t, root, "beta-organisation", tail)
+
+	ids := func() map[string]string {
+		cfg := config.Config{Roots: []config.Root{{Path: root, Depth: 10}}}
+		specs, _, err := Merge(cfg, discover.Scan(cfg), MergeOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := map[string]string{}
+		for _, s := range specs {
+			out[s.Path] = s.Name
+		}
+		return out
+	}
+
+	before := ids()
+	// Two stores differing only near the root, which the slug scheme trimmed
+	// away and then collided.
+	if before[alpha] == before[beta] {
+		t.Fatalf("alpha and beta share the id %q", before[alpha])
+	}
+
+	// A third organisation, sorting ahead of both, is what used to move them.
+	storeDir(t, root, "aaa-organisation", tail)
+	after := ids()
+	for _, path := range []string{alpha, beta} {
+		if before[path] != after[path] {
+			t.Errorf("id for %s moved from %q to %q when an unrelated store was added",
+				filepath.Base(filepath.Dir(path)), before[path], after[path])
+		}
+	}
+}
+
+// One store reached two ways is one store. Resolving the link is what stops
+// two registry entries holding two watchers over one set of tickets.
+func TestASymlinkedPathProducesTheSameID(t *testing.T) {
+	root := t.TempDir()
+	real := storeDir(t, root, "real", "repo")
+	link := filepath.Join(root, "link")
+	if err := os.Symlink(filepath.Join(root, "real"), link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if direct, through := hashedID(real), hashedID(filepath.Join(link, "repo")); direct != through {
+		t.Errorf("the same store has ids %q and %q depending on the path used", direct, through)
+	}
+}
+
+// A collision refuses rather than renaming. Two written names that are equal
+// reach the same refusal a hash collision would, which is the only way to
+// exercise it without 48 bits of luck.
+func TestTwoStoresClaimingOneIDRefuse(t *testing.T) {
+	root := t.TempDir()
+	first := storeDir(t, root, "first")
+	second := storeDir(t, root, "second")
+	cfg := config.Config{Stores: []config.Store{
+		{Name: "same", Path: first},
+		{Name: "same", Path: second},
+	}}
+	_, _, err := Merge(cfg, discover.Result{}, MergeOptions{})
+	if err == nil {
+		t.Fatal("two stores claiming one id were accepted")
+	}
+	for _, want := range []string{first, second, "same"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal %q does not name %q", err, want)
+		}
+	}
+}
+
+// An unnamed --store is a derived name, so it is hashed. Two of them whose
+// directories share a base name used to derive one name and fail to register.
+func TestUnnamedStoresSharingABaseNameGetDistinctIDs(t *testing.T) {
+	root := t.TempDir()
+	first := storeDir(t, root, "one", "docs")
+	second := storeDir(t, root, "two", "docs")
+	cfg := config.Config{Stores: []config.Store{
+		{Name: config.DeriveName(first), Derived: true, Path: first},
+		{Name: config.DeriveName(second), Derived: true, Path: second},
+	}}
+	specs, _, err := Merge(cfg, discover.Result{}, MergeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if specs[0].Name == specs[1].Name {
+		t.Errorf("both stores took the id %q", specs[0].Name)
+	}
+	for _, s := range specs {
+		if s.Display != "docs" {
+			t.Errorf("store %q displays %q, want %q", s.Name, s.Display, "docs")
 		}
 	}
 }

@@ -419,22 +419,73 @@ guessing wrong writes a ticket into the wrong repository.
 
 ## Naming a store
 
-A store's id appears in URLs, so it is restricted to letters, digits, `-`, and
-`_`, which is the character set `validBoardName` already enforces for boards.
+A store has an id and a display name, and they answer different questions. The
+id has to be unique across a workspace and stable enough to sit in a URL. The
+display name only has to be recognisable under the heading it appears below.
 
-A store you named uses that name. A store found by a walk derives one from its
-path relative to its root, with `/` becoming `_` and any other illegal
-character becoming `-`. A declared child keeps the name its parent gave it when
-a URL can hold one, and otherwise takes its parent's id joined to its own
-relative path, which makes children sort next to their parent.
+An id a person wrote is kept. Everything else is
+`trim(directory name, 20) + "-" + 12 hexadecimal characters of sha256 over
+discover.Key(path)`, for example `otel-collector-a3f19c2b4d1e`. A name is
+restricted to letters, digits, `-`, and `_`, which is the character set
+`validBoardName` already enforces for boards.
 
-A collision between two roots is broken by appending six hexadecimal characters
-of a hash of the store's resolved key, with the name truncated first if the two
-together would pass the 64-character limit. Two roots each laid out as
-`org/repo` is an ordinary workspace rather than a mistake, so both stores are
-kept. The hash is taken over the resolved key rather than a counter, so an id
-is the same on the next run and does not move when another store is added ahead
-of it.
+A display name is the directory holding the store, so
+`/ws/org/alpine/.tickets` reads as `alpine`. A name a person wrote is its own
+display name, and a declared child displays what its parent called it. Two
+directories may share a display name, which is correct: the row prints its path
+and the heading names its group.
+
+### Why the id is a hash and not a slug
+
+The first version derived an id by joining the path below the root and trimming
+to 64 characters, breaking a collision with a six-character hash. It guaranteed
+uniqueness and not stability, and the difference was measured rather than
+argued.
+
+Trimming keeps the tail, so two stores differing only near the root lose the
+part that told them apart, collide, and the second takes a hash on a remainder
+already cut mid-word. Adding a third store that sorted ahead of them moved an
+existing id, and the bare id it vacated began resolving to a different store
+without saying so.
+
+Hashing `discover.Key`, the resolved absolute path, makes an id a function of
+the store and nothing else. Three consequences follow, and all three are the
+reason. An id does not move when another store is added, removed, or found in a
+different order. An id does not move when `--root` changes, which the state
+file previously had to work around by keying favorites on paths. Two paths
+reaching one store through a symbolic link produce one id, rather than two
+registry entries holding two watchers over one set of tickets.
+
+The readable prefix is free because uniqueness lives entirely in the hash.
+Trimming it costs nothing, which is why an id can be short and readable at once
+where the slug could not: the slug had to keep the characters that made it
+unique.
+
+### Width, and why the bits are not split
+
+Twelve hexadecimal characters is 48 bits. The chance any two ids collide is
+about 1.8e-09 at a thousand stores and 1.8e-05 at a hundred thousand, which is
+what lets a collision refuse startup and name both paths rather than resolve
+itself. Lengthening the hash or numbering the duplicates would make an id
+depend on what else exists, reintroducing the defect in its least reproducible
+case.
+
+A wider hash of the parent tree with a narrower one for the leaf was considered
+and rejected. Stores sharing a parent share the parent component, so only the
+leaf bits separate them, and siblings are the dense case: the largest sibling
+group in the workspace this was measured against holds ten repositories. A
+16-bit leaf gives those ten a collision chance of 6.9e-04 against 8.2e-13 for a
+flat 48-bit hash across all 22. For one total width the split spends bits where
+stores are sparse and starves them where stores are packed. The grouping it
+would buy is already on screen and better, because the heading names the parent
+tree in words.
+
+### Bookmarks
+
+Changing the scheme changed every derived id once. Keeping the old slug as an
+alias was considered and dropped: the ids it would preserve were the unstable
+ones, and an alias that resolves to a store the slug no longer identifies is
+worse than a link that fails.
 
 ## What the canvas remembers
 
@@ -604,3 +655,8 @@ finds the repository, and `ticket.Discover` opens the same store for both.
 skipped the second with a log line, which silently costs a store for the
 ordinary case of two roots each laid out as `org/repo`. A hash of the resolved
 key breaks the tie and does not move between runs.
+
+A store id was a slug of its path, broken by a hash on collision. It is now a
+hash with a readable prefix. The slug guaranteed uniqueness and not stability:
+adding a store moved an existing id, and the id it vacated began resolving to a
+different store. See "Why the id is a hash and not a slug" above.

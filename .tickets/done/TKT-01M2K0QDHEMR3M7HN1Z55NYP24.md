@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2K0QDHEMR3M7HN1Z55NYP24
 title: Key a store id on a fixed-width hash of its resolved path
 type: task
-status: draft
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -19,7 +19,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-15T17:09:40Z
-updated_at: 2026-09-15T17:25:32Z
+updated_at: 2026-09-15T18:02:45Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -199,18 +199,107 @@ is keyed on `data-store` and displays its name and path.
 
 ## Acceptance criteria
 
-- [ ] A discovered store's id is its trimmed leaf directory name plus 12 hex of sha256 over discover.Key(path)
-- [ ] An id does not change when another store is added, removed, or found in a different order
-- [ ] An id does not change when --root changes
-- [ ] Two paths reaching one store through a symlink produce one id
-- [ ] Two stores differing only near the root get distinct ids, per the reproduction on TKT-01M2JYXZ
-- [ ] A store named on the command line or in a configuration file keeps that name as its id
-- [ ] A hash collision refuses startup and names both paths, rather than renaming either
-- [ ] Checked against the real 22-store workspace, with ids compared across two runs that differ by an added store
-- [ ] An unnamed --store PATH gets a hashed id, and two such paths sharing a base name no longer collide
+- [x] A discovered store's id is its trimmed leaf directory name plus 12 hex of sha256 over discover.Key(path)
+- [x] An id does not change when another store is added, removed, or found in a different order
+- [x] An id does not change when --root changes
+- [x] Two paths reaching one store through a symlink produce one id
+- [x] Two stores differing only near the root get distinct ids, per the reproduction on TKT-01M2JYXZ
+- [x] A store named on the command line or in a configuration file keeps that name as its id
+- [x] A hash collision refuses startup and names both paths, rather than renaming either
+- [x] Checked against the real 22-store workspace, with ids compared across two runs that differ by an added store
+- [x] An unnamed --store PATH gets a hashed id, and two such paths sharing a base name no longer collide
 
 ## Definition of done
 
-- [ ] just check passes
-- [ ] just browser-test-embedded passes against a freshly built bundle
-- [ ] docs/multi-store-design-v1.md records the id scheme and why the composite hash lost
+- [x] just check passes
+- [x] just browser-test-embedded passes against a freshly built bundle
+- [x] docs/multi-store-design-v1.md records the id scheme and why the composite hash lost
+
+## Implementation plan
+
+### The shape
+
+`derivedName` stops building a slug and returns
+`trim(DisplayName(path), 20) + "-" + hash`, where hash is 12 hexadecimal
+characters of sha256 over `discover.Key(path)`. The readable part carries no
+uniqueness, so trimming it is free, which is the whole reason it can be both
+short and readable.
+
+`unique` goes away as a rule. Uniqueness is a property of the hash, so there is
+nothing to resolve by looking at what other stores exist. What replaces it is a
+check: if two specs land on one id, refuse to start and name both paths. That
+keeps `id = f(path)` true with no exception, which is the defect being fixed.
+
+### What stays
+
+An id a person wrote is kept, so `Merge`'s first loop is untouched. The rule
+widens only in that `--store PATH` with no name is a derived name and gets
+hashed, which needs config to record whether a name was written or derived.
+
+### Order of work
+
+1. The id function and its tests, including the depth reproduction from
+   TKT-01M2JYXZ and a stability test that adds a store and asserts nothing
+   else moved.
+2. The collision refusal.
+3. Config carrying "the operator wrote this name".
+4. `SlugName` and `MaxNameLen` become unused by the id path. Leave them if
+   configuration still validates a written name against the limit.
+5. The real workspace, with ids compared across two runs that differ by an
+   added store.
+
+### Not in scope
+
+The slug alias. Bookmarks and backward compatibility are explicitly out, per
+the decision recorded on this ticket.
+
+## Summary
+
+A store id is now `trim(directory, 20) + "-" + 12 hex of sha256 over
+discover.Key(path)`, for example `alpine-eda63a418a4e`.
+
+### What it fixes, measured
+
+Two runs over the real workspace, the second with a store added that sorts
+ahead of the rest: 22 of 22 ids byte-identical, nothing moved. Under the slug
+scheme an added store moved an existing id and the id it vacated began
+resolving to a different store. The widest id went from 50 characters to 30.
+
+`Merge` no longer resolves collisions, because there is nothing to resolve
+against: an id depends on the store and not on what else was found. Two stores
+claiming one id refuse startup and name both paths.
+
+### What went with it
+
+`unique`, `trimName`, `shortHash`, `derivedName`, and `config.SlugName` are
+gone, along with the tests that asserted the rules they carried. Where a
+deleted test held a property still worth having, it was rewritten rather than
+dropped, and that paid for itself: the replacement for `TestSlugNameIsAlwaysValid`
+immediately caught `hashedID` building ids out of unsanitized directory names
+like `weird name` and `with.dots`. The leaf now goes through `config.DeriveName`,
+which already held that rule.
+
+### Three tests whose premises the change made obsolete
+
+`TestMergeNamesADeclaredChildAfterItsParent` asserted a child's id spelled out
+its parent. An id is a function of one path now, so the relationship travels in
+`Parent`, which is what the browser nests by. The test asserts that instead.
+
+`TestAFavoriteSurvivesARootChangeThatRenamesEverything` existed because
+changing `--root` renamed every store. It does not any more, so the test now
+holds the stronger property: neither the favorite nor the id moves.
+
+`TestRescanAddsAndRemovesWithoutTouchingActiveStores` hand-registered the name
+the old scheme derived. It registers the id `hashedID` derives now, or the
+rescan reads the store as a second one sharing a path.
+
+### Verified
+
+`just check` passes, including `go test -race`. `just browser-test-embedded`
+passes with 72 tests. `internal/api` coverage 88.6%, `internal/config` 89.9%.
+
+### Not done
+
+The slug alias, dropped deliberately: the ids it would have preserved are the
+unstable ones, and an alias resolving to a store the slug no longer identifies
+is worse than a link that fails.

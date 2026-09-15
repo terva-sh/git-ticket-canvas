@@ -188,7 +188,10 @@ func run() error {
 	// The rule lives beside the registry because a later rescan needs it and
 	// main will not be running then.
 	merging := api.MergeOptions{Actor: *actorID, ReadOnly: *readOnly}
-	specs, notes := api.Merge(cfg, found, merging)
+	specs, notes, err := api.Merge(cfg, found, merging)
+	if err != nil {
+		return err
+	}
 
 	// Assets are served once by the registry rather than by every store.
 	idle := *storeIdle
