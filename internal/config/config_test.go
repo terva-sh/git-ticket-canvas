@@ -5,7 +5,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/terva-sh/git-ticket-canvas/internal/testpath"
 )
+
+// abs names an absolute path on the platform running the test. A bare
+// "/srv/store" is not absolute on Windows, so resolve would treat it as
+// relative and join it against the base. See internal/testpath.
+func abs(slash string) string { return testpath.Abs(slash) }
 
 // write puts a configuration file in a temporary directory and returns its path.
 func write(t *testing.T, body string) string {
@@ -46,26 +53,25 @@ stores:
 }
 
 func TestPrecedenceByName(t *testing.T) {
-	file := write(t, `
-stores:
-  - name: shared
-    path: /from/file
-  - name: onlyfile
-    path: /only/file
-`)
+	// The paths are absolute so that the file alone case asserts the file's own
+	// value. A relative path in a configuration file resolves against that
+	// file's directory, which is a temporary directory here.
+	fromFile := abs("/from/file")
+	file := write(t, "stores:\n  - name: shared\n    path: "+fromFile+
+		"\n  - name: onlyfile\n    path: "+abs("/only/file")+"\n")
 	for _, tc := range []struct {
 		name  string
 		env   string
 		flags []string
 		want  string
 	}{
-		{"env beats file", sep("shared=/from/env"), nil, "/from/env"},
-		{"flag beats file", "", []string{"shared=/from/flag"}, "/from/flag"},
-		{"flag beats env", sep("shared=/from/env"), []string{"shared=/from/flag"}, "/from/flag"},
-		{"file alone", "", nil, "/from/file"},
+		{"env beats file", sep("shared=" + abs("/from/env")), nil, abs("/from/env")},
+		{"flag beats file", "", []string{"shared=" + abs("/from/flag")}, abs("/from/flag")},
+		{"flag beats env", sep("shared=" + abs("/from/env")), []string{"shared=" + abs("/from/flag")}, abs("/from/flag")},
+		{"file alone", "", nil, fromFile},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := Load(file, tc.env, tc.flags, "/base")
+			cfg, err := Load(file, tc.env, tc.flags, abs("/base"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -102,28 +108,42 @@ stores:
 }
 
 func TestFlagRelativePathResolvesAgainstBase(t *testing.T) {
-	cfg, err := Load("", "", []string{"rel=sub/dir"}, "/work/base")
+	base := abs("/work/base")
+	cfg, err := Load("", "", []string{"rel=sub/dir"}, base)
 	if err != nil {
 		t.Fatal(err)
 	}
 	store, _ := cfg.Lookup("rel")
-	if store.Path != "/work/base/sub/dir" {
-		t.Errorf("path = %q, want /work/base/sub/dir", store.Path)
+	if want := filepath.Join(base, "sub", "dir"); store.Path != want {
+		t.Errorf("path = %q, want %q", store.Path, want)
 	}
 }
 
+// A forward slash after the tilde is the portable spelling and the one people
+// write, so it expands everywhere. Accepting only filepath.Separator left
+// "~/notes" unexpanded on Windows and joined against the base instead.
 func TestTildeExpands(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Skip("no home directory in this environment")
 	}
-	cfg, err := Load("", "", []string{"h=~/notes"}, "/base")
-	if err != nil {
-		t.Fatal(err)
+	forms := []string{"~/notes", "~"}
+	wants := []string{filepath.Join(home, "notes"), home}
+	if filepath.Separator != '/' {
+		forms = append(forms, "~"+string(filepath.Separator)+"notes")
+		wants = append(wants, filepath.Join(home, "notes"))
 	}
-	store, _ := cfg.Lookup("h")
-	if store.Path != filepath.Join(home, "notes") {
-		t.Errorf("path = %q, want %q", store.Path, filepath.Join(home, "notes"))
+	for i, form := range forms {
+		t.Run(form, func(t *testing.T) {
+			cfg, err := Load("", "", []string{"h=" + form}, abs("/base"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			store, _ := cfg.Lookup("h")
+			if store.Path != wants[i] {
+				t.Errorf("path = %q, want %q", store.Path, wants[i])
+			}
+		})
 	}
 }
 
@@ -139,7 +159,8 @@ func TestBarePathTakesNameFromDirectory(t *testing.T) {
 
 // The bare form is what keeps `git-ticket-canvas --store .` working.
 func TestBareDotKeepsWorking(t *testing.T) {
-	cfg, err := Load("", "", []string{"."}, "/work/project")
+	base := abs("/work/project")
+	cfg, err := Load("", "", []string{"."}, base)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,8 +168,8 @@ func TestBareDotKeepsWorking(t *testing.T) {
 	if !ok {
 		t.Fatalf("names = %v, want a store named project", cfg.Names())
 	}
-	if store.Path != "/work/project" {
-		t.Errorf("path = %q, want /work/project", store.Path)
+	if store.Path != base {
+		t.Errorf("path = %q, want %q", store.Path, base)
 	}
 }
 
@@ -171,17 +192,18 @@ func TestNameSplitsOnFirstEqualsOnly(t *testing.T) {
 }
 
 func TestPathHoldingEqualsIsNotMistakenForAName(t *testing.T) {
-	// "/srv/odd=dir" has no valid name before the '=', so the whole value is
-	// the path.
-	got, err := ParseFlags([]string{"/srv/odd=dir"}, "/base")
+	// An absolute path holding '=' has no valid name before it, so the whole
+	// value is the path.
+	odd := abs("/srv/odd=dir")
+	got, err := ParseFlags([]string{odd}, abs("/base"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("got %d stores, want 1", len(got))
 	}
-	if got[0].Path != "/srv/odd=dir" {
-		t.Errorf("path = %q, want /srv/odd=dir", got[0].Path)
+	if got[0].Path != odd {
+		t.Errorf("path = %q, want %q", got[0].Path, odd)
 	}
 }
 
@@ -199,11 +221,12 @@ func TestDuplicateNameInOneSourceIsRejected(t *testing.T) {
 }
 
 func TestTwoNamesForOnePathAreRejected(t *testing.T) {
-	_, err := Load("", sep("one=/srv/store", "two=/srv/store"), nil, "/base")
+	store := abs("/srv/store")
+	_, err := Load("", sep("one="+store, "two="+store), nil, abs("/base"))
 	if err == nil {
 		t.Fatal("want an error when two names share one path")
 	}
-	for _, want := range []string{"one", "two", "/srv/store"} {
+	for _, want := range []string{"one", "two", store} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not mention %q", err, want)
 		}
@@ -366,13 +389,14 @@ func TestEmptyEnvAndFlagsAreIgnored(t *testing.T) {
 
 func TestAddRootsResolvesAndDefaultsDepth(t *testing.T) {
 	var cfg Config
-	if err := cfg.AddRoots([]string{"ws", "/abs/ws", "", "  "}, 0, "/base"); err != nil {
+	base, absolute := abs("/base"), abs("/abs/ws")
+	if err := cfg.AddRoots([]string{"ws", absolute, "", "  "}, 0, base); err != nil {
 		t.Fatal(err)
 	}
 	if len(cfg.Roots) != 2 {
 		t.Fatalf("roots = %v, want 2; blank values are ignored", cfg.Roots)
 	}
-	if cfg.Roots[0].Path != "/base/ws" || cfg.Roots[1].Path != "/abs/ws" {
+	if cfg.Roots[0].Path != filepath.Join(base, "ws") || cfg.Roots[1].Path != absolute {
 		t.Errorf("paths = %q, %q", cfg.Roots[0].Path, cfg.Roots[1].Path)
 	}
 	for _, r := range cfg.Roots {

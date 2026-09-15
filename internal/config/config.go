@@ -309,17 +309,43 @@ func DeriveName(path string) string {
 	return name
 }
 
+// afterTilde reports whether path starts with a home-directory tilde, and
+// returns what follows it.
+//
+// A forward slash counts on every platform, not only where it is the separator.
+// A configuration file is written by a person and copied between machines, and
+// "~/notes" is the only spelling that means the same thing on all of them. When
+// Windows accepted only a backslash after the tilde, the portable spelling fell
+// through to the relative branch and was joined against the base, so the store
+// pointed somewhere that did not exist. It also stopped matching the same
+// directory found by discovery, because deduplication compares resolved paths,
+// so one store arrived twice under two ids.
+func afterTilde(path string) (string, bool) {
+	if path == "~" {
+		return "", true
+	}
+	if rest, ok := strings.CutPrefix(path, "~/"); ok {
+		return filepath.FromSlash(rest), true
+	}
+	if filepath.Separator != '/' {
+		if rest, ok := strings.CutPrefix(path, "~"+string(filepath.Separator)); ok {
+			return rest, true
+		}
+	}
+	return "", false
+}
+
 // resolve expands a leading ~ and makes the path absolute against base.
 func resolve(path, base string) (string, error) {
 	if strings.TrimSpace(path) == "" {
 		return "", errors.New("empty path")
 	}
-	if path == "~" || strings.HasPrefix(path, "~"+string(filepath.Separator)) {
+	if rest, ok := afterTilde(path); ok {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("expanding %q: %w", path, err)
 		}
-		path = filepath.Join(home, strings.TrimPrefix(path[1:], string(filepath.Separator)))
+		path = filepath.Join(home, rest)
 	}
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(base, path)

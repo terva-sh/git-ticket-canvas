@@ -3,8 +3,11 @@ package state
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/terva-sh/git-ticket-canvas/internal/testpath"
 )
 
 func openIn(t *testing.T) (*Store, string) {
@@ -121,29 +124,42 @@ func TestWritingLeavesNoPartialFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Windows has no Unix permission bits and reports -rw-rw-rw- for every
+	// file, so the assertion cannot hold there. The file records favorites and
+	// the last store rather than anything secret, which is why this is skipped
+	// rather than replaced with an ACL check.
+	if runtime.GOOS == "windows" {
+		t.Skip("file modes are not enforced on Windows")
+	}
 	if perm := info.Mode().Perm(); perm != 0o600 {
 		t.Errorf("state file mode = %v, want 0600", perm)
 	}
 }
 
 func TestDirFollowsXDG(t *testing.T) {
-	t.Setenv("XDG_STATE_HOME", "/somewhere/state")
+	state := testpath.Abs("/somewhere/state")
+	t.Setenv("XDG_STATE_HOME", state)
 	got, err := Dir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != filepath.Join("/somewhere/state", "git-ticket-canvas") {
+	if got != filepath.Join(state, "git-ticket-canvas") {
 		t.Errorf("Dir() = %q, want it under XDG_STATE_HOME", got)
 	}
 
-	// A relative value is not a state directory, so the default applies.
+	// A relative value is not a state directory, so the default applies. The
+	// home directory is read rather than set, because the variable that names
+	// it differs by platform and this is a test about XDG, not about that.
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home directory in this environment")
+	}
 	t.Setenv("XDG_STATE_HOME", "relative")
-	t.Setenv("HOME", "/home/somebody")
 	got, err = Dir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != filepath.Join("/home/somebody", ".local", "state", "git-ticket-canvas") {
-		t.Errorf("Dir() = %q, want the default under HOME", got)
+	if got != filepath.Join(home, ".local", "state", "git-ticket-canvas") {
+		t.Errorf("Dir() = %q, want the default under the home directory", got)
 	}
 }

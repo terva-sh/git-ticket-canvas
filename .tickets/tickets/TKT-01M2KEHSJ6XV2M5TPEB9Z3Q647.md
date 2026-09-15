@@ -12,7 +12,8 @@ assignees: []
 milestone: null
 parent: null
 origin: null
-dependencies: []
+dependencies:
+  - TKT-01M2KEZ1V4GHVWD84CD6NDQVM9
 blocks_on: none
 references:
   - ref: file:.github/workflows/release.yml
@@ -33,7 +34,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-15T21:11:16Z
-updated_at: 2026-09-15T21:17:10Z
+updated_at: 2026-09-15T21:18:37Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""

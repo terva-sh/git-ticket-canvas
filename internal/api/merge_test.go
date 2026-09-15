@@ -8,6 +8,7 @@ import (
 
 	"github.com/terva-sh/git-ticket-canvas/internal/config"
 	"github.com/terva-sh/git-ticket-canvas/internal/discover"
+	"github.com/terva-sh/git-ticket-canvas/internal/testpath"
 )
 
 // storeDir makes a directory that discovery accepts as a store. The merge needs
@@ -146,7 +147,7 @@ func TestMergeJoinsPathsThatDifferByASymbolicLink(t *testing.T) {
 // as one path. The test holds that promise from the outside.
 func TestMergeJoinsATildePathWithADiscoveredOne(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	t.Setenv(testpath.HomeEnv(), home)
 	storeDir(t, home, "project")
 
 	cfg, err := config.Load("", "", []string{"~/project"}, home)
@@ -261,6 +262,10 @@ func TestMergeGlobalReadOnlyBeatsEveryStore(t *testing.T) {
 // Every id has to be usable as a URL path segment, whatever the path it came
 // from. The hash is hexadecimal and the leaf is trimmed, so the only way this
 // fails is a leaf that ends in a separator after trimming.
+// The paths are not created. An id is derived from the directory name and a
+// hash of discover.Key, which falls back to the cleaned path when nothing is
+// there, so the property holds without a store on disk. It also lets the table
+// carry names no filesystem would accept, such as one Windows refuses.
 func TestHashedIDIsAlwaysAValidName(t *testing.T) {
 	root := t.TempDir()
 	for _, name := range []string{
@@ -271,7 +276,7 @@ func TestHashedIDIsAlwaysAValidName(t *testing.T) {
 		"....",
 		"-leading-dash",
 	} {
-		dir := storeDir(t, root, name)
+		dir := filepath.Join(root, name)
 		id := hashedID(dir)
 		if err := config.ValidName(id); err != nil {
 			t.Errorf("hashedID for %q = %q, which is not a valid name: %v", name, id, err)

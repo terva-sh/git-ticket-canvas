@@ -17,7 +17,10 @@ func render(t *testing.T, cfg config.Config, root string) string {
 	if err := Format(cfg, Scan(cfg), &out); err != nil {
 		t.Fatal(err)
 	}
-	return strings.ReplaceAll(out.String(), root, "<root>")
+	// ToSlash so the expected text below can be written once. The separator is
+	// not what these tests are about, and a Windows run would otherwise differ
+	// from a Linux one on every line that names a path.
+	return filepath.ToSlash(strings.ReplaceAll(out.String(), root, "<root>"))
 }
 
 func assertText(t *testing.T, got, want string) {

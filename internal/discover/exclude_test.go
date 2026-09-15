@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/terva-sh/git-ticket-canvas/internal/config"
+	"github.com/terva-sh/git-ticket-canvas/internal/testpath"
 )
 
 func TestMatchPattern(t *testing.T) {
@@ -38,7 +39,7 @@ func TestMatchPattern(t *testing.T) {
 }
 
 func TestMatcherClassifiesByShape(t *testing.T) {
-	root := filepath.FromSlash("/ws")
+	root := testpath.Abs("/ws")
 	for _, tc := range []struct {
 		name, entry, dir string
 		want             bool
@@ -56,13 +57,19 @@ func TestMatcherClassifiesByShape(t *testing.T) {
 		{"pattern", "**/node_modules", "/ws/a/node_modules", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			m := NewMatcher(root, []string{tc.entry})
-			got, by := m.Match(filepath.FromSlash(tc.dir))
-			if got != tc.want {
-				t.Errorf("Match(%q) with %q = %v, want %v", tc.dir, tc.entry, got, tc.want)
+			// An entry written as an absolute path has to be absolute on this
+			// platform too, or the matcher classifies it as a relative one.
+			entry := tc.entry
+			if strings.HasPrefix(entry, "/") {
+				entry = testpath.Abs(entry)
 			}
-			if got && by != tc.entry {
-				t.Errorf("matched by %q, want the entry %q reported back", by, tc.entry)
+			m := NewMatcher(root, []string{entry})
+			got, by := m.Match(testpath.Abs(tc.dir))
+			if got != tc.want {
+				t.Errorf("Match(%q) with %q = %v, want %v", tc.dir, entry, got, tc.want)
+			}
+			if got && by != entry {
+				t.Errorf("matched by %q, want the entry %q reported back", by, entry)
 			}
 		})
 	}
