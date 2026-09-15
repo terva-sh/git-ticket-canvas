@@ -18,11 +18,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/terva-sh/git-ticket-canvas/internal/api"
 	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
+	"github.com/terva-sh/git-ticket-canvas/internal/config"
 	"github.com/terva-sh/git-ticket/ticket"
 )
 
@@ -36,14 +38,26 @@ func main() {
 	}
 }
 
+// storeFlags collects a repeatable --store value.
+type storeFlags []string
+
+func (f *storeFlags) String() string { return strings.Join(*f, ", ") }
+
+func (f *storeFlags) Set(value string) error {
+	*f = append(*f, value)
+	return nil
+}
+
 func run() error {
+	var stores storeFlags
+	flag.Var(&stores, "store", "a store to serve, as PATH or NAME=PATH; repeatable")
 	var (
-		dir      = flag.String("store", ".", "directory to discover the .tickets store from")
-		addr     = flag.String("addr", "127.0.0.1:7777", "address to listen on")
-		actorID  = flag.String("actor", "", "actor to record writes as; defaults to the store's configured actor")
-		readOnly = flag.Bool("read-only", false, "refuse every write, including card placement")
-		version  = flag.Bool("version", false, "print build version and exit")
-		asJSON   = flag.Bool("json", false, "print --version as JSON")
+		configPath = flag.String("config", "", "configuration file listing the stores to serve")
+		addr       = flag.String("addr", "127.0.0.1:7777", "address to listen on")
+		actorID    = flag.String("actor", "", "actor to record writes as; defaults to each store's configured actor")
+		readOnly   = flag.Bool("read-only", false, "refuse every write, including card placement")
+		version    = flag.Bool("version", false, "print build version and exit")
+		asJSON     = flag.Bool("json", false, "print --version as JSON")
 	)
 	flag.Parse()
 
@@ -54,17 +68,22 @@ func run() error {
 		return errors.New("--json requires --version")
 	}
 
-	st, err := ticket.Discover(*dir)
+	cwd, err := os.Getwd()
 	if err != nil {
-		if ticket.CodeOf(err) == ticket.CodeStoreNotFound {
-			return fmt.Errorf("no .tickets store at or above %s; run `git-ticket init` first", *dir)
-		}
 		return err
 	}
-
-	actor, err := resolveActor(st, *actorID)
+	cfg, err := config.Load(*configPath, os.Getenv(config.EnvStores), stores, cwd)
 	if err != nil {
 		return err
+	}
+	if len(cfg.Stores) == 0 {
+		// No file, environment variable, or flag named a store. Fall back to the
+		// working directory, which is what --store defaulted to before the flag
+		// became repeatable.
+		cfg, err = config.Load("", "", []string{"."}, cwd)
+		if err != nil {
+			return err
+		}
 	}
 
 	assets, err := fs.Sub(webFS, "web/dist")
@@ -72,20 +91,58 @@ func run() error {
 		return err
 	}
 
+	registry := api.NewRegistry(api.RegistryOptions{Assets: assets, Version: buildinfo.Read()})
+	type opened struct {
+		name  string
+		path  string
+		actor ticket.Actor
+	}
+	var openedStores []opened
+	for _, configured := range cfg.Stores {
+		st, err := ticket.Discover(configured.Path)
+		if err != nil {
+			if ticket.CodeOf(err) == ticket.CodeStoreNotFound {
+				return fmt.Errorf("store %s: no .tickets store at or above %s; run `git-ticket init` first",
+					configured.Name, configured.Path)
+			}
+			return fmt.Errorf("store %s: %w", configured.Name, err)
+		}
+		// A store's own configured actor wins over the global --actor, and a
+		// store configured read-only stays read-only whatever the flag says.
+		// Both are applied here rather than left for the ticket that resolves
+		// actors per store, because accepting either setting and then ignoring
+		// it would attribute writes to the wrong person, or leave a store
+		// writable that somebody asked to protect.
+		want := *actorID
+		if configured.Actor != "" {
+			want = configured.Actor
+		}
+		actor, err := resolveActor(st, want)
+		if err != nil {
+			return fmt.Errorf("store %s: %w", configured.Name, err)
+		}
+		// Assets are served once by the registry rather than by every store.
+		if err := registry.Add(configured.Name, api.New(st, api.Options{
+			Actor: actor, ReadOnly: *readOnly || configured.ReadOnly, Version: buildinfo.Read(),
+		})); err != nil {
+			return err
+		}
+		openedStores = append(openedStores, opened{configured.Name, st.Path(), actor})
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	srv := api.New(st, api.Options{Actor: actor, Assets: assets, ReadOnly: *readOnly, Version: buildinfo.Read()})
-	if err := srv.Start(ctx); err != nil {
+	if err := registry.Start(ctx); err != nil {
 		return err
 	}
-	defer srv.Close()
+	defer registry.Close()
 
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {
 		return err
 	}
 	http := &http.Server{
-		Handler:           srv.Handler(),
+		Handler:           registry.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
@@ -93,8 +150,10 @@ func run() error {
 	if *readOnly {
 		mode = "  (read-only)"
 	}
-	log.Printf("store  %s", st.Path())
-	log.Printf("actor  %s <%s>%s", actor.Name, actor.ID, mode)
+	for _, s := range openedStores {
+		log.Printf("store  %s  %s", s.name, s.path)
+		log.Printf("actor  %s <%s>%s", s.actor.Name, s.actor.ID, mode)
+	}
 	log.Printf("canvas http://%s", ln.Addr())
 
 	errc := make(chan error, 1)
@@ -108,8 +167,9 @@ func run() error {
 		return err
 	case <-ctx.Done():
 		// Closing live streams first lets HTTP Shutdown finish without waiting
-		// for EventSource connections that are intended to stay open.
-		_ = srv.Close()
+		// for EventSource connections that are intended to stay open. Every
+		// store holds its own, so this closes all of them.
+		_ = registry.Close()
 		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		return http.Shutdown(shutdown)

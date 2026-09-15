@@ -70,17 +70,30 @@ func New(st *ticket.Store, opts Options) *Server {
 	return s
 }
 
-// Handler returns the router.
+// apiRoutes returns this server's API routes with no /api prefix on them.
+//
+// The prefix is left off so the same routes can be mounted twice: at /api/ for
+// a canvas serving one store, and under /api/stores/{store}/ by a Registry
+// serving several. Both mount it behind http.StripPrefix.
+func (s *Server) apiRoutes() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /board", s.handleBoard)
+	mux.HandleFunc("GET /schema", s.handleSchema)
+	mux.HandleFunc("GET /events", s.handleEvents)
+	mux.HandleFunc("POST /tickets", s.withStore((*Server).handleCreate))
+	mux.HandleFunc("PATCH /tickets/{id}", s.withStore((*Server).handlePatch))
+	mux.HandleFunc("DELETE /tickets/{id}", s.withStore((*Server).handleDelete))
+	mux.HandleFunc("PUT /layout", s.withStore((*Server).handleLayout))
+	return mux
+}
+
+// Handler returns the router for a canvas serving this store alone.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/board", s.handleBoard)
-	mux.HandleFunc("GET /api/schema", s.handleSchema)
+	mux.Handle("/api/", http.StripPrefix("/api", s.apiRoutes()))
+	// Version is the executable's identity rather than the store's, so it stays
+	// on the outer mux. A Registry serves it the same way, from one place.
 	mux.HandleFunc("GET /api/version", s.handleVersion)
-	mux.HandleFunc("GET /api/events", s.handleEvents)
-	mux.HandleFunc("POST /api/tickets", s.withStore((*Server).handleCreate))
-	mux.HandleFunc("PATCH /api/tickets/{id}", s.withStore((*Server).handlePatch))
-	mux.HandleFunc("DELETE /api/tickets/{id}", s.withStore((*Server).handleDelete))
-	mux.HandleFunc("PUT /api/layout", s.withStore((*Server).handleLayout))
 	if s.assets != nil {
 		mux.Handle("/", http.FileServerFS(s.assets))
 	}
@@ -195,8 +208,11 @@ func (s *Server) refuseWrite(w http.ResponseWriter) bool {
 		return false
 	}
 	writeJSON(w, http.StatusForbidden, errBody{
-		Code:    "read_only",
-		Message: "this canvas was started with --read-only",
+		Code: "read_only",
+		// A store is read-only because of --read-only or because its own entry
+		// in the configuration says so, and the message must not claim the one
+		// that did not happen.
+		Message: "this store is read-only",
 	})
 	return true
 }

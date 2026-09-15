@@ -21,7 +21,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-15T04:49:03Z
-updated_at: 2026-09-15T04:49:03Z
+updated_at: 2026-09-15T05:08:07Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -65,3 +65,35 @@ Report `unavailable` with a reason rather than failing to start.
 ## Definition of done
 
 - [ ] A test starts a server with one good and one broken store and reads the good one.
+
+## Notes
+
+**agent:t3code/d30689a3** at 2026-09-15T05:08:07Z
+
+Two of this ticket's acceptance criteria were satisfied early, in
+TKT-01M2HPB9Z (Route the API by store key behind a store registry).
+
+Running the built binary there showed a configuration file setting
+`readOnly: true` being parsed and then ignored, because `main.go` handed the
+global flag to every store. A setting that protects somebody's repository must
+not be accepted and dropped, so `main.go` now applies both per-store fields: a
+store's configured `actor` beats the global `--actor`, and a configured
+`readOnly` holds whatever the flag says. `TestReadOnlyCanDifferPerStore` covers
+the read-only half.
+
+So criterion 1 is partly done, in that a per-store configured actor already
+wins. What remains on it is resolving each store's actor from its own
+config.yml when nothing is configured, which already happens, and confirming it
+under several stores with different actors.
+
+Criterion 5 is done: read-only already differs per store and the board response
+reports the effective value.
+
+What this ticket still owns is the behavior change. A store that cannot be
+opened stops the whole process today, exactly as one store does. Making it one
+unavailable store while the rest serve, opening an actor-less store read-only
+instead of failing, and answering 503 store_unavailable with a reason are all
+untouched.
+
+The refusal message also changed to "this store is read-only", because the old
+wording named --read-only as the cause when configuration may be the real one.
