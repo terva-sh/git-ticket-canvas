@@ -11,11 +11,21 @@ run CI there. `github` is the public mirror at
 `git@github.com:terva-sh/git-ticket-canvas.git`. Keep both at identical commits
 and tags for a release; do not use the mirror as a daily backup.
 
+GitHub publishes every release. Forgejo publishes none. That split is not a
+preference: `install.sh` reads `api.github.com`, the image lives on `ghcr.io`,
+and `go install github.com/terva-sh/git-ticket-canvas@VERSION` resolves through
+the public module proxy, so an internal host cannot serve any of the three. A
+tag pushed only to `origin` builds and verifies and delivers nothing to a user.
+Pushing the mirror is therefore part of releasing, not an afterthought to it.
+
 Read the actual origin URL from `git remote get-url origin`, rather than copying
 internal addresses into public prose. The one internal registry address under
 `.forgejo/workflows` follows the sibling repository's runner convention.
 
-A tag push matching `v*` publishes a release. Pushing `main` does not publish one.
+A tag push matching `v*` to `github` publishes a release. The same tag on
+`origin` runs `tag-verify`, which builds and checks the archives and uploads
+nothing. Pushing `main` to either forge publishes nothing.
+
 An agent may prepare files and run local checks, but a person chooses the version
 and approves pushes, tags, and publication. No recipe here tags this checkout or
 pushes a remote. `release-rehearse` uses a throwaway clone and destroys its local
@@ -42,7 +52,7 @@ history is required on both builders. Do not run `go mod tidy` or a frontend
 build after GoReleaser checks the release tree; commit those changes first.
 
 `release.disable` is true in GoReleaser. It packages but never publishes.
-Both workflows verify the archives before their separate publishing step.
+Both workflows verify the archives; only the GitHub workflow then publishes.
 `scripts/verify-release.py --tag TAG` checks the exact target set, checksums,
 archive contents, license/document bytes, and build provenance. It also runs
 the Linux amd64 binary on an isolated store and compares its HTTP assets with
@@ -90,9 +100,10 @@ and stores. The locally built image remains until you remove it.
 ## CI and credentials
 
 Forgejo runs the primary parity gate on main and pull requests, plus the same
-gate before a tag build. It uses the sibling's Go Alpine registry image and
-mirrored checkout/GoReleaser actions. Alpine uses distro Chromium via
-PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH; other hosts use Playwright's pinned build.
+gate before a tag build in `tag-verify`, which never uploads an artifact. It
+uses the sibling's Go Alpine registry image and mirrored checkout and GoReleaser
+actions. Alpine uses distro Chromium via PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+other hosts use Playwright's pinned build.
 The first hosted run must confirm available apk versions, the Chromium path,
 and mirrored action availability. Source-checkout tests alone cannot prove
 runner configuration.
@@ -105,14 +116,14 @@ accidental execution by Forgejo's `.github` workflow support.
 
 Before the first tag:
 
-- Enable Actions and the appropriate runners on Forgejo. Add repository secret
-  BOT_TOKEN with release write access. The publisher fails if it is missing.
+- Enable Actions and the appropriate runners on Forgejo. No repository secret is
+  needed there; `tag-verify` reads the repository and writes nothing.
 - Enable GitHub Actions with contents write and packages write permissions.
   GitHub supplies GITHUB_TOKEN. No personal token belongs in this tree.
 - Check the `ghcr.io/terva-sh/git-ticket-canvas` package is public after first
   publication. A successful authenticated push does not prove anonymous pulls.
 
-Both publishers upload into a draft and expose it only after all six assets
+The publisher uploads into a draft and exposes it only after all six assets
 arrive. Failed uploads leave a draft for inspection; reruns do not overwrite a
 release silently. Decide whether to delete the failed draft before rerunning.
 Never move an already-published tag to repair a release. Fix forward instead.
@@ -137,13 +148,17 @@ An image failure does not erase an already-published binary release.
 3. With approval, push main to origin and inspect the primary CI result. Then
    push that same main commit to github and inspect the Windows lane. Record
    actual hosted results; configured workflows are not proof that they ran.
+   A red Windows lane stops the release here. The publishing job declares
+   `needs: windows`, so a tag pushed over a failing lane produces no release at
+   all, and the tag then names a version that was never published.
 4. Have a person choose a semver tag. Inspect the intended commit, create the
    annotated tag only with approval, and push that exact tag to origin and
-   github. Do not use a broad tag push or force-push. Tags trigger publication.
-5. On both forges, confirm five archives plus checksums.txt. Download them,
-   verify SHA-256, and run native --version --json to confirm tag/commit and
-   modified=false. Cross-forge archives need not be byte-identical when Go patch
-   versions differ, but each must have correct provenance and checksums.
+   github. Do not use a broad tag push or force-push. The github tag publishes;
+   the origin tag only verifies.
+5. On github, confirm five archives plus checksums.txt. Download them, verify
+   SHA-256, and run native --version --json to confirm tag/commit and
+   modified=false. Confirm the origin `tag-verify` run passed, which checks the
+   same tag on the internal runner without producing a second artifact set.
 6. Exercise the real download installer into a temporary prefix. Check its
    binary against the released archive. Verify the published module through the
    Go proxy and a clean Go-only install of the tag.

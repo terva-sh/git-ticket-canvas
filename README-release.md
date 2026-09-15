@@ -90,5 +90,6 @@ tags; prereleases move only their exact tag.
 Go checks, embedded browser behavior, and a clean Go-only build/install.
 `just release-snapshot` builds and verifies five local archives without uploading.
 `just release-rehearse` exercises clean tagged provenance in a disposable local
-clone. See `docs/releasing.md` for the primary Forgejo / public GitHub sequence,
-credentials, approval gates, and checks that require a real first release.
+clone. Releases are published from GitHub only; the internal Forgejo repository
+builds and verifies a tag without uploading it. See `docs/releasing.md` for the
+sequence, credentials, approval gates, and checks that need a real release.

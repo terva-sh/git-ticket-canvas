@@ -17,11 +17,11 @@ blocks_on: none
 references:
   - ref: file:.github/workflows/release.yml
     path: null
-  - ref: file:.forgejo/workflows/release.yml
-    path: null
   - ref: file:release_config_test.go
     path: null
   - ref: file:docs/releasing.md
+    path: null
+  - ref: file:.forgejo/workflows/tag-verify.yml
     path: null
 claim:
   actor: agent:t3code/d30689a3
@@ -33,7 +33,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-15T21:11:16Z
-updated_at: 2026-09-15T21:11:43Z
+updated_at: 2026-09-15T21:17:10Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -82,10 +82,10 @@ its own workflow, so no token needs configuring for publication.
 
 - [ ] The GitHub mirror holds the same main commit and the v0.3.1 tag as origin, and a non-draft v0.3.1 GitHub release carries five archives plus checksums.txt.
 - [ ] install.sh, run unmodified against the public API, resolves v0.3.1 rather than v0.2.0.
-- [ ] No workflow in the tree uploads a release artifact to Forgejo, and scripts/publish-forgejo.py with its test are gone from the tree.
-- [ ] The Forgejo tag lane still runs parity, builds, and verifies archives, and holds only contents: read.
-- [ ] A test fails if a second forge gains a publish step, rather than only asserting the order of the steps GitHub has.
-- [ ] docs/releasing.md and README-release.md name GitHub as the only publisher and no longer instruct an operator to configure BOT_TOKEN for releases.
+- [x] No workflow in the tree uploads a release artifact to Forgejo, and scripts/publish-forgejo.py with its test are gone from the tree.
+- [x] The Forgejo tag lane still runs parity, builds, and verifies archives, and holds only contents: read.
+- [x] A test fails if a second forge gains a publish step, rather than only asserting the order of the steps GitHub has.
+- [x] docs/releasing.md and README-release.md name GitHub as the only publisher and no longer instruct an operator to configure BOT_TOKEN for releases.
 
 ## Implementation plan
 
@@ -143,3 +143,38 @@ Both release workflows and `.forgejo/workflows/ci.yml` install
 v0.14.3 was run against this store during planning and reported "No problems
 found", so it is not breaking anything today and changing what CI installs
 during a release change would mix two failure modes. Filed separately.
+
+## Notes
+
+**agent:t3code/d30689a3** at 2026-09-15T21:17:10Z
+
+Criteria 1 and 2 are blocked, and the block is a real finding rather than a
+delay. Pushing main to the mirror (884c155..e8c0cc3, a fast-forward) started
+mirror-ci run 35024247866, and its Windows job failed after 1m32s. The v0.3.1
+tag was therefore not pushed: `.github/workflows/release.yml` declares
+`needs: windows`, so a tag pushed over that failure would publish nothing and
+would leave a tag naming a version that does not exist.
+
+Windows passed for v0.2.0 on 2026-09-12 at 8529287 and has not run since,
+because the mirror was never pushed after that. The multi-store work broke it
+and nothing reported that for four days. Fifteen tests fail across
+internal/api, internal/config, internal/discover, internal/state, and the root
+scan tests.
+
+Almost all of it is the tests rather than the product. They hardcode POSIX
+absolute paths, so `Load(..., "/base")` with `shared=/from/env` produces
+`\base\from\env` on Windows because `filepath.IsAbs("/from/env")` is false
+there. `TestDirFollowsXDG` sets `XDG_STATE_HOME=/somewhere/state` and hits the
+same rule. `TestWritingLeavesNoPartialFile` asserts mode 0600, which Windows
+reports as -rw-rw-rw-. `TestHashedIDIsAlwaysAValidName` tries to create a
+directory named `....`, which Windows refuses.
+
+One is a product defect. `internal/config/config.go:317` expands a leading
+tilde only when the next character is `filepath.Separator`, so on Windows
+`~/notes`, which is what anyone writes in a config file, is not expanded and is
+joined against the base instead. That is also the likely cause of
+`TestMergeJoinsATildePathWithADiscoveredOne` finding two stores where it wants
+one: an unexpanded tilde path never resolves to the directory discovery found,
+so the two are not recognized as the same store and both are served.
+
+Filed separately as the blocker for criteria 1 and 2.

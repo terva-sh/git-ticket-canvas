@@ -35,7 +35,7 @@ but three workflow files still install the CLI at v0.14.3 for `just
 tickets-check`:
 
 - `.forgejo/workflows/ci.yml` line 24
-- `.forgejo/workflows/release.yml` line 22
+- `.forgejo/workflows/tag-verify.yml` line 22
 - `.github/workflows/release.yml` line 44
 
 This is not currently breaking anything. v0.14.3 was installed to a temporary

@@ -17,8 +17,6 @@ blocks_on: none
 references:
   - ref: release:config
     path: .goreleaser.yaml
-  - ref: release:forgejo
-    path: .forgejo/workflows/release.yml
   - ref: release:github
     path: .github/workflows/release.yml
   - ref: release:verification
@@ -35,16 +33,18 @@ references:
     path: docs/release-preparation-verified.md
   - ref: release:usage
     path: README-release.md
+  - ref: release:forgejo
+    path: .forgejo/workflows/tag-verify.yml
 claim: null
 archive: null
 created_at: 2026-09-09T19:35:20Z
-updated_at: 2026-09-09T20:02:39Z
+updated_at: 2026-09-15T21:17:38Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
 updated_by:
-  id: agent:terva/mieli
-  name: Mieli
+  id: agent:t3code/d30689a3
+  name: ""
 extensions: {}
 ---
 
@@ -63,6 +63,12 @@ Prepare git-ticket-canvas to release like sibling git-ticket. User approved MIT 
 ## Implementation plan
 
 Add MIT and runtime dependency notices, build-derived human/JSON version output, and five-target GoReleaser archives. Build without publishing on both forges, validate checksums, exact tag/commit/clean provenance and embedded asset serving, then upload the already-verified archives. Primary Forgejo runs frontend parity plus Go checks; GitHub guards by server URL and adds Windows Go checks. Include checksum-verifying download installer and an amd64 GHCR image assembled from the release archive with non-root/read-only defaults and explicit writable opt-in. Add release recipes and a successor runbook with approval/credential/live-verification gates. Exercise snapshot and fake-tag release builds only in disposable local clones, never tagging/pushing this checkout. Keep .tickets/canvas untouched. Document any live workflow or image checks unavailable before first publication.
+
+## Comments
+
+**agent:t3code/d30689a3** at 2026-09-15T21:17:23Z
+
+Repointed the file reference: .forgejo/workflows/release.yml was renamed to tag-verify.yml by TKT-01M2KEHSJ6XV2M5TPEB9Z3Q647 (Publish releases from GitHub and stop publishing from Forgejo), which removed the Forgejo publishing step. The dual-forge publication this ticket prepared no longer exists; the internal lane builds and verifies a tag without uploading it. The reference moves so that `git ticket files` still finds this history from the workflow's current path.
 
 ## Summary
 
