@@ -363,3 +363,78 @@ func TestEmptyEnvAndFlagsAreIgnored(t *testing.T) {
 		t.Errorf("stores = %v, want none", cfg.Stores)
 	}
 }
+
+func TestAddRootsResolvesAndDefaultsDepth(t *testing.T) {
+	var cfg Config
+	if err := cfg.AddRoots([]string{"ws", "/abs/ws", "", "  "}, 0, "/base"); err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Roots) != 2 {
+		t.Fatalf("roots = %v, want 2; blank values are ignored", cfg.Roots)
+	}
+	if cfg.Roots[0].Path != "/base/ws" || cfg.Roots[1].Path != "/abs/ws" {
+		t.Errorf("paths = %q, %q", cfg.Roots[0].Path, cfg.Roots[1].Path)
+	}
+	for _, r := range cfg.Roots {
+		if r.Depth != DefaultDepth {
+			t.Errorf("depth = %d, want the default %d", r.Depth, DefaultDepth)
+		}
+	}
+}
+
+// Roots from the file keep their own depth, so adding one from the command
+// line appends rather than rewriting what the file asked for.
+func TestAddRootsAppendsToFileRoots(t *testing.T) {
+	file := write(t, `
+roots:
+  - path: /from/file
+    depth: 2
+`)
+	cfg, err := Load(file, "", nil, "/base")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.AddRoots([]string{"/from/flag"}, 6, "/base"); err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Roots) != 2 {
+		t.Fatalf("roots = %v, want 2", cfg.Roots)
+	}
+	if cfg.Roots[0].Depth != 2 {
+		t.Errorf("file root depth = %d, want its configured 2", cfg.Roots[0].Depth)
+	}
+	if cfg.Roots[1].Depth != 6 {
+		t.Errorf("flag root depth = %d, want 6", cfg.Roots[1].Depth)
+	}
+}
+
+func TestSlugName(t *testing.T) {
+	for _, tc := range []struct{ root, path, want string }{
+		{"/ws", "/ws/forge.example.com/org/repo", "forge-example-com_org_repo"},
+		{"/ws", "/ws/ledger", "ledger"},
+		{"/ws", "/ws/a b/c", "a-b_c"},
+		// The root itself, and a path outside the root, fall back to the base
+		// name rather than producing "." or a string of dots.
+		{"/ws", "/ws", "ws"},
+		{"/ws", "/elsewhere/thing", "thing"},
+	} {
+		if got := SlugName(tc.root, tc.path); got != tc.want {
+			t.Errorf("SlugName(%q, %q) = %q, want %q", tc.root, tc.path, got, tc.want)
+		}
+	}
+}
+
+// Every derived name has to be usable as a URL path segment.
+func TestSlugNameIsAlwaysValid(t *testing.T) {
+	for _, path := range []string{
+		"/ws/forge.example.com/org/repo",
+		"/ws/weird name/with.dots/and~chars",
+		"/ws/" + strings.Repeat("long", 40) + "/tail",
+		"/ws/....",
+	} {
+		name := SlugName("/ws", path)
+		if err := ValidName(name); err != nil {
+			t.Errorf("SlugName(%q) = %q, which is not a valid name: %v", path, name, err)
+		}
+	}
+}

@@ -136,7 +136,26 @@ decision rather than the canvas's.
 
 This rule, not the depth limit, is what keeps the canvas fixture out of the
 list. Depth 4 happens to exclude it as well, but depth is a number somebody
-will raise, and the boundary rule holds at any depth.
+will raise, and the boundary rule holds at any depth. Measured on a real
+workspace: 22 stores at depth 4 and the same 22 at depth 8, with none of the
+three committed fixtures appearing at either.
+
+### A .tickets that is a symbolic link is not a store
+
+Test for the store directory with `lstat` rather than `stat`, and require a
+real directory.
+
+A `.tickets` that is a symbolic link is an alias for a store kept somewhere
+else, and the walk finds that store at its real path. Following the link would
+list one store twice under two names. Worse, it would make the directory
+holding the alias a boundary, so a workspace root with a convenience link such
+as `.tickets -> ledger/.tickets` would hide every project underneath it.
+
+That is not hypothetical. It is exactly what the first working version of the
+walk did on a real workspace: one store found instead of 22. No temporary tree
+in the tests had that shape, and `find -type d -name .tickets` does not match a
+symbolic link either, so the original survey had not shown it. Pointing the
+walk at real data is what found it.
 
 ## A store exposing its own children
 

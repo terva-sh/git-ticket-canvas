@@ -21,7 +21,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-15T04:49:03Z
-updated_at: 2026-09-15T04:49:03Z
+updated_at: 2026-09-15T05:30:53Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -69,3 +69,27 @@ next to their parent.
 ## Definition of done
 
 - [ ] go test ./... passes.
+
+## Notes
+
+**agent:t3code/d30689a3** at 2026-09-15T05:30:53Z
+
+Discovered stores are already wired into the registry, in
+TKT-01M2HPBA3 (Walk a root for ticket stores with a bounded depth). That was
+done there rather than left here so `-R` would not parse into nothing, which is
+the trap this project already hit with per-store `readOnly`.
+
+What exists is the minimum. A discovered store is named by
+`config.SlugName`, and one whose path or name a configured store already holds
+is skipped with a log line in `main.go`.
+
+What this ticket still owns is the real rule. Merging on absolute path after
+symbolic links are resolved, rather than on the configured path string, so that
+`~/src/foo` and `/home/you/src/foo` are one store. An explicit entry winning
+every field it sets. An explicit store staying in the list even when it is
+outside every root or below a boundary. And a short hash breaking a collision
+between two roots that slug to the same name, which the current skip would
+silently drop instead.
+
+Move that logic out of `main.go` while you are there. It belongs beside the
+registry, because rescan will need it and `main.go` will not be running then.

@@ -407,3 +407,64 @@ func (c Config) SortedNames() []string {
 	sort.Strings(names)
 	return names
 }
+
+// AddRoots appends roots from repeated --root values, resolved against base.
+//
+// A root named on the command line carries the depth the command line asked
+// for. A root from the configuration file keeps whatever depth that file gave
+// it, which is why this appends rather than replacing.
+func (c *Config) AddRoots(paths []string, depth int, base string) error {
+	if depth <= 0 {
+		depth = DefaultDepth
+	}
+	for _, path := range paths {
+		if strings.TrimSpace(path) == "" {
+			continue
+		}
+		resolved, err := resolve(path, base)
+		if err != nil {
+			return fmt.Errorf("--root: %q: %w", path, err)
+		}
+		c.Roots = append(c.Roots, Root{Path: resolved, Depth: depth})
+	}
+	return nil
+}
+
+// SlugName derives a store name from a path relative to the root it was found
+// under.
+//
+// A discovered store needs a name that is stable between runs, unique across a
+// root, and usable in a URL. The path relative to its root is all three, once
+// the separators and the characters a name may not hold are replaced:
+// forge.example.com/org/repo becomes forge-example-com_org_repo.
+//
+// A name derived this way changes if the root changes, so anything that has to
+// outlive a configuration change, such as a favorite, is keyed by absolute path
+// instead.
+func SlugName(root, path string) string {
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
+		return DeriveName(path)
+	}
+	var b strings.Builder
+	for _, r := range filepath.ToSlash(rel) {
+		switch {
+		case validNameRune(r):
+			b.WriteRune(r)
+		case r == '/':
+			b.WriteRune('_')
+		default:
+			b.WriteRune('-')
+		}
+	}
+	name := strings.Trim(b.String(), "-_")
+	if name == "" {
+		return DeriveName(path)
+	}
+	if len(name) > MaxNameLen {
+		// Keep the tail: the repository name carries more meaning than the
+		// forge it is mirrored from.
+		name = strings.TrimLeft(name[len(name)-MaxNameLen:], "-_")
+	}
+	return name
+}
