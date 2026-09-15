@@ -35,7 +35,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-15T21:18:30Z
-updated_at: 2026-09-15T21:24:40Z
+updated_at: 2026-09-15T21:28:20Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -127,3 +127,34 @@ Verification is the honest limit here. Everything passes locally on Linux and
 `GOOS=windows go vet ./...` type-checks the tests, but neither runs them on
 Windows. The criterion asks for a green mirror-ci run and its id, and that is
 the only thing that will close it.
+
+## Notes
+
+**agent:t3code/d30689a3** at 2026-09-15T21:28:20Z
+
+Run 35025478274 took the Windows failures from fifteen to one. internal/config,
+internal/discover, and internal/state all pass, which confirms both halves of
+the fix: testpath.Abs for the path assertions, and the tilde change for
+TestMergeJoinsATildePathWithADiscoveredOne, which had been reporting two stores
+where it wanted one.
+
+The survivor was TestAStoreOpensOnFirstAccessAndReopensAfterEviction, failing at
+lazy_test.go:152 with "the idle store was not closed". It is neither a path
+problem nor a product defect. The test set a one-nanosecond idle timeout and
+swept immediately, which assumes the clock ticked between the request that
+opened the store and the sweep. EvictIdle computes `cutoff := now().Add(-idle)`
+and closes a store only when `lastUsed.Before(cutoff)`. If the clock has not
+advanced, lastUsed equals now, cutoff is one nanosecond earlier, and the store
+looks freshly used. Windows timer resolution is coarse enough for that to
+happen; Linux's is not, which is why it never failed here.
+
+Reproduced on Linux rather than assumed. Freezing the registry clock and running
+the old approach evicted 0 stores, the same number Windows reported, while the
+new one evicted 1.
+
+The registry already carried the seam for this. Its `now` field is documented as
+"replaced by a test that needs eviction to happen without waiting for it", and
+three other tests drive a server clock the same way. `evictNow` in lazy_test.go
+now moves the registry's clock forward an hour and sweeps with a one-minute
+timeout, so the test asserts the eviction rule instead of the host's timer
+resolution. Both call sites use it.

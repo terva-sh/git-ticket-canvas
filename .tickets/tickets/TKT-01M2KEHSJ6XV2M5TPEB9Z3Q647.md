@@ -34,7 +34,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-15T21:11:16Z
-updated_at: 2026-09-15T21:18:37Z
+updated_at: 2026-09-15T21:25:44Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -179,3 +179,26 @@ one: an unexpanded tilde path never resolves to the directory discovery found,
 so the two are not recognized as the same store and both are served.
 
 Filed separately as the blocker for criteria 1 and 2.
+
+**agent:t3code/d30689a3** at 2026-09-15T21:25:44Z
+
+v0.3.1 cannot be the release that reaches GitHub, and this is a consequence of
+the Windows finding rather than a separate problem.
+
+The tag names 9007d40. The Windows fix is 15bb2d1, which is later, so the tag
+does not contain it. Pushing v0.3.1 to the mirror would run the release
+workflow against a tree whose Windows job fails, and `needs: windows` means the
+publishing job would never start. The result would be a tag on the mirror with
+no release attached to it, which is worse than the current state: today the
+mirror simply has no v0.3.1, which is true, whereas a tag without a release
+looks like a publication that went wrong.
+
+Criteria 1 and 2 therefore need a tag at or after 15bb2d1. Choosing that version
+is a person's decision under docs/releasing.md, which says a person chooses the
+version and approves pushes, tags, and publication, so this is where the ticket
+waits. v0.3.1 stays on Forgejo as the record of what was built there.
+
+Measured for criterion 2, so the before state is on the record: as of
+2026-09-16, `api.github.com/repos/terva-sh/git-ticket-canvas/releases/latest`
+returns tag v0.2.0, published 2026-09-12T02:43:24Z. That is what the documented
+one-line installer resolves today.

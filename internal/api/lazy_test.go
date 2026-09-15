@@ -53,6 +53,21 @@ func inotifyCount(t *testing.T) int {
 }
 
 // lazyRegistry registers n stores without opening any of them.
+// evictNow makes every open store look idle, whatever the clock's resolution.
+//
+// Setting a one-nanosecond timeout and sweeping assumes the clock ticked
+// between the request that opened the store and the sweep. On Windows it often
+// has not: lastUsed equals now, the store looks freshly used, and nothing is
+// evicted. Moving the registry's own clock forward asserts the eviction rule
+// rather than the host's timer resolution.
+func evictNow(r *Registry) int {
+	r.mu.Lock()
+	r.now = func() time.Time { return time.Now().Add(time.Hour) }
+	r.mu.Unlock()
+	r.SetIdleTimeout(time.Minute)
+	return r.EvictIdle()
+}
+
 func lazyRegistry(t *testing.T, opts RegistryOptions, n int) (*Registry, []string) {
 	t.Helper()
 	r := NewRegistry(opts)
@@ -96,8 +111,7 @@ func TestWatcherCountFollowsActiveStoresNotDiscoveredOnes(t *testing.T) {
 	}
 
 	// Idle eviction gives the descriptors back.
-	r.SetIdleTimeout(time.Nanosecond)
-	if closed := r.EvictIdle(); closed != 2 {
+	if closed := evictNow(r); closed != 2 {
 		t.Errorf("evicted %d stores, want 2", closed)
 	}
 	if got := inotifyCount(t); got != before {
@@ -146,8 +160,7 @@ func TestAStoreOpensOnFirstAccessAndReopensAfterEviction(t *testing.T) {
 		t.Fatal("the store did not open on first access")
 	}
 
-	r.SetIdleTimeout(time.Nanosecond)
-	r.EvictIdle()
+	evictNow(r)
 	if active() {
 		t.Fatal("the idle store was not closed")
 	}
