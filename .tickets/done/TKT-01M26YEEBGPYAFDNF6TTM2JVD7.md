@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M26YEEBGPYAFDNF6TTM2JVD7
 title: Build reproducible canvas fixtures and visual test suites
 type: epic
-status: ready
-status_reason: "The user asked for the promotion. Six of its nine children are done: the fixture helper, the deterministic capture, the visual checks, relationship clutter, compact card density, and the lane-width measurement. Three remain in draft: edge routing, row pitch, and lane depth."
+status: done
+status_reason: Fixture, capture, baseline and visual checks all landed; verified at 884c155 with the browser gate noted as unrunnable in this environment.
 priority: normal
 due_on: null
 labels:
@@ -26,13 +26,13 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-11T00:38:56Z
-updated_at: 2026-09-12T18:54:30Z
+updated_at: 2026-09-15T04:05:53Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
 updated_by:
-  id: agent:terva/mieli
-  name: Mieli
+  id: agent:t3code/d30689a3
+  name: ""
 extensions: {}
 ---
 
@@ -124,3 +124,57 @@ That note reported `docs/artifacts/canvas-review-baseline-2026-09-11/.tickets` a
 TKT-01M29HX117P043SBQBMC5200XJ (Remove or document the unreferenced ticket snapshot in docs/artifacts) compared the two id sets. The 28 tickets shared none of the 30 ids in `ahpsh-tickets.tgz`, and all 28 are tickets from this repository's own store. It was a copy of git-ticket-canvas's own board committed under an artifact name, not fixture material, and it carried no `canvas/` directory so it held no layout. It has been deleted.
 
 The fixture is `ahpsh-tickets/ahpsh-tickets.tgz` and its extracted copy beside it. `ahpsh-tickets/README.md` records what was removed, so the next reader does not have to repeat the comparison.
+
+**agent:t3code/d30689a3** at 2026-09-15T04:05:53Z
+
+ready to in-progress: Verification-and-close pass. All thirteen children are done and every box is ticked; moving through in-progress because the schema has no ready-to-done edge.
+
+**agent:t3code/d30689a3** at 2026-09-15T04:05:53Z
+
+in-progress to done: Fixture, capture, baseline and visual checks all landed; verified at 884c155 with the browser gate noted as unrunnable in this environment.
+
+## Summary
+
+The fixture exists, the suite runs on it, and thirteen children closed against
+it. The dense 30-ticket board is the scene every later canvas measurement was
+argued on, which was the point of filing this.
+
+What it produced: a tarball-backed fixture unpacked into a fresh temporary store
+per run, a deterministic capture with a fixed viewport and readiness wait, a
+committed PNG baseline with geometry and history beside it, structural checks
+for relationship density and compact cards, and a README beside the archive that
+maps the directory back to `docs/canvas-baseline.md`.
+
+Six of the children measured layout rather than changing it, and two of those
+ended in a refusal to change anything. The lane cap moved 6 to 5, the row pitch
+tightened to 269, empty lanes became an 80px gap, a deep lane wraps into further
+columns, and the edge-crossing work closed on a measurement that said routing
+was not worth it. Those are decisions the fixture made arguable.
+
+### Verification at close
+
+Against HEAD 884c155, in a worktree with dependencies freshly installed:
+
+- `go test ./...` passes across all packages.
+- `just tooling-test` passes 79 of 79, which holds the baseline PNG, its
+  metadata and the newest history entry together.
+- `git ticket check` is clean.
+- The fixture archive still hashes to `a6162422`, and the committed baseline PNG
+  to `dc699217`, both matching what the README and `docs/canvas-baseline.md`
+  claim.
+- All thirteen children are done. Every acceptance criterion and both
+  definition-of-done items are ticked.
+
+### What was not re-run, and why that is acceptable
+
+`just canvas-visual` did not run here. Chromium cannot start in this environment
+because `libnspr4.so` is absent and installing system packages needs a password
+this session does not have. All seven specs failed at browser launch, before any
+page loaded, so they say nothing about the canvas.
+
+The suite last passed in full at 887f740. Between that commit and this one the
+only changes outside `.tickets/` and `docs/` are `internal/api/live_test.go` and
+a new `tests/browser/edge-crossings.spec.ts`. Both are tests. No production code
+that could move a card or repaint one has changed, so the committed baseline
+cannot have drifted. Anybody wanting the pixel gate green on a fresh machine
+needs `libnspr4` and `libnss3` present before `just browser-setup`.
