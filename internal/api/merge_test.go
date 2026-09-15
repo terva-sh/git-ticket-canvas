@@ -272,3 +272,84 @@ func decisionReasons(result discover.Result) []string {
 	}
 	return out
 }
+
+// A display name is what the row shows, and it is the directory holding the
+// store rather than the id, which has a workspace to stay unique across.
+func TestDisplayName(t *testing.T) {
+	for _, c := range []struct{ path, want string }{
+		{"/ws/org/alpine/.tickets", "alpine"},
+		{"/ws/org/alpine", "alpine"},
+		{"/ws/org/alpine/", "alpine"},
+		{"/ws/ledger/.tickets", "ledger"},
+		// A path that never reached discover.Nearest, which is every store
+		// that was named and is not on disk.
+		{"/ws/org/not-there", "not-there"},
+	} {
+		if got := DisplayName(c.path); got != c.want {
+			t.Errorf("DisplayName(%q) = %q, want %q", c.path, got, c.want)
+		}
+	}
+}
+
+// The rule is what the operator wrote. A name a person chose is kept, and a
+// name the canvas derived is replaced by something readable.
+func TestMergeFillsDisplayNames(t *testing.T) {
+	root := t.TempDir()
+	deep := storeDir(t, root, "forge", "org", "alpine")
+	// Two directories sharing a base name, which must display the same and
+	// stay distinct as ids.
+	twinA := storeDir(t, root, "forge", "one", "docs")
+	twinB := storeDir(t, root, "forge", "two", "docs")
+	child := storeDir(t, root, "forge", "org", "alpine", "fixture")
+	chosen := storeDir(t, root, "elsewhere")
+	missing := filepath.Join(root, "not-there")
+
+	cfg := config.Config{Stores: []config.Store{
+		{Name: "chosen", Path: chosen},
+		{Name: "gone", Path: missing},
+	}}
+	found := discover.Result{Stores: []discover.Found{
+		{Path: deep, Root: root},
+		{Path: twinA, Root: root},
+		{Path: twinB, Root: root},
+		{Path: child, Root: root, Name: "declared-name", DeclaredBy: deep},
+	}}
+	specs, _ := Merge(cfg, found, MergeOptions{})
+
+	display := map[string]string{}
+	for _, spec := range specs {
+		if spec.Display == "" {
+			t.Errorf("store %q has no display name", spec.Name)
+		}
+		display[spec.Path] = spec.Display
+	}
+
+	for path, want := range map[string]string{
+		chosen:  "chosen",        // a name a person wrote is kept
+		missing: "gone",          // and is kept when the store is not on disk
+		deep:    "alpine",        // a derived id gets the directory instead
+		child:   "declared-name", // a child keeps what its parent called it
+		twinA:   "docs",
+		twinB:   "docs",
+	} {
+		if got := display[path]; got != want {
+			t.Errorf("%s displays %q, want %q", path, got, want)
+		}
+	}
+
+	// Sharing a display name must not make two stores one store.
+	var twins []string
+	for _, spec := range specs {
+		if spec.Path == twinA || spec.Path == twinB {
+			twins = append(twins, spec.Name)
+		}
+	}
+	if len(twins) != 2 || twins[0] == twins[1] {
+		t.Errorf("twin ids %v, want two distinct", twins)
+	}
+	for _, id := range twins {
+		if strings.Contains(id, "docs-") && len(id) < 10 {
+			t.Errorf("id %q looks like a disambiguating suffix on the display name", id)
+		}
+	}
+}

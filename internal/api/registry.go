@@ -65,8 +65,9 @@ type Registry struct {
 // healthy store can carry one, so folding the two together would make the
 // browser badge an ordinary store as degraded.
 type entry struct {
-	name string
-	path string
+	name    string
+	display string
+	path    string
 	// spec is what the store will be opened with, kept because opening is
 	// deferred until somebody asks for the store.
 	spec     StoreSpec
@@ -87,7 +88,11 @@ type entry struct {
 // --actor, whichever the caller decided. Empty means the store falls back to
 // whatever its own config.yml declares.
 type StoreSpec struct {
-	Name     string
+	Name string
+	// Display is what a person is shown instead of Name. It defaults to the
+	// directory holding the store, because an id has to be unique across a
+	// workspace while a name only has to be recognisable under its heading.
+	Display  string
 	Path     string
 	Actor    string
 	ReadOnly bool
@@ -102,7 +107,10 @@ type StoreSpec struct {
 // StoreStatus is what the registry knows about one store.
 type StoreStatus struct {
 	Name string `json:"name"`
-	Path string `json:"path"`
+	// Display is the label for this store, which is not unique and is not what
+	// a route or a selection is keyed on. Name is.
+	Display string `json:"display"`
+	Path    string `json:"path"`
 	// Available is whether this store can be served. It is answered without
 	// opening the store, from the same check the walk uses.
 	Available bool `json:"available"`
@@ -224,7 +232,10 @@ func (r *Registry) Add(name string, s *Server) error {
 // is registered anyway, unavailable, carrying the message that says what to do
 // about it.
 func (r *Registry) Register(spec StoreSpec) error {
-	e := &entry{name: spec.Name, path: spec.Path, spec: spec, readOnly: spec.ReadOnly}
+	if spec.Display == "" {
+		spec.Display = DisplayName(spec.Path)
+	}
+	e := &entry{name: spec.Name, display: spec.Display, path: spec.Path, spec: spec, readOnly: spec.ReadOnly}
 	if at, ok := discover.Nearest(spec.Path); ok {
 		e.path = filepath.Join(at, discover.StoreDir)
 	} else {
@@ -507,8 +518,9 @@ func (r *Registry) Statuses() []StoreStatus {
 	for _, name := range r.order {
 		e := r.entries[name]
 		list = append(list, StoreStatus{
-			Name: e.name, Path: e.path, Available: e.reason == "" || e.server != nil,
-			Active: e.server != nil, Favorite: r.favorite(e),
+			Name: e.name, Display: e.display, Path: e.path,
+			Available: e.reason == "" || e.server != nil,
+			Active:    e.server != nil, Favorite: r.favorite(e),
 			Root: e.spec.Root, Parent: e.spec.Parent, ReadOnly: e.readOnly,
 			Actor: e.actor.Name, ActorID: e.actor.ID,
 			Reason: e.reason, Note: e.note,

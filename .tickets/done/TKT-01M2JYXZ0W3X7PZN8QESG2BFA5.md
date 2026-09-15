@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2JYXZ0W3X7PZN8QESG2BFA5
 title: Show a store's directory name instead of its derived id
 type: task
-status: draft
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -18,7 +18,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-15T16:38:17Z
-updated_at: 2026-09-15T17:01:15Z
+updated_at: 2026-09-15T17:36:51Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -127,21 +127,104 @@ in the browser suite do not move.
 
 ## Acceptance criteria
 
-- [ ] A discovered store displays the name of the directory holding its .tickets, in the browser row and in the toolbar picker
-- [ ] A store named on the command line or in a configuration file displays that name
-- [ ] A declared child displays the name its parent gave it in canvas.children
-- [ ] An unavailable store displays a name derived from its configured path
-- [ ] Two stores whose directories share a name both display that name, with no suffix, and keep distinct ids
-- [ ] The id is unchanged: the URL fragment, the API route, and data-store still carry it
-- [ ] Checked against the real 22-store workspace, not only fixtures
+- [x] A discovered store displays the name of the directory holding its .tickets, in the browser row and in the toolbar picker
+- [x] A store named on the command line or in a configuration file displays that name
+- [x] A declared child displays the name its parent gave it in canvas.children
+- [x] An unavailable store displays a name derived from its configured path
+- [x] Two stores whose directories share a name both display that name, with no suffix, and keep distinct ids
+- [x] The id is unchanged: the URL fragment, the API route, and data-store still carry it
+- [x] Checked against the real 22-store workspace, not only fixtures
 
 ## Definition of done
 
-- [ ] just check passes
-- [ ] just browser-test-embedded passes against a freshly built bundle
+- [x] just check passes
+- [x] just browser-test-embedded passes against a freshly built bundle
+
+## Implementation plan
+
+### Server
+
+One derivation, `api.DisplayName(path)`, which strips a trailing `.tickets`
+segment and takes the base of what is left. It works on an unresolved path, so
+it is correct for a store that is not on disk.
+
+`StoreSpec` gains `Display`, filled by `Merge`: a configured store takes its
+configured name, a declared child takes the name its parent gave it, and
+everything else derives. `Register` fills it from the path when a spec arrives
+without one, so a hand-built spec is never nameless. `entry` carries it and
+`StoreStatus` reports it as `display`.
+
+### Browser
+
+`StoreSummary.display`, rendered as `.store-name` in a row and as the label and
+the quick items in the picker. The id stays in `data-store`, in `aria-current`,
+and in every callback, so nothing about selection changes.
+
+`matches` in `stores.ts` gains `display`. Searching already reaches the path,
+which will still contain the directory name after the ids are hashed, but
+matching the display name directly is what makes the search agree with what is
+on screen.
+
+### Tests
+
+`store-browser.test.tsx` gets a `display` in its fixture and one case for a
+display name that differs from the id, which is the state this exists to serve.
+`stores.test.ts` gets a search case matching on display alone.
+
+The browser suite needs no change: the pair fixture names its stores with
+`-store first=...`, so the display name equals the id there, and its selectors
+key on `data-store`.
+
+### Checked against the real workspace
+
+The point of the ticket is 22 rows under five headings, so it is checked there
+and not only in fixtures.
 
 ## Notes
 
 **agent:t3code/d30689a3** at 2026-09-15T17:01:15Z
 
 Reproduction for the depth finding, should anyone want to see it fail before fixing it. Create two trees under one root sharing a long tail, differing only in their first segment, so that the joined relative path exceeds 64 characters. Run the canvas with --root over them and -R --depth 10. Both derive the same trimmed id and the second takes a hash suffix. Then add a third first segment that sorts before both and run again: the id of the middle store changes, and the bare id it used to hold now points at the new store. The probe trees were built under /tmp and removed.
+
+## Summary
+
+A store now has a display name beside its id, and the browser shows it.
+
+### Where it landed
+
+`api.DisplayName` strips a trailing `.tickets` and takes the base, so
+`/ws/org/alpine/.tickets` reads as `alpine`. `Merge` fills `StoreSpec.Display`
+by what the operator wrote: a configured name is kept, a declared child keeps
+the name its parent gave it, and everything else derives. `Register` derives
+one when a spec arrives without it, so a hand-built spec is never nameless.
+`StoreStatus` reports it as `display`.
+
+The browser renders it as the row name, the picker label, the quick items, and
+the favorite button's label. `matches` in `stores.ts` searches it, because once
+ids are hashed it is the only thing on screen a person can type.
+
+Nothing about selection moved: `data-store`, `aria-current`, the callbacks, and
+the routes all still carry the id.
+
+### Measured
+
+Over the real 22-store workspace the widest name column went from 50 characters
+to 17, under the same five headings, with 22 of 22 listed, a search for
+`alpine` narrowing to one, and no console errors. The name column no longer
+repeats the heading above it and the path beside it.
+
+### A correction worth recording
+
+The first version of the merge test did not exercise two of its criteria. The
+declared child and the explicit store shared a path, so the child was dropped
+as a duplicate before any display name was assigned, and the test passed
+without running the case. It now uses distinct paths and checks six placements
+by path, including two sibling directories both called `docs` that display the
+same name and keep distinct ids.
+
+### Verified
+
+`just check` passes, including `go test -race`. `just browser-test-embedded`
+passes with 72 tests against a bundle rebuilt from this source, which is the
+only way that suite tests a frontend change at all. 502 frontend tests, 2 new.
+`internal/api` coverage 88.8%.

@@ -49,7 +49,9 @@ func Merge(cfg config.Config, found discover.Result, opts MergeOptions) ([]Store
 		byKey[discover.Key(s.Path)] = len(specs)
 		taken[s.Name], named[s.Path] = true, s.Name
 		specs = append(specs, StoreSpec{
-			Name:     s.Name,
+			Name: s.Name,
+			// A name somebody wrote is also what they want to read.
+			Display:  s.Name,
 			Path:     s.Path,
 			Actor:    actor,
 			ReadOnly: opts.ReadOnly || s.ReadOnly,
@@ -68,8 +70,13 @@ func Merge(cfg config.Config, found discover.Result, opts MergeOptions) ([]Store
 		}
 		name := unique(derivedName(f, named), f.Path, taken)
 		taken[name], named[f.Path] = true, name
+		display := f.Name
+		if display == "" {
+			display = DisplayName(f.Path)
+		}
 		specs = append(specs, StoreSpec{
 			Name:     name,
+			Display:  display,
 			Path:     f.Path,
 			Actor:    opts.Actor,
 			ReadOnly: opts.ReadOnly || f.ReadOnly,
@@ -78,6 +85,20 @@ func Merge(cfg config.Config, found discover.Result, opts MergeOptions) ([]Store
 		})
 	}
 	return specs, notes
+}
+
+// DisplayName is what a store is called to a person: the directory that holds
+// it, so /ws/org/alpine/.tickets reads as "alpine".
+//
+// It works on the path as given rather than on a resolved one, because a store
+// that is not on disk still has to be listed with a name, and its path never
+// went through discover.Nearest to gain the store directory on the end.
+func DisplayName(path string) string {
+	trimmed := strings.TrimSuffix(filepath.Clean(path), string(filepath.Separator)+discover.StoreDir)
+	if base := filepath.Base(trimmed); base != "." && base != string(filepath.Separator) {
+		return base
+	}
+	return trimmed
 }
 
 // derivedName is what a store nobody named is called.

@@ -22,7 +22,7 @@ export function StorePicker(p: StorePickerProps) {
   const quick = shortList(p.stores, p.current, p.recent)
   return <details class="store-picker" id="storePicker">
     <summary class="tool" id="storePickerLabel" title={shown ? displayPath(shown.path) : 'Choose a store'}>
-      {shown?.name ?? 'Choose a store'}
+      {shown?.display ?? 'Choose a store'}
     </summary>
     <div class="store-picker-body">
       <ul class="store-quick">
@@ -31,7 +31,7 @@ export function StorePicker(p: StorePickerProps) {
             aria-current={store.name === p.current ? 'true' : undefined}
             disabled={!store.available} title={displayPath(store.path)}
             onClick={() => p.onOpen(store.name)}>
-            {store.favorite && <span aria-hidden="true">{'★ '}</span>}{store.name}
+            {store.favorite && <span aria-hidden="true">{'★ '}</span>}{store.display}
           </button>
         </li>)}
       </ul>

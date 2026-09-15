@@ -25,14 +25,14 @@ function Row({ node, depth, current, onOpen, onFavorite }: {
         disabled={!store.available} aria-current={store.name === current ? 'true' : undefined}
         title={store.available ? displayPath(store.path) : store.reason}
         onClick={() => onOpen(store.name)}>
-        <span class="store-name">{store.name}</span>
+        <span class="store-name">{store.display}</span>
         <span class="store-path">{displayPath(store.path)}</span>
         {store.readOnly && <span class="badge warn store-flag">read-only</span>}
         {store.active && <span class="badge store-flag">open</span>}
         {!store.available && <span class="badge warn store-flag store-reason">{store.reason || 'unavailable'}</span>}
       </button>
       <button type="button" class="store-favorite" aria-pressed={store.favorite}
-        aria-label={`${store.favorite ? 'Remove' : 'Add'} ${store.name} ${store.favorite ? 'from' : 'to'} favorites`}
+        aria-label={`${store.favorite ? 'Remove' : 'Add'} ${store.display} ${store.favorite ? 'from' : 'to'} favorites`}
         onClick={() => onFavorite(store.name, !store.favorite)}>{store.favorite ? '★' : '☆'}</button>
     </li>
     {node.children.map(child =>

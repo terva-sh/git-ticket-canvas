@@ -11,7 +11,8 @@ beforeEach(() => { root = document.createElement('div'); document.body.append(ro
 afterEach(() => { act(() => render(null, root)); root.remove(); vi.restoreAllMocks() })
 
 function store(name: string, path: string, extra: Partial<StoreSummary> = {}): StoreSummary {
-  return { name, path: `${path}/.tickets`, available: true, active: false, favorite: false, readOnly: false, root: '/ws', ...extra }
+  return { name, display: path.split('/').pop()!, path: `${path}/.tickets`,
+    available: true, active: false, favorite: false, readOnly: false, root: '/ws', ...extra }
 }
 const stores = [
   store('one', '/ws/org/one'),
@@ -44,6 +45,20 @@ it('shows an unavailable store with its reason instead of hiding it', () => {
   expect(row.dataset.available).toBe('false')
   expect(row.querySelector('.store-reason')!.textContent).toContain('no .tickets store')
   expect(row.querySelector<HTMLButtonElement>('.store-open')!.disabled).toBe(true)
+})
+
+// The id has a whole workspace to stay unique across, so it is long and
+// repeats the heading. The row shows the directory instead.
+it('shows the display name, not the id, and still selects on the id', () => {
+  const { onOpen } = mount({
+    stores: [store('git-local-sothr-com_Sothr-Containers_alpine', '/ws/git.local.sothr.com/Sothr-Containers/alpine')],
+    current: null,
+  })
+  const row = element<HTMLElement>('.store-row')
+  expect(row.querySelector('.store-name')!.textContent).toBe('alpine')
+  expect(row.dataset.store).toBe('git-local-sothr-com_Sothr-Containers_alpine')
+  act(() => { element<HTMLButtonElement>('.store-open').click() })
+  expect(onOpen).toHaveBeenCalledWith('git-local-sothr-com_Sothr-Containers_alpine')
 })
 
 it('narrows to the search and counts what is shown', () => {
@@ -92,6 +107,7 @@ it('keeps the toolbar control compact whatever the store count', () => {
   const onOpen = vi.fn(), onBrowse = vi.fn()
   act(() => render(<StorePicker stores={many} current="s3" recent={['s7']} onOpen={onOpen} onBrowse={onBrowse} />, root))
   expect(element('#storePickerLabel').textContent).toBe('s3')
+  // Two stores may display the same name; the id is what stays distinct.
   expect(root.querySelectorAll('.store-quick-item').length).toBeLessThanOrEqual(8)
   expect(element('#browseStores').textContent).toContain('22')
   act(() => { element<HTMLButtonElement>('#browseStores').click() })

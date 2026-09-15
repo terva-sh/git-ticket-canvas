@@ -21,7 +21,9 @@ function relativeTo(root: string, path: string) {
 function matches(store: StoreSummary, query: string) {
   if (!query) return true
   const needle = query.toLowerCase()
-  return store.name.toLowerCase().includes(needle) || displayPath(store.path).toLowerCase().includes(needle)
+  return store.display.toLowerCase().includes(needle) ||
+    store.name.toLowerCase().includes(needle) ||
+    displayPath(store.path).toLowerCase().includes(needle)
 }
 
 /** The heading a store belongs under: its root, then the leading segments of

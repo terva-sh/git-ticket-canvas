@@ -3,7 +3,8 @@ import { displayPath, groupStores, shortList } from './stores'
 import type { StoreSummary } from './types'
 
 function store(name: string, path: string, extra: Partial<StoreSummary> = {}): StoreSummary {
-  return { name, path: `${path}/.tickets`, available: true, active: false, favorite: false, readOnly: false, ...extra }
+  return { name, display: path.split('/').pop()!, path: `${path}/.tickets`,
+    available: true, active: false, favorite: false, readOnly: false, ...extra }
 }
 const workspace = '/ws'
 function labels(groups: ReturnType<typeof groupStores>) { return groups.map(group => group.label) }
@@ -100,3 +101,14 @@ it('offers the current store, then favorites, then what was looked at', () => {
   expect(shortList(stores, 'current', ['seen']).map(s => s.name)).toEqual(['current', 'kept', 'seen'])
   expect(shortList(stores, null, [], 2).map(s => s.name)).toEqual(['kept'])
 })
+
+// Once ids are hashed, the name on the row is the only thing a person can type.
+it('searches the display name, not only the id and the path', () => {
+  const stores = [
+    store('a1b2c3d4', '/ws/org/alpine', { display: 'alpine' }),
+    store('e5f6a7b8', '/ws/org/buildah', { display: 'buildah' }),
+  ]
+  expect(names(groupStores(stores, 'alpine'))).toEqual(['a1b2c3d4'])
+  expect(names(groupStores(stores, 'e5f6'))).toEqual(['e5f6a7b8'])
+})
+

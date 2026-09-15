@@ -47,7 +47,7 @@ async function refresh() {
 // The canvas asks which stores there are before it reads a board, so every
 // mount answers that first. One store, which is what a canvas over a single
 // repository reports.
-function registryFixture(stores = [{ name: 'fixture', path: '/fixture/.tickets', available: true, active: false, favorite: false, readOnly: false }]) {
+function registryFixture(stores = [{ name: 'fixture', display: 'fixture', path: '/fixture/.tickets', available: true, active: false, favorite: false, readOnly: false }]) {
   vi.spyOn(RegistryClient.prototype, 'stores').mockResolvedValue({ stores })
   vi.spyOn(RegistryClient.prototype, 'favorites').mockResolvedValue({ stores: [], paths: [] })
 }
@@ -188,8 +188,8 @@ it('opens the store named in the address and rebuilds the stream when it changes
   vi.stubGlobal('EventSource', Source)
   location.hash = '#store=second'
   registryFixture([
-    { name: 'first', path: '/first/.tickets', available: true, active: false, favorite: true, readOnly: false },
-    { name: 'second', path: '/second/.tickets', available: true, active: false, favorite: false, readOnly: false },
+    { name: 'first', display: 'first', path: '/first/.tickets', available: true, active: false, favorite: true, readOnly: false },
+    { name: 'second', display: 'second', path: '/second/.tickets', available: true, active: false, favorite: false, readOnly: false },
   ])
   const read = vi.spyOn(TicketClient.prototype, 'board').mockResolvedValue(modified())
   await act(async () => { render(<App />, root) })

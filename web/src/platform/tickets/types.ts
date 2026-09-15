@@ -107,6 +107,10 @@ export type LayoutRequest = { board: string; cards: CardChanges; frames?: FrameC
 /** One store this canvas can serve, as GET /api/stores reports it. */
 export interface StoreSummary {
   name: string; path: string; available: boolean; active: boolean; favorite: boolean
+  /** The label shown to a person. Not unique: two directories may share a
+   *  name, and the row's path and heading are what tell them apart. Selection
+   *  and routing are keyed on `name`. */
+  display: string
   readOnly: boolean; actor?: string; actorId?: string; reason?: string; note?: string
   /** The configured root this store was found under, absent when it was named. */
   root?: string

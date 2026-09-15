@@ -72,7 +72,7 @@ beforeEach(() => {
   vi.spyOn(RegistryClient.prototype, 'version').mockRejectedValue(new Error('fixture'))
   // The canvas asks which stores there are before it reads a board.
   vi.spyOn(RegistryClient.prototype, 'stores').mockResolvedValue({ stores: [
-    { name: 'fixture', path: '/fixture/.tickets', available: true, active: false, favorite: false, readOnly: false }] })
+    { name: 'fixture', display: 'fixture', path: '/fixture/.tickets', available: true, active: false, favorite: false, readOnly: false }] })
   vi.spyOn(RegistryClient.prototype, 'favorites').mockResolvedValue({ stores: [], paths: [] })
   vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.matches('.card') ? height : this.matches('.canvas-frame-title, .canvas-frame-resize') ? 26 : 0 })
   vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(100)
