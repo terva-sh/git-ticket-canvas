@@ -377,14 +377,45 @@ store becomes active when you first look at it. Favorites and the last store
 you used are activated at startup, so the common case is already warm. A store
 that nobody has looked at for a while is closed again.
 
-A limit on how many stores may be active at once fails with a clear message.
-That limit is still needed with lazy activation, because nothing stops somebody
-marking forty stores as favorites.
+Two settings bound the active set.
+
+```
+--max-active N     how many stores may be open at once. Default 8.
+--store-idle D     close an unwatched store after this long. Default 15m, 0 never.
+```
+
+Eight is a sixteenth of a 128-instance budget shared with every editor on the
+machine, and eight canvases open at once is already more than anybody reads.
+When activating would pass the limit, the least recently used store with nobody
+watching it is closed to make room. A store with a live subscriber is never
+closed, for idleness or for room: an open EventSource is somebody watching,
+however long ago their last request was. When every open store is being
+watched, the request fails with 503 naming the limit and the flag, which is a
+better answer than running the machine out of descriptors and failing somewhere
+unrelated.
+
+A limit is still needed with lazy activation, because nothing stops somebody
+marking forty stores as favorites. A warm list longer than the limit warns and
+starts anyway.
 
 Activation is where a store can fail, and a failure is contained: a store that
 cannot be opened is marked unavailable with its reason, and the others carry
-on. This is a change from today, where a single unreadable store stops the
-process from starting.
+on. This is a change from the single-store canvas, where one unreadable store
+stopped the process from starting. Whether a store is available is answered
+from the walk's own gate, which is two system calls and no watcher, so a
+picker over twenty-two repositories draws itself without opening any of them.
+
+`POST /api/stores/rescan` searches the roots again without a restart. A store
+that has appeared is registered, and one that is gone is dropped unless it is
+open, because closing a board somebody is reading to reflect the disk is the
+wrong trade. An open store is otherwise untouched: same server, same watcher,
+same ETag, same stream.
+
+The flat `/api/` routes, which a canvas over one store keeps, are decided per
+request on how many stores are registered at that moment rather than when the
+handler is built. A rescan that takes a canvas from one store to two would
+otherwise leave behind a route that has to guess which store it meant, and
+guessing wrong writes a ticket into the wrong repository.
 
 ## Naming a store
 

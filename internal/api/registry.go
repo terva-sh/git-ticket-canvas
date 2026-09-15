@@ -5,10 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"net/http"
+	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
+	"github.com/terva-sh/git-ticket-canvas/internal/config"
+	"github.com/terva-sh/git-ticket-canvas/internal/discover"
 	"github.com/terva-sh/git-ticket/ticket"
 )
 
@@ -33,7 +38,19 @@ type Registry struct {
 
 	assets  fs.FS
 	version buildinfo.Info
-	started []*Server
+	opts    RegistryOptions
+	// idle is how long an untouched store with nobody watching is kept. It is
+	// guarded by mu rather than read from opts, because the janitor reads it
+	// from its own goroutine.
+	idle time.Duration
+	// now is time.Now, replaced by a test that needs eviction to happen
+	// without waiting for it.
+	now func() time.Time
+	// ctx is what an activated store's coordinator runs under. It is set by
+	// Start, because a store opened by a request has to outlive that request.
+	ctx    context.Context
+	stop   chan struct{}
+	closed bool
 }
 
 // entry is one store's state.
@@ -46,13 +63,20 @@ type Registry struct {
 // healthy store can carry one, so folding the two together would make the
 // browser badge an ordinary store as degraded.
 type entry struct {
-	name     string
-	path     string
+	name string
+	path string
+	// spec is what the store will be opened with, kept because opening is
+	// deferred until somebody asks for the store.
+	spec     StoreSpec
 	server   *Server
 	actor    ticket.Actor
 	readOnly bool
 	reason   string
 	note     string
+	// lastUsed is when a request last reached this store. It decides which
+	// store is evicted when the active set is full, and which the janitor
+	// closes for being idle.
+	lastUsed time.Time
 }
 
 // StoreSpec describes a store to serve, before anything opens it.
@@ -69,12 +93,18 @@ type StoreSpec struct {
 
 // StoreStatus is what the registry knows about one store.
 type StoreStatus struct {
-	Name      string `json:"name"`
-	Path      string `json:"path"`
-	Available bool   `json:"available"`
-	ReadOnly  bool   `json:"readOnly"`
-	Actor     string `json:"actor,omitempty"`
-	ActorID   string `json:"actorId,omitempty"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+	// Available is whether this store can be served. It is answered without
+	// opening the store, from the same check the walk uses.
+	Available bool `json:"available"`
+	// Active is whether the store is open right now, holding a watcher and a
+	// live stream. Listed, open, and broken are three states, and a browser
+	// that cannot tell them apart shows a spinner for a store nobody asked for.
+	Active   bool   `json:"active"`
+	ReadOnly bool   `json:"readOnly"`
+	Actor    string `json:"actor,omitempty"`
+	ActorID  string `json:"actorId,omitempty"`
 	// Reason is empty when nothing is wrong. It says why a store is
 	// unavailable, or why an available one is forced read-only. A store with a
 	// reason is degraded and should be presented that way.
@@ -93,7 +123,41 @@ type RegistryOptions struct {
 	// rather than from a store, so the browser can label the server even when
 	// no store is readable.
 	Version buildinfo.Info
+	// MaxActive caps how many stores hold a watcher at once. Zero takes
+	// DefaultMaxActive.
+	MaxActive int
+	// IdleTimeout is how long an active store with no subscribers is kept
+	// before it is closed. Zero takes DefaultIdleTimeout, and a negative value
+	// turns idle eviction off.
+	IdleTimeout time.Duration
+	// Warm is a list of store paths to activate at startup, matched against
+	// registered stores by resolved path. Exceeding MaxActive warns rather than
+	// failing: a configuration with forty favorites should start, serve the
+	// limit, and say so.
+	Warm []string
+	// Rescan is the configuration and merge settings POST /api/stores/rescan
+	// runs again. A zero value refuses the route, which is what a registry
+	// built by a test wants.
+	Rescan RescanSource
 }
+
+// RescanSource is what a rescan searches again.
+type RescanSource struct {
+	Config config.Config
+	Merge  MergeOptions
+}
+
+// DefaultMaxActive is how many stores may hold a watcher at once.
+//
+// One active store is one inotify instance. A Debian 13 workstation reports 128
+// in /proc/sys/fs/inotify/max_user_instances, shared with every editor the
+// person is running, so a canvas taking eight is asking for a sixteenth of the
+// budget. Eight canvases open at once is also more than anybody reads.
+const DefaultMaxActive = 8
+
+// DefaultIdleTimeout is how long an untouched store with nobody watching it is
+// kept open.
+const DefaultIdleTimeout = 15 * time.Minute
 
 // NewRegistry returns an empty Registry.
 func NewRegistry(opts RegistryOptions) *Registry {
@@ -101,52 +165,217 @@ func NewRegistry(opts RegistryOptions) *Registry {
 	if version.IsZero() {
 		version = buildinfo.Parse(nil)
 	}
-	return &Registry{entries: make(map[string]*entry), assets: opts.Assets, version: version}
+	if opts.MaxActive <= 0 {
+		opts.MaxActive = DefaultMaxActive
+	}
+	if opts.IdleTimeout == 0 {
+		opts.IdleTimeout = DefaultIdleTimeout
+	}
+	return &Registry{
+		entries: make(map[string]*entry),
+		assets:  opts.Assets,
+		version: version,
+		opts:    opts,
+		idle:    opts.IdleTimeout,
+		now:     time.Now,
+		stop:    make(chan struct{}),
+	}
 }
 
 // Add registers an already-open store under a name.
 func (r *Registry) Add(name string, s *Server) error {
 	return r.put(&entry{
 		name: name, path: s.store.Path(), server: s,
-		actor: s.actor, readOnly: s.readOnly,
+		actor: s.actor, readOnly: s.readOnly, lastUsed: r.now(),
 	})
 }
 
-// OpenStore opens a store and registers it under its name.
+// Register records a store without opening it.
+//
+// Finding a store is cheap and opening one is not: an open store holds a
+// watcher, a snapshot, and a goroutine, and a watcher is one inotify instance
+// out of a budget shared with every editor on the machine. A walk over a
+// workspace finds twenty-two stores and a person reads one, so the list is
+// built from registrations and the opening waits for somebody to ask.
+//
+// The one check made here is the walk's own gate, which costs two system calls
+// and no watcher: is there a store at or above this path. A path with no store
+// is registered anyway, unavailable, carrying the message that says what to do
+// about it.
+func (r *Registry) Register(spec StoreSpec) error {
+	e := &entry{name: spec.Name, path: spec.Path, spec: spec, readOnly: spec.ReadOnly}
+	if at, ok := discover.Nearest(spec.Path); ok {
+		e.path = filepath.Join(at, discover.StoreDir)
+	} else {
+		e.readOnly = true
+		e.reason = fmt.Sprintf("no %s store at or above %s; run `git-ticket init` first",
+			discover.StoreDir, spec.Path)
+	}
+	return r.put(e)
+}
+
+// OpenStore registers a store and opens it now.
 //
 // A store that cannot be opened becomes an unavailable entry carrying the
 // reason, and OpenStore still returns nil. The only error is a duplicate name,
 // which is a mistake in configuration rather than a problem with a store, and
 // which no later request could resolve because two stores would answer one URL.
 func (r *Registry) OpenStore(spec StoreSpec) error {
-	st, err := ticket.Discover(spec.Path)
+	if err := r.Register(spec); err != nil {
+		return err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.activateLocked(r.entries[spec.Name])
+	return nil
+}
+
+// activateLocked opens a registered store and starts it if the registry is
+// running. It records the reason on the entry rather than returning it, because
+// a store that will not open is a store to report, not a failure of the caller.
+//
+// A registry that has not been started yet opens the store and leaves the
+// coordinator alone; Start starts everything already open. That keeps a test
+// that opens stores and starts them afterwards working exactly as before.
+func (r *Registry) activateLocked(e *entry) {
+	if e == nil || e.server != nil || e.reason != "" && e.spec.Path == "" {
+		return
+	}
+	st, err := ticket.Discover(e.spec.Path)
 	if err != nil {
 		reason := err.Error()
 		if ticket.CodeOf(err) == ticket.CodeStoreNotFound {
 			// Keep the hint the single-store path has always given. This is the
 			// error somebody hits on their first run, and the next step is not
 			// obvious from the absence alone.
-			reason = fmt.Sprintf("no .tickets store at or above %s; run `git-ticket init` first", spec.Path)
+			reason = fmt.Sprintf("no %s store at or above %s; run `git-ticket init` first",
+				discover.StoreDir, e.spec.Path)
 		}
-		return r.put(&entry{name: spec.Name, path: spec.Path, readOnly: true, reason: reason})
+		e.server, e.readOnly, e.reason = nil, true, reason
+		return
 	}
 
-	actor, note, err := resolveActor(st, spec.Actor)
+	e.path, e.lastUsed = st.Path(), r.now()
+	actor, note, err := resolveActor(st, e.spec.Actor)
 	if err != nil {
 		// No actor to write as. The store still reads, so serve it read-only
 		// rather than withholding it. Read-only is what keeps the zero actor
 		// from ever reaching a write.
-		return r.put(&entry{
-			name: spec.Name, path: st.Path(), readOnly: true, reason: err.Error(),
-			server: New(st, Options{ReadOnly: true, Version: r.version}),
-		})
+		e.actor, e.readOnly, e.reason, e.note = ticket.Actor{}, true, err.Error(), ""
+		e.server = New(st, Options{ReadOnly: true, Version: r.version})
+	} else {
+		e.actor, e.readOnly, e.reason, e.note = actor, e.spec.ReadOnly, "", note
+		e.server = New(st, Options{Actor: actor, ReadOnly: e.readOnly, Version: r.version})
+	}
+	if r.ctx == nil {
+		return
+	}
+	if err := e.server.Start(r.ctx); err != nil {
+		e.server, e.readOnly, e.reason = nil, true, err.Error()
+	}
+}
+
+// acquire returns the server for a store, opening it if this is the first time
+// anybody has asked.
+//
+// The fast path is a read lock and nothing else, because every request to an
+// already-open store takes it.
+func (r *Registry) acquire(name string) (*Server, string, bool) {
+	r.mu.RLock()
+	e, configured := r.entries[name]
+	if configured && e.server != nil {
+		server := e.server
+		r.mu.RUnlock()
+		r.touch(name)
+		return server, "", true
+	}
+	r.mu.RUnlock()
+	if !configured {
+		return nil, "", false
 	}
 
-	readOnly := spec.ReadOnly
-	return r.put(&entry{
-		name: spec.Name, path: st.Path(), actor: actor, readOnly: readOnly, note: note,
-		server: New(st, Options{Actor: actor, ReadOnly: readOnly, Version: r.version}),
-	})
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	e, configured = r.entries[name]
+	if !configured {
+		return nil, "", false
+	}
+	if e.server != nil {
+		e.lastUsed = r.now()
+		return e.server, "", true
+	}
+	if e.reason != "" {
+		return nil, e.reason, true
+	}
+	if err := r.makeRoomLocked(); err != nil {
+		return nil, err.Error(), true
+	}
+	r.activateLocked(e)
+	if e.server == nil {
+		return nil, e.reason, true
+	}
+	e.lastUsed = r.now()
+	return e.server, "", true
+}
+
+// touch records that a store was used, so that eviction picks the store nobody
+// has looked at rather than the one somebody is reading.
+func (r *Registry) touch(name string) {
+	r.mu.Lock()
+	if e, ok := r.entries[name]; ok {
+		e.lastUsed = r.now()
+	}
+	r.mu.Unlock()
+}
+
+// makeRoomLocked closes the least recently used store when the active set is
+// full.
+//
+// A store with a live subscriber is never closed. An open EventSource is
+// somebody watching, and taking their board away to make room for a store they
+// have not opened yet is the wrong trade. When every active store has a
+// subscriber the request fails, naming the limit and the flag, which is a
+// better answer than running the machine out of inotify instances and failing
+// somewhere unrelated.
+func (r *Registry) makeRoomLocked() error {
+	for {
+		active := 0
+		var oldest *entry
+		for _, name := range r.order {
+			e := r.entries[name]
+			if e.server == nil {
+				continue
+			}
+			active++
+			if e.server.LiveStats().Subscribers > 0 {
+				continue
+			}
+			if oldest == nil || e.lastUsed.Before(oldest.lastUsed) {
+				oldest = e
+			}
+		}
+		if active < r.opts.MaxActive {
+			return nil
+		}
+		if oldest == nil {
+			return fmt.Errorf(
+				"%d stores are open and being watched, which is the limit set by --max-active; close a canvas or raise the limit",
+				active)
+		}
+		r.deactivateLocked(oldest)
+	}
+}
+
+// deactivateLocked closes an active store, leaving it registered.
+func (r *Registry) deactivateLocked(e *entry) {
+	server := e.server
+	e.server = nil
+	if server == nil {
+		return
+	}
+	// Closing waits for the coordinator's goroutine, and the registry lock is
+	// not what that goroutine needs, so this is safe to do while held.
+	_ = server.Close()
 }
 
 func (r *Registry) put(e *entry) error {
@@ -228,32 +457,31 @@ func (r *Registry) Statuses() []StoreStatus {
 	for _, name := range r.order {
 		e := r.entries[name]
 		list = append(list, StoreStatus{
-			Name: e.name, Path: e.path, Available: e.server != nil,
-			ReadOnly: e.readOnly, Actor: e.actor.Name, ActorID: e.actor.ID,
+			Name: e.name, Path: e.path, Available: e.reason == "" || e.server != nil,
+			Active: e.server != nil, ReadOnly: e.readOnly,
+			Actor: e.actor.Name, ActorID: e.actor.ID,
 			Reason: e.reason, Note: e.note,
 		})
 	}
 	return list
 }
 
-// Start starts every store that opened.
+// Start makes the registry live: it remembers the context activated stores run
+// under, opens the stores asked for by name, and starts the janitor.
 //
 // A store that will not start is marked unavailable with its reason and the
 // rest carry on. Before this, one unreadable store stopped the process, which
 // is right for a canvas over one store and wrong for a canvas over a list.
-//
-// It returns nil today. The error is kept in the signature because opening a
-// store moves off startup in the lazy-activation work, where a cancelled
-// context is a failure of the call rather than of any one store.
 func (r *Registry) Start(ctx context.Context) error {
-	r.mu.RLock()
+	r.mu.Lock()
+	r.ctx = ctx
 	pending := make([]*entry, 0, len(r.order))
 	for _, name := range r.order {
 		if e := r.entries[name]; e.server != nil {
 			pending = append(pending, e)
 		}
 	}
-	r.mu.RUnlock()
+	r.mu.Unlock()
 
 	for _, e := range pending {
 		if err := e.server.Start(ctx); err != nil {
@@ -262,15 +490,172 @@ func (r *Registry) Start(ctx context.Context) error {
 			r.mu.Unlock()
 			continue
 		}
-		r.started = append(r.started, e.server)
+	}
+
+	r.warm()
+	if r.idleTimeout() > 0 {
+		go r.janitor()
 	}
 	return nil
 }
 
-// Close closes every store that started. It is safe to call more than once.
+// warm opens the stores somebody asked to have ready.
+//
+// Favorites and the store last used are the common case, and waiting for the
+// first request to open them wastes the one moment when nobody is waiting. A
+// warm list longer than the limit warns rather than failing: a configuration
+// with forty favorites should start, serve the limit, and say which ones it
+// left closed.
+func (r *Registry) warm() {
+	if len(r.opts.Warm) == 0 {
+		return
+	}
+	wanted := make(map[string]bool, len(r.opts.Warm))
+	for _, path := range r.opts.Warm {
+		wanted[discover.Key(path)] = true
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, name := range r.order {
+		e := r.entries[name]
+		if e.server != nil || e.reason != "" || !wanted[discover.Key(e.spec.Path)] {
+			continue
+		}
+		if err := r.makeRoomLocked(); err != nil {
+			log.Printf("warn   %s is not opened at startup: %v", name, err)
+			return
+		}
+		r.activateLocked(e)
+	}
+}
+
+// janitor closes stores nobody is using.
+//
+// It wakes often enough that a store is closed within a fraction of the idle
+// period rather than a multiple of it, and it never closes a store with a
+// subscriber: an open EventSource is somebody watching, however long ago their
+// last request was.
+// SetIdleTimeout changes how long an untouched store is kept. A value of zero
+// or less turns idle eviction off for the stores that are already open; the
+// janitor is started once, by Start, and simply finds nothing to do.
+func (r *Registry) SetIdleTimeout(d time.Duration) {
+	r.mu.Lock()
+	r.idle = d
+	r.mu.Unlock()
+}
+
+func (r *Registry) idleTimeout() time.Duration {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.idle
+}
+
+func (r *Registry) janitor() {
+	interval := r.idleTimeout() / 4
+	if interval < time.Second {
+		interval = time.Second
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-r.stop:
+			return
+		case <-ticker.C:
+			r.EvictIdle()
+		}
+	}
+}
+
+// EvictIdle closes every active store with no subscribers that has not been
+// used within the idle period. It returns how many it closed.
+func (r *Registry) EvictIdle() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.idle <= 0 {
+		return 0
+	}
+	cutoff := r.now().Add(-r.idle)
+	closed := 0
+	for _, name := range r.order {
+		e := r.entries[name]
+		if e.server == nil || !e.lastUsed.Before(cutoff) {
+			continue
+		}
+		if e.server.LiveStats().Subscribers > 0 {
+			continue
+		}
+		r.deactivateLocked(e)
+		closed++
+	}
+	return closed
+}
+
+// Rescan searches the configured roots again and reconciles the result.
+//
+// A store that has appeared is registered. A store that is no longer found is
+// dropped only when it is not open, because closing a store somebody is looking
+// at to reflect a change on disk is the wrong trade. An open store is otherwise
+// untouched: same server, same watcher, same ETag, same stream.
+func (r *Registry) Rescan() (added, removed int, err error) {
+	cfg := r.opts.Rescan.Config
+	if len(cfg.Stores) == 0 && len(cfg.Roots) == 0 {
+		return 0, 0, errors.New("this canvas was not started with a configuration to search again")
+	}
+	specs, _ := Merge(cfg, discover.Scan(cfg), r.opts.Rescan.Merge)
+
+	wanted := make(map[string]StoreSpec, len(specs))
+	for _, spec := range specs {
+		wanted[spec.Name] = spec
+	}
+
+	r.mu.Lock()
+	var keep []string
+	for _, name := range r.order {
+		e := r.entries[name]
+		if _, still := wanted[name]; still || e.server != nil {
+			keep = append(keep, name)
+			continue
+		}
+		delete(r.entries, name)
+		removed++
+	}
+	r.order = keep
+	r.mu.Unlock()
+
+	for _, spec := range specs {
+		r.mu.RLock()
+		_, exists := r.entries[spec.Name]
+		r.mu.RUnlock()
+		if exists {
+			continue
+		}
+		if err := r.Register(spec); err != nil {
+			return added, removed, err
+		}
+		added++
+	}
+	return added, removed, nil
+}
+
+// Close closes every store that started, and stops the janitor. It is safe to
+// call more than once.
 func (r *Registry) Close() error {
-	started := r.started
-	r.started = nil
+	r.mu.Lock()
+	if !r.closed {
+		r.closed = true
+		close(r.stop)
+	}
+	var started []*Server
+	for _, name := range r.order {
+		e := r.entries[name]
+		if e.server != nil {
+			started = append(started, e.server)
+			e.server = nil
+		}
+	}
+	r.mu.Unlock()
+
 	var err error
 	for _, s := range started {
 		if closeErr := s.Close(); closeErr != nil && err == nil {
@@ -292,14 +677,7 @@ func (r *Registry) handleStores(w http.ResponseWriter, _ *http.Request) {
 // handleStore routes one request to the store named in its path.
 func (r *Registry) handleStore(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("store")
-	r.mu.RLock()
-	e, configured := r.entries[name]
-	var server *Server
-	var reason string
-	if configured {
-		server, reason = e.server, e.reason
-	}
-	r.mu.RUnlock()
+	server, reason, configured := r.acquire(name)
 
 	switch {
 	case !configured:
@@ -328,25 +706,65 @@ func (r *Registry) handleStore(w http.ResponseWriter, req *http.Request) {
 func (r *Registry) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/stores", r.handleStores)
+	mux.HandleFunc("POST /api/stores/rescan", r.handleRescan)
 	mux.HandleFunc("/api/stores/{store}/", r.handleStore)
 	mux.HandleFunc("GET /api/version", r.handleVersion)
-
-	// One store keeps the flat routes, so `git-ticket-canvas --store .` is
-	// unchanged. Several stores do not get them, because a flat route would
-	// have to guess which store it meant, and guessing wrong writes a ticket
-	// into the wrong repository.
-	r.mu.RLock()
-	if len(r.order) == 1 {
-		if only := r.entries[r.order[0]]; only.server != nil {
-			mux.Handle("/api/", http.StripPrefix("/api", only.server.apiRoutes()))
-		}
-	}
-	r.mu.RUnlock()
+	mux.HandleFunc("/api/", r.handleFlat)
 
 	if r.assets != nil {
 		mux.Handle("/", http.FileServerFS(r.assets))
 	}
 	return http.NewCrossOriginProtection().Handler(mux)
+}
+
+// handleFlat serves the unprefixed routes when there is exactly one store.
+//
+// The decision is made per request rather than when the handler is built,
+// because a rescan can take a canvas from one store to two, and a flat route
+// left over from startup would have to guess which store it meant. Guessing
+// wrong writes a ticket into the wrong repository.
+func (r *Registry) handleFlat(w http.ResponseWriter, req *http.Request) {
+	r.mu.RLock()
+	only := ""
+	if len(r.order) == 1 {
+		only = r.order[0]
+	}
+	count := len(r.order)
+	r.mu.RUnlock()
+
+	if only == "" {
+		writeJSON(w, http.StatusNotFound, errBody{
+			Code: "store_required",
+			Message: fmt.Sprintf(
+				"this canvas serves %d stores, so a request has to name one at /api/stores/{store}/", count),
+		})
+		return
+	}
+	server, reason, _ := r.acquire(only)
+	if server == nil {
+		w.Header().Set("Retry-After", "5")
+		writeJSON(w, http.StatusServiceUnavailable, errBody{
+			Code:    "store_unavailable",
+			Message: fmt.Sprintf("store %q is not available: %s", only, reason),
+		})
+		return
+	}
+	http.StripPrefix("/api", server.apiRoutes()).ServeHTTP(w, req)
+}
+
+type rescanResponse struct {
+	Added   int           `json:"added"`
+	Removed int           `json:"removed"`
+	Stores  []StoreStatus `json:"stores"`
+}
+
+func (r *Registry) handleRescan(w http.ResponseWriter, _ *http.Request) {
+	added, removed, err := r.Rescan()
+	if err != nil {
+		writeJSON(w, http.StatusConflict, errBody{Code: "rescan_unavailable", Message: err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, rescanResponse{Added: added, Removed: removed, Stores: r.Statuses()})
 }
 
 func (r *Registry) handleVersion(w http.ResponseWriter, _ *http.Request) {

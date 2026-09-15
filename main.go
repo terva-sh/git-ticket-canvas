@@ -99,6 +99,8 @@ func run() error {
 		actorID    = flag.String("actor", "", "actor to record writes as; defaults to each store's configured actor")
 		readOnly   = flag.Bool("read-only", false, "refuse every write, including card placement")
 		scan       = flag.Bool("scan", false, "print what discovery decided about every candidate, then exit")
+		maxActive  = flag.Int("max-active", api.DefaultMaxActive, "how many stores may be open at once; each open store holds one file watcher")
+		storeIdle  = flag.Duration("store-idle", api.DefaultIdleTimeout, "close a store nobody is watching after this long; 0 never closes one")
 		version    = flag.Bool("version", false, "print build version and exit")
 		asJSON     = flag.Bool("json", false, "print --version as JSON")
 	)
@@ -179,21 +181,39 @@ func run() error {
 		return err
 	}
 
-	// Assets are served once by the registry rather than by every store.
-	registry := api.NewRegistry(api.RegistryOptions{Assets: assets, Version: buildinfo.Read()})
-
 	// Which stores to serve, what they are called, and how each is configured.
 	// The rule lives beside the registry because a later rescan needs it and
 	// main will not be running then.
-	specs, notes := api.Merge(cfg, found, api.MergeOptions{Actor: *actorID, ReadOnly: *readOnly})
+	merging := api.MergeOptions{Actor: *actorID, ReadOnly: *readOnly}
+	specs, notes := api.Merge(cfg, found, merging)
+
+	// Assets are served once by the registry rather than by every store.
+	idle := *storeIdle
+	if idle == 0 {
+		// A zero duration on the command line means never close one, which the
+		// registry spells as a negative value so that zero can still mean "take
+		// the default" for a caller that set no option at all.
+		idle = -1
+	}
+	registry := api.NewRegistry(api.RegistryOptions{
+		Assets:      assets,
+		Version:     buildinfo.Read(),
+		MaxActive:   *maxActive,
+		IdleTimeout: idle,
+		Rescan:      api.RescanSource{Config: cfg, Merge: merging},
+	})
 	for _, warning := range found.Warnings {
 		log.Printf("warn   %s", warning)
 	}
 	for _, note := range notes {
 		log.Printf("note   %s", note)
 	}
+	// Registered, not opened. A store costs a watcher only once somebody looks
+	// at it, which is what makes a canvas over twenty-two repositories
+	// affordable on a budget of 128 inotify instances shared with every editor
+	// on the machine.
 	for _, spec := range specs {
-		if err := registry.OpenStore(spec); err != nil {
+		if err := registry.Register(spec); err != nil {
 			return err
 		}
 	}
@@ -205,10 +225,11 @@ func run() error {
 	}
 	defer registry.Close()
 
-	// Report every store, including the ones that did not open. An unavailable
+	// Report every store, including the ones that will not open. An unavailable
 	// store is loud here as well as visible in GET /api/stores, because a
 	// canvas that quietly serves four of your five repositories is worse than
-	// one that says which one it dropped.
+	// one that says which one it dropped. Most stores are listed here without
+	// having been opened, so there is no actor to report yet.
 	available := 0
 	for _, s := range registry.Statuses() {
 		if !s.Available {
@@ -220,7 +241,11 @@ func run() error {
 		if s.ReadOnly {
 			mode = "  (read-only)"
 		}
-		log.Printf("store  %s  %s%s", s.Name, s.Path, mode)
+		state := ""
+		if !s.Active {
+			state = "  (opens on first use)"
+		}
+		log.Printf("store  %s  %s%s%s", s.Name, s.Path, mode, state)
 		if s.Actor != "" {
 			log.Printf("actor  %s <%s>", s.Actor, s.ActorID)
 		}

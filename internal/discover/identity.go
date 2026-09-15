@@ -18,25 +18,34 @@ import (
 // named and is not on disk has to stay in the list, carrying the reason, and it
 // can only do that if it still has an identity.
 func Key(path string) string {
-	clean := filepath.Clean(path)
-	at := clean
-	for {
-		if ok, _ := storeAt(at); ok {
-			if real, err := filepath.EvalSymlinks(at); err == nil {
-				return real
-			}
-			return at
+	if at, ok := Nearest(path); ok {
+		if real, err := filepath.EvalSymlinks(at); err == nil {
+			return real
 		}
-		parent := filepath.Dir(at)
-		if parent == at {
-			break
-		}
-		at = parent
+		return at
 	}
+	clean := filepath.Clean(path)
 	if real, err := filepath.EvalSymlinks(clean); err == nil {
 		return real
 	}
 	return clean
+}
+
+// Nearest reports the closest directory at or above path that holds a store.
+//
+// It is the same gate the walk uses and costs two system calls, which is what
+// lets a store be registered, listed, and reported on without being opened.
+func Nearest(path string) (string, bool) {
+	for at := filepath.Clean(path); ; {
+		if ok, _ := storeAt(at); ok {
+			return at, true
+		}
+		parent := filepath.Dir(at)
+		if parent == at {
+			return "", false
+		}
+		at = parent
+	}
 }
 
 // visited is what one run of discovery has already accounted for.
