@@ -436,9 +436,33 @@ kept. The hash is taken over the resolved key rather than a counter, so an id
 is the same on the next run and does not move when another store is added ahead
 of it.
 
-Favorites and the record of the last store used are keyed by absolute path and
-never by id. Changing `--root` changes every derived id at once, and a favorite
-that is keyed by id would be lost.
+## What the canvas remembers
+
+Favorites and the store last used live in
+`${XDG_STATE_HOME:-~/.local/state}/git-ticket-canvas/state.json`, outside every
+repository. A favorite is a fact about the person using the canvas rather than
+about the project, and writing one into `.tickets` would put one person's
+preferences into everybody's clone. `--state` moves the file.
+
+The canvas configuration file is never rewritten. It is written by hand, and a
+tool that rewrites it loses the comments and the ordering somebody put there.
+
+Both are keyed by the resolved absolute path and never by id. Changing `--root`
+changes every derived id at once, and a favorite keyed by id would be lost by a
+flag that was meant to change nothing about which stores exist. The file holds
+paths; a response holds ids, because that is what a URL needs, and the registry
+maps between them.
+
+The file is written through a temporary name in the same directory and renamed
+over the target, so an interrupted write leaves the previous state rather than
+half of the next one. A missing file is a first run and reads as empty. A
+malformed file warns and also reads as empty, because losing a canvas over a
+corrupted list of favorites is the wrong trade, and the next write repairs it.
+
+The store last used is recorded when a request reaches a store that is not the
+one already recorded, so it costs one write per switch rather than one per
+request. That record and the favorites are what the registry opens at startup,
+the last store first.
 
 ## HTTP
 

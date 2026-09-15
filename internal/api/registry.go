@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -14,6 +15,7 @@ import (
 	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
 	"github.com/terva-sh/git-ticket-canvas/internal/config"
 	"github.com/terva-sh/git-ticket-canvas/internal/discover"
+	"github.com/terva-sh/git-ticket-canvas/internal/state"
 	"github.com/terva-sh/git-ticket/ticket"
 )
 
@@ -101,7 +103,11 @@ type StoreStatus struct {
 	// Active is whether the store is open right now, holding a watcher and a
 	// live stream. Listed, open, and broken are three states, and a browser
 	// that cannot tell them apart shows a spinner for a store nobody asked for.
-	Active   bool   `json:"active"`
+	Active bool `json:"active"`
+	// Favorite is whether the person using the canvas marked this store. The
+	// picker orders on it, so it is answered here rather than in a second
+	// request.
+	Favorite bool   `json:"favorite"`
 	ReadOnly bool   `json:"readOnly"`
 	Actor    string `json:"actor,omitempty"`
 	ActorID  string `json:"actorId,omitempty"`
@@ -139,6 +145,10 @@ type RegistryOptions struct {
 	// runs again. A zero value refuses the route, which is what a registry
 	// built by a test wants.
 	Rescan RescanSource
+	// State is what the canvas remembers between runs: which stores are
+	// favorites and which one was open last. A nil value keeps nothing, which
+	// is what a test wants and what a canvas over one store does not need.
+	State *state.Store
 }
 
 // RescanSource is what a rescan searches again.
@@ -315,6 +325,9 @@ func (r *Registry) acquire(name string) (*Server, string, bool) {
 		return nil, e.reason, true
 	}
 	e.lastUsed = r.now()
+	// Recorded while the lock is held, which is safe because the state keeps
+	// its own and never calls back into the registry.
+	r.rememberLast(e)
 	return e.server, "", true
 }
 
@@ -322,10 +335,36 @@ func (r *Registry) acquire(name string) (*Server, string, bool) {
 // has looked at rather than the one somebody is reading.
 func (r *Registry) touch(name string) {
 	r.mu.Lock()
-	if e, ok := r.entries[name]; ok {
+	e, ok := r.entries[name]
+	if ok {
 		e.lastUsed = r.now()
 	}
 	r.mu.Unlock()
+	if ok {
+		r.rememberLast(e)
+	}
+}
+
+// favorite reports whether a store is marked. It is called with the registry
+// lock held, and the state has its own.
+func (r *Registry) favorite(e *entry) bool {
+	if r.opts.State == nil {
+		return false
+	}
+	return r.opts.State.Favorite(discover.Key(e.spec.Path))
+}
+
+// rememberLast records the store somebody is looking at.
+//
+// The state saves only when the value changed, so this is one write per switch
+// rather than one per request.
+func (r *Registry) rememberLast(e *entry) {
+	if r.opts.State == nil {
+		return
+	}
+	if err := r.opts.State.SetLastStore(discover.Key(e.spec.Path)); err != nil {
+		log.Printf("warn   the store last used could not be saved: %v", err)
+	}
 }
 
 // makeRoomLocked closes the least recently used store when the active set is
@@ -458,7 +497,7 @@ func (r *Registry) Statuses() []StoreStatus {
 		e := r.entries[name]
 		list = append(list, StoreStatus{
 			Name: e.name, Path: e.path, Available: e.reason == "" || e.server != nil,
-			Active: e.server != nil, ReadOnly: e.readOnly,
+			Active: e.server != nil, Favorite: r.favorite(e), ReadOnly: e.readOnly,
 			Actor: e.actor.Name, ActorID: e.actor.ID,
 			Reason: e.reason, Note: e.note,
 		})
@@ -706,6 +745,8 @@ func (r *Registry) handleStore(w http.ResponseWriter, req *http.Request) {
 func (r *Registry) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/stores", r.handleStores)
+	mux.HandleFunc("GET /api/favorites", r.handleFavorites)
+	mux.HandleFunc("PUT /api/favorites", r.handleSetFavorite)
 	mux.HandleFunc("POST /api/stores/rescan", r.handleRescan)
 	mux.HandleFunc("/api/stores/{store}/", r.handleStore)
 	mux.HandleFunc("GET /api/version", r.handleVersion)
@@ -765,6 +806,88 @@ func (r *Registry) handleRescan(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, rescanResponse{Added: added, Removed: removed, Stores: r.Statuses()})
+}
+
+type favoritesResponse struct {
+	// Stores are the ids of the favorite stores this canvas is serving. The
+	// browser routes by id, so it gets ids.
+	Stores []string `json:"stores"`
+	// Paths are the favorites as stored, including any that this canvas is not
+	// serving, so that a canvas started on a different root does not look like
+	// it lost them.
+	Paths     []string `json:"paths"`
+	LastStore string   `json:"lastStore,omitempty"`
+}
+
+type favoriteRequest struct {
+	Store    string `json:"store"`
+	Favorite bool   `json:"favorite"`
+}
+
+func (r *Registry) handleFavorites(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Cache-Control", "private, no-cache")
+	writeJSON(w, http.StatusOK, r.favorites())
+}
+
+func (r *Registry) handleSetFavorite(w http.ResponseWriter, req *http.Request) {
+	if r.opts.State == nil {
+		writeJSON(w, http.StatusConflict, errBody{
+			Code:    "state_unavailable",
+			Message: "this canvas is not keeping favorites",
+		})
+		return
+	}
+	var body favoriteRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, req.Body, 4096)).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, errBody{Code: "invalid_body", Message: err.Error()})
+		return
+	}
+
+	r.mu.RLock()
+	e, known := r.entries[body.Store]
+	var path string
+	if known {
+		path = discover.Key(e.spec.Path)
+	}
+	r.mu.RUnlock()
+	if !known {
+		writeJSON(w, http.StatusNotFound, errBody{
+			Code:    "unknown_store",
+			Message: fmt.Sprintf("no store named %q is configured", body.Store),
+		})
+		return
+	}
+	if err := r.opts.State.SetFavorite(path, body.Favorite); err != nil {
+		writeJSON(w, http.StatusInternalServerError, errBody{Code: "state_write_failed", Message: err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, r.favorites())
+}
+
+// favorites answers with ids for the stores this canvas serves and paths for
+// everything remembered, so a canvas started on a different root shows what it
+// can reach without looking as though the rest were forgotten.
+func (r *Registry) favorites() favoritesResponse {
+	out := favoritesResponse{Stores: []string{}, Paths: []string{}}
+	if r.opts.State == nil {
+		return out
+	}
+	snapshot := r.opts.State.Snapshot()
+	out.Paths = append(out.Paths, snapshot.Favorites...)
+	out.LastStore = snapshot.LastStore
+
+	marked := make(map[string]bool, len(snapshot.Favorites))
+	for _, path := range snapshot.Favorites {
+		marked[path] = true
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, name := range r.order {
+		if marked[discover.Key(r.entries[name].spec.Path)] {
+			out.Stores = append(out.Stores, name)
+		}
+	}
+	return out
 }
 
 func (r *Registry) handleVersion(w http.ResponseWriter, _ *http.Request) {

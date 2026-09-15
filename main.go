@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -27,6 +28,7 @@ import (
 	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
 	"github.com/terva-sh/git-ticket-canvas/internal/config"
 	"github.com/terva-sh/git-ticket-canvas/internal/discover"
+	"github.com/terva-sh/git-ticket-canvas/internal/state"
 )
 
 //go:embed all:web/dist
@@ -101,6 +103,7 @@ func run() error {
 		scan       = flag.Bool("scan", false, "print what discovery decided about every candidate, then exit")
 		maxActive  = flag.Int("max-active", api.DefaultMaxActive, "how many stores may be open at once; each open store holds one file watcher")
 		storeIdle  = flag.Duration("store-idle", api.DefaultIdleTimeout, "close a store nobody is watching after this long; 0 never closes one")
+		statePath  = flag.String("state", "", "file holding favorites and the store last used; defaults to the canvas state directory")
 		version    = flag.Bool("version", false, "print build version and exit")
 		asJSON     = flag.Bool("json", false, "print --version as JSON")
 	)
@@ -195,12 +198,25 @@ func run() error {
 		// the default" for a caller that set no option at all.
 		idle = -1
 	}
+	// Favorites and the store last used live outside every repository, and are
+	// what the registry opens at startup so the common case is already warm.
+	remembered, warning := openState(*statePath)
+	if warning != "" {
+		log.Printf("warn   %s", warning)
+	}
+	var warm []string
+	if remembered != nil {
+		warm = remembered.Warm()
+	}
+
 	registry := api.NewRegistry(api.RegistryOptions{
 		Assets:      assets,
 		Version:     buildinfo.Read(),
 		MaxActive:   *maxActive,
 		IdleTimeout: idle,
+		Warm:        warm,
 		Rescan:      api.RescanSource{Config: cfg, Merge: merging},
+		State:       remembered,
 	})
 	for _, warning := range found.Warnings {
 		log.Printf("warn   %s", warning)
@@ -290,4 +306,20 @@ func run() error {
 		defer cancel()
 		return http.Shutdown(shutdown)
 	}
+}
+
+// openState opens the file the canvas remembers favorites in.
+//
+// A canvas that cannot find a state directory still runs, keeping nothing. That
+// is a degraded canvas rather than a broken one, and refusing to start over a
+// missing home directory would be the wrong trade.
+func openState(path string) (*state.Store, string) {
+	if path == "" {
+		dir, err := state.Dir()
+		if err != nil {
+			return nil, fmt.Sprintf("favorites are not being kept: %v", err)
+		}
+		path = filepath.Join(dir, state.FileName)
+	}
+	return state.Open(path)
 }
