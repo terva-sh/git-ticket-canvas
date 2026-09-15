@@ -18,6 +18,12 @@ async function openBrowser(page: Page) {
 async function open(page: Page, name: string) {
   await page.locator(`.store-row[data-store="${name}"] .store-open`).click()
   await expect(page.locator('#storeBrowser')).toHaveCount(0)
+  // The picker is a native details element, so nothing closes it on its own.
+  // Left open its dropdown covers the toolbar and swallows clicks meant for
+  // the controls underneath, which is how this reached a failed release.
+  // Asserting it here fails on the cause rather than on whatever the dropdown
+  // happens to overlap at the running machine's font metrics.
+  await expect(page.locator('#storePicker')).not.toHaveAttribute('open', /.*/)
 }
 
 test('switching stores rebuilds the canvas and reconnects the stream', async ({ page, pair }) => {

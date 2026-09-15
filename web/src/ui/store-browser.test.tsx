@@ -123,3 +123,30 @@ it('returns focus to whatever opened it', () => {
   expect(document.activeElement).toBe(opener)
   opener.remove()
 })
+
+// A native details element keeps `open` in the DOM, so nothing a re-render
+// does will close it. Left open, the dropdown hangs over the toolbar and
+// swallows clicks meant for the controls underneath it.
+it('closes the dropdown once it has done its job', () => {
+  const onOpen = vi.fn(), onBrowse = vi.fn()
+  const render1 = (current: string) => act(() => render(
+    <StorePicker stores={stores} current={current} recent={[]} onOpen={onOpen} onBrowse={onBrowse} />, root))
+  render1('one')
+  const box = element<HTMLDetailsElement>('#storePicker')
+
+  box.open = true
+  act(() => { element<HTMLButtonElement>('#browseStores').click() })
+  expect(onBrowse).toHaveBeenCalled()
+  expect(box.open).toBe(false)
+
+  box.open = true
+  act(() => { element<HTMLButtonElement>('.store-quick-item').click() })
+  expect(onOpen).toHaveBeenCalled()
+  expect(box.open).toBe(false)
+
+  // And when the store changes from anywhere else, such as the browser view.
+  box.open = true
+  render1('two')
+  expect(element<HTMLDetailsElement>('#storePicker').open).toBe(false)
+})
+
