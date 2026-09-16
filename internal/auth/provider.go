@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -271,15 +272,25 @@ func (p *Provider) Callback(w http.ResponseWriter, req *http.Request) {
 	}
 	identity, returnTo, err := p.finish(req, verifier, oauthCfg)
 	if err != nil {
+		// The browser is told one generic sentence on purpose, because it may
+		// be holding a code that is not its own. Which check failed goes here,
+		// where the operator is, and docs/serving-a-canvas.md has promised this
+		// line since before anything wrote it.
+		log.Printf("refuse login: %v", err)
 		p.clearCookie(w, attemptCookie)
 		http.Error(w, "this login could not be completed; start again at "+LoginPath, http.StatusForbidden)
 		return
 	}
 	id, err := p.sessions.Create(identity)
 	if err != nil {
+		log.Printf("refuse login: %v", err)
 		http.Error(w, "this login could not be completed", http.StatusInternalServerError)
 		return
 	}
+	// The only record this canvas keeps of who has been reading a store. Before
+	// it existed the identity provider's own event log was the whole audit
+	// trail, which put it in a different system from the thing being read.
+	log.Printf("login  %s", identity.Describe())
 	p.clearCookie(w, attemptCookie)
 	p.setCookie(w, SessionCookie, id, 0)
 	http.Redirect(w, req, returnTo, http.StatusFound)

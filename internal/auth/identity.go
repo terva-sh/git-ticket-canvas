@@ -9,7 +9,12 @@
 // not true.
 package auth
 
-import "github.com/terva-sh/git-ticket-canvas/internal/grants"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/terva-sh/git-ticket-canvas/internal/grants"
+)
 
 // Identity is everything an authenticated login yields.
 //
@@ -50,6 +55,31 @@ func (i Identity) Actor() string {
 		}
 	}
 	return ""
+}
+
+// Describe is one line naming this person for the log.
+//
+// It carries the subject because that is what everything keys on, a name only
+// so that the line is readable by somebody who does not think in opaque ids,
+// and the groups because a login arriving with none is the most common
+// misconfiguration there is and the log should say so rather than leaving an
+// operator to infer it from an empty canvas.
+//
+// No email, no token, no session id. A log line names a person and what they
+// arrived holding; anything that could be replayed does not belong in one.
+func (i Identity) Describe() string {
+	name := i.Name
+	if name == "" {
+		name = i.PreferredUsername
+	}
+	held := "no groups"
+	if len(i.Groups) > 0 {
+		held = strings.Join(i.Groups, ", ")
+	}
+	if name == "" {
+		return fmt.Sprintf("%s holding %s", i.Subject, held)
+	}
+	return fmt.Sprintf("%s (%s) holding %s", name, i.Subject, held)
 }
 
 func localPart(email string) string {

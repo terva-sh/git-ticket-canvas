@@ -41,6 +41,10 @@ func (a access) Caller(req *http.Request) (api.Caller, bool) {
 		// desk canvas's own key cannot collect somebody's favorites.
 		StateKey: state.Subject(identity.Subject),
 		Groups:   identity.Groups,
+		// Display only. The dialog that shows these is the only way anybody can
+		// see what the provider actually sent.
+		Name:  identity.Name,
+		Email: identity.Email,
 	}, true
 }
 

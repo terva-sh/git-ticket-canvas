@@ -171,6 +171,10 @@ type RegistryOptions struct {
 	// runs again. A zero value refuses the route, which is what a registry
 	// built by a test wants.
 	Rescan RescanSource
+	// Logout is the path that ends a session, or empty where nothing can.
+	// It is passed through so that the registry keeps knowing nothing about how
+	// somebody logged in; the Access seam exists for the same reason.
+	Logout string
 	// State is what the canvas remembers between runs: which stores are
 	// favorites and which one was open last, keyed by the person it belongs
 	// to. A nil value keeps nothing, which is what a test wants and what a
@@ -222,6 +226,12 @@ type Caller struct {
 	// StateKey is what this person's favorites and last store are filed under.
 	StateKey string
 	Groups   []string
+	// Name and Email are carried for display only. Nothing keys on either, for
+	// the reason Subject exists: both are mutable in every provider. They are
+	// here because a person cannot otherwise see what the provider sent, which
+	// is the first thing anybody checks when a login behaves oddly.
+	Name  string
+	Email string
 	// Actor is the id to offer this person on a store they have not chosen one
 	// for, built from the identity provider's claims. It is a suggestion:
 	// nothing is bound until they accept or replace it.
@@ -920,6 +930,10 @@ func (r *Registry) Handler() http.Handler {
 		mux.HandleFunc("GET /api/actor", r.handleFlatActor)
 		mux.HandleFunc("PUT /api/actor", r.handleFlatActor)
 	}
+	// Registered on every canvas, unlike the actor routes. A desk canvas has an
+	// answer to give here — that nobody is signed in — and the browser needs it
+	// to know whether to offer the control at all.
+	mux.HandleFunc("GET /api/session", r.handleSession)
 	mux.HandleFunc("/api/stores/{store}/", r.handleStore)
 	mux.HandleFunc("GET /api/version", r.handleVersion)
 	mux.HandleFunc("/api/", r.handleFlat)

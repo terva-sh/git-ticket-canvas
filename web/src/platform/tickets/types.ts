@@ -120,3 +120,28 @@ export interface StoreSummary {
 export interface StoresResponse { stores: StoreSummary[] }
 export interface FavoritesResponse { stores: string[]; paths: string[]; lastStore?: string; lastStoreId?: string }
 export interface RescanResponse { added: number; removed: number; stores: StoreSummary[] }
+
+/** Who the canvas thinks you are. Answered by every canvas, including a desk
+ * one, which replies that nobody is signed in. */
+export interface SessionResponse {
+  authenticated: boolean
+  subject?: string
+  name?: string
+  email?: string
+  /** Every group the token carried. */
+  groups: string[]
+  /** The subset of `groups` that actually granted something. A group that
+   * arrives and grants nothing looks identical to one the provider never sent,
+   * which is why both lists are here. */
+  granted: string[]
+  logout?: string
+}
+
+/** What a person's writes to one store are stamped with. */
+export interface ActorResponse {
+  actor: string
+  /** False while `actor` is a suggestion nobody has agreed to. */
+  chosen: boolean
+  declared?: string[]
+  enforced: boolean
+}

@@ -20,6 +20,8 @@ export interface ToolbarProps {
   onLabelFilter?(label: string): void; onClearLabelFilters?(): void
   /** Absent on a canvas serving one store, which needs no picker. */
   stores?: StorePickerProps
+  /** Absent on a desk canvas, which has no session to describe or to end. */
+  account?: { name: string; onOpen(): void }
 }
 
 const stateWords: Record<LabelState | 'off', string> = {
@@ -123,6 +125,8 @@ export function Toolbar(p: ToolbarProps) {
     </>}
     <button id="btnArrange" class="tool" title="Lay unplaced cards out in status lanes" disabled={p.readOnly || p.framePending} onClick={p.onArrange}>Arrange</button>
     <button id="btnFit" class="tool" title="Fit all cards in view" onClick={p.onFit}>Fit</button>
+    {p.account && <button id="btnAccount" class="tool" title="Your account, groups and actor"
+      onClick={p.account.onOpen}>{p.account.name}</button>}
     <button id="btnNew" class="tool primary" title="New ticket (double-click the canvas)" disabled={p.readOnly} onClick={p.onNew}>New ticket</button>
   </div>
 }

@@ -29,6 +29,7 @@ import (
 
 	"github.com/terva-sh/git-ticket-canvas/internal/actors"
 	"github.com/terva-sh/git-ticket-canvas/internal/api"
+	"github.com/terva-sh/git-ticket-canvas/internal/auth"
 	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
 	"github.com/terva-sh/git-ticket-canvas/internal/config"
 	"github.com/terva-sh/git-ticket-canvas/internal/discover"
@@ -300,6 +301,13 @@ func Run(kind Kind, args []string) error {
 		return err
 	}
 
+	// A desk canvas has no session, so it offers no way to end one and the
+	// browser hides the control rather than showing one that cannot work.
+	logout := ""
+	if gate != nil {
+		logout = auth.LogoutPath
+	}
+
 	registry := api.NewRegistry(api.RegistryOptions{
 		Assets:      assets,
 		Version:     buildinfo.Read(),
@@ -310,6 +318,8 @@ func Run(kind Kind, args []string) error {
 		State:       remembered,
 		Access:      gate,
 		Actors:      bound,
+		// Empty on a desk canvas, where there is no session to end.
+		Logout: logout,
 	})
 	for _, warning := range found.Warnings {
 		log.Printf("warn   %s", warning)
