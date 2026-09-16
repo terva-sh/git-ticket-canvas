@@ -4,8 +4,8 @@ github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S
 github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
 github.com/go-jose/go-jose/v4 v4.1.4 h1:moDMcTHmvE6Groj34emNPLs/qtYXRVcd6S7NHbHz3kA=
 github.com/go-jose/go-jose/v4 v4.1.4/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
-github.com/terva-sh/git-ticket v0.19.0 h1:6c5fKpgi9T4yfyJU03mn/9cYTrrXJr2ym4LZpUEfbr0=
-github.com/terva-sh/git-ticket v0.19.0/go.mod h1:F8LG5Rq43gimpcEhK9NUHHGT16/R6VxSsMNzUUsRL6U=
+github.com/terva-sh/git-ticket v0.19.1 h1:qsSoL88QlrWKIHMybwqPGmdhSInKYT1jVBaAek/Sfag=
+github.com/terva-sh/git-ticket v0.19.1/go.mod h1:F8LG5Rq43gimpcEhK9NUHHGT16/R6VxSsMNzUUsRL6U=
 golang.org/x/oauth2 v0.36.0 h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=
 golang.org/x/oauth2 v0.36.0/go.mod h1:YDBUJMTkDnJS+A4BP4eZBjCqtokkg1hODuPjwiGPO7Q=
 golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
