@@ -76,6 +76,11 @@ type Principal struct {
 // resource is not an implementation of this interface.
 type Grants interface {
 	Roles(p Principal, resource string) []Role
+	// Granting names every group holding a role on this resource, so that
+	// somebody can be shown a group they are not in that would have let them
+	// in. It answers about the configuration rather than about a caller, so
+	// the decision about who may ask belongs to whoever calls it.
+	Granting(resource string) []string
 }
 
 // Everything grants every role on every resource to everybody.
@@ -88,12 +93,18 @@ type Everything struct{}
 
 func (Everything) Roles(Principal, string) []Role { return Roles }
 
+// Granting names nobody. Everything grants to everybody rather than to any
+// group, so there is no group somebody could be missing.
+func (Everything) Granting(string) []string { return nil }
+
 // Nothing grants nothing to anybody. It is what a served canvas falls back to
 // when its configuration named no grants at all, so that the failure is an
 // empty canvas rather than an open one.
 type Nothing struct{}
 
 func (Nothing) Roles(Principal, string) []Role { return nil }
+
+func (Nothing) Granting(string) []string { return nil }
 
 // Static is a grant table an operator wrote, which nothing at runtime changes.
 //
@@ -223,4 +234,27 @@ func Holds(held []Role, want Role) bool {
 // an action that leaves a record while implicit access leaves none.
 func CanRead(held []Role) bool {
 	return Holds(held, Reader) || Holds(held, Writer)
+}
+
+// Granting names every group that holds a role on this resource.
+//
+// It answers about the table rather than about a caller, and it is deliberately
+// the one method here that does. Somebody who cannot get in needs to be told
+// the name of the group that would have let them, and the table is the only
+// thing that knows it. Restricting who may ask is the caller's job, because
+// this package cannot see which resources an asker already reads.
+//
+// A resource with no table answers with nothing, exactly as Roles does, so a
+// store nobody granted discloses no group names either.
+func (s *Static) Granting(resource string) []string {
+	held, granted := s.byResource[resource]
+	if !granted {
+		return nil
+	}
+	groups := make([]string, 0, len(held))
+	for group := range held {
+		groups = append(groups, group)
+	}
+	sort.Strings(groups)
+	return groups
 }

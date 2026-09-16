@@ -48,7 +48,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-16T06:27:10Z
-updated_at: 2026-09-16T15:09:42Z
+updated_at: 2026-09-16T15:45:45Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -74,7 +74,7 @@ See `docs/multiuser-design-v1.md`.
 
 ## Acceptance criteria
 
-- [ ] A login against a real provider yields subject, email, name, and groups, and everything downstream keys on subject
+- [x] A login against a real provider yields subject, email, name, and groups, and everything downstream keys on subject
 - [x] A plaintext issuer is refused, and any development opt-out says in its name that it is unsafe
 - [x] Signing algorithms are pinned to asymmetric schemes, with tests for none, algorithm confusion, and kid handling
 - [x] The nonce is checked against the attempt that started in this browser
@@ -249,6 +249,14 @@ That is the same gap already recorded on the epic, and this is the first time it
 ### A provider-side trap worth carrying into the operator's guide
 
 Authentik 2026.5.7 defaults an **API-created** OAuth2 provider's `grant_types` to an empty list, and an empty list refuses every authorization with `error=invalid_request` and "The request is otherwise malformed" — redirected back to the client, before any flow runs, **with no event written on the provider's side**. Every other field looks correct. The UI populates it, so this bites only somebody automating provider creation, which is exactly what a deployment guide encourages. `docs/serving-a-canvas.md` should say so under registering the canvas with a provider.
+
+**agent:claude/t3code** at 2026-09-16T15:45:45Z
+
+Criterion 1 is now ticked. `TKT-01M2ND34E7KCEYBDXQAF328WJB` built the account dialog, which is the first thing in the canvas that displays the `email` and `name` claims, and a live login against Authentik on brokkr showed both as the provider sent them: `Drew Short` and the address on the account.
+
+That was the whole of what was missing. Subject and groups were demonstrated when this was first noted — the subject through the session and the grant, the groups through the board rendering at all, since the store is granted only through `honourGroups`. What nobody could see was `email` and `name`, because nothing displayed them.
+
+Sixteen groups arrived in the token and exactly the two ledger groups granted anything, which is also the first live confirmation that group matching is exact rather than accidental.
 
 ## Summary
 

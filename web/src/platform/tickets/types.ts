@@ -134,6 +134,9 @@ export interface SessionResponse {
    * arrives and grants nothing looks identical to one the provider never sent,
    * which is why both lists are here. */
   granted: string[]
+  /** Groups the person is not in that would grant access on a store they can
+   * already read. The half of a misspelling their own list cannot show. */
+  wouldGrant: string[]
   logout?: string
 }
 

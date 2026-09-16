@@ -178,6 +178,17 @@ input.tool, select.tool { color: var(--ink); }
      alarming. The pair of them side by side is the diagnosis. */
   color: var(--ink-dim); }
 .session-groups li.granted { color: var(--ink); border-color: color-mix(in srgb, var(--s-done) 45%, transparent); }
+/* Not an error and not a grant: a name worth comparing against your own. */
+.session-groups li.would-grant { color: var(--ink); border-style: dashed;
+  border-color: color-mix(in srgb, var(--s-in-progress) 45%, transparent); }
+.session-groups li.would-grant .session-group-state { color: var(--s-in-progress); }
+.session-none { display: block; color: var(--ink-dim); }
+/* Kept rather than dropped: comparing the unmatched-and-unexpected against the
+   unmatched-and-expected is how a misspelling is found. */
+.session-others { margin-top: 8px; }
+.session-others > summary { cursor: pointer; font-size: 12px; color: var(--ink-faint); padding: 4px 0; }
+.session-others > summary:hover { color: var(--ink-dim); }
+.session-others .session-groups { margin-top: 6px; }
 .session-group-name { font-family: var(--mono); overflow-wrap: anywhere; }
 .session-group-state { font-size: 11px; white-space: nowrap; color: var(--ink-faint); }
 .session-groups li.granted .session-group-state { color: var(--s-done); }
@@ -385,7 +396,7 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
 #composer .muted { margin-top: 6px; display: block; }
 [hidden] { display: none !important; }
 </style>
-  <script type="module" crossorigin src="./assets/index-BuZobDNr.js"></script>
+  <script type="module" crossorigin src="./assets/index-DdosiLyU.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-3zWs_XiM.css">
 </head>
 <body>

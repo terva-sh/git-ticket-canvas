@@ -211,6 +211,13 @@ type Access interface {
 	// serves, and that is worth having even to somebody who cannot read a
 	// single ticket.
 	CanRead(c Caller, store string) bool
+	// Granting names the groups that hold a role on this store.
+	//
+	// It is asked only for a store the caller can already read. A group name
+	// implies the store it grants on, so answering for any other store would
+	// be the store list wearing a different hat, and the store list is a
+	// permission boundary.
+	Granting(store string) []string
 }
 
 // Caller is one authenticated person, as much of them as the registry carries.

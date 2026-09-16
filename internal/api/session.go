@@ -1,6 +1,9 @@
 package api
 
-import "net/http"
+import (
+	"net/http"
+	"sort"
+)
 
 // sessionResponse is what the canvas can tell somebody about their own login.
 //
@@ -26,6 +29,15 @@ type sessionResponse struct {
 	// sent, and telling those apart is most of diagnosing a grant that did not
 	// work.
 	Granted []string `json:"granted"`
+	// WouldGrant names groups this person is not in that grant on a store they
+	// can already read. It is what turns a misspelling from an invisible
+	// failure into something a person can see: an unmatched `...Userss` beside
+	// their own `...User` is the typo, found without reading a config file.
+	//
+	// Restricted to stores they can read on purpose. Naming every group the
+	// configuration mentions would disclose the group names this canvas knows,
+	// and a group name implies the store it grants on.
+	WouldGrant []string `json:"wouldGrant"`
 	// Logout is the path that ends this session, passed through rather than
 	// built here so that the registry keeps knowing nothing about how somebody
 	// logged in.
@@ -39,7 +51,7 @@ type sessionResponse struct {
 // judgement about whether it should have asked.
 func (r *Registry) handleSession(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Cache-Control", "private, no-cache")
-	anonymous := sessionResponse{Groups: []string{}, Granted: []string{}}
+	anonymous := sessionResponse{Groups: []string{}, Granted: []string{}, WouldGrant: []string{}}
 	if r.opts.Access == nil {
 		writeJSON(w, http.StatusOK, anonymous)
 		return
@@ -56,6 +68,7 @@ func (r *Registry) handleSession(w http.ResponseWriter, req *http.Request) {
 		Email:         caller.Email,
 		Groups:        append([]string{}, caller.Groups...),
 		Granted:       r.grantingGroups(caller),
+		WouldGrant:    r.unmatchedGroups(caller),
 		Logout:        r.opts.Logout,
 	})
 }
@@ -86,4 +99,38 @@ func (r *Registry) grantingGroups(c Caller) []string {
 		}
 	}
 	return granted
+}
+
+// unmatchedGroups names groups that would have granted access and did not,
+// which is the half of the diagnosis the caller's own group list cannot show.
+//
+// Only stores the caller reads are consulted. Where every grant on a store is
+// misspelled the store is invisible to everybody, and nothing answerable here
+// can point at it without disclosing it to everyone who logs in; that case
+// needs an administrator's view.
+func (r *Registry) unmatchedGroups(c Caller) []string {
+	r.mu.RLock()
+	names := append([]string(nil), r.order...)
+	r.mu.RUnlock()
+
+	held := make(map[string]bool, len(c.Groups))
+	for _, group := range c.Groups {
+		held[group] = true
+	}
+	seen := map[string]bool{}
+	unmatched := []string{}
+	for _, name := range names {
+		if !r.opts.Access.CanRead(c, name) {
+			continue
+		}
+		for _, group := range r.opts.Access.Granting(name) {
+			if held[group] || seen[group] {
+				continue
+			}
+			seen[group] = true
+			unmatched = append(unmatched, group)
+		}
+	}
+	sort.Strings(unmatched)
+	return unmatched
 }

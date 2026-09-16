@@ -16,6 +16,7 @@ const signedIn: SessionResponse = {
   authenticated: true, subject: 'sub-1', name: 'Drew Short', email: 'drew@example.com',
   groups: ['Brokkr Ticket Ledger Admin', 'Everyone'],
   granted: ['Brokkr Ticket Ledger Admin'],
+  wouldGrant: [],
   logout: '/auth/logout',
 }
 const suggested: ActorResponse = { actor: 'human:drew', chosen: false, declared: [], enforced: false }
@@ -26,16 +27,39 @@ function show(props: Partial<Parameters<typeof SessionDialog>[0]> = {}) {
 }
 
 function groupRows() {
-  return [...root.querySelectorAll<HTMLElement>('.session-groups li')]
+  // The leading list only. The collapsed one reuses the class deliberately, so
+  // the two render identically.
+  return [...root.querySelectorAll<HTMLElement>('.session-matched > li')]
     .map(row => [row.querySelector('.session-group-name')!.textContent, row.classList.contains('granted')])
 }
 
 // A group that arrives and grants nothing looks identical to a group the
 // provider never sent. The dialog exists mostly to tell those apart.
-it('separates the groups that granted from the groups that merely arrived', () => {
+it('leads with the groups that grant, and hides the rest behind a summary', () => {
   show()
-  expect(groupRows()).toEqual([['Brokkr Ticket Ledger Admin', true], ['Everyone', false]])
-  expect(element('.session-groups li:not(.granted)').textContent).toContain('grants nothing here')
+  // Only the granting group is in the leading list.
+  expect(groupRows()).toEqual([['Brokkr Ticket Ledger Admin', true]])
+  // The rest are kept, collapsed, because comparing them is the diagnostic.
+  const others = element<HTMLDetailsElement>('.session-others')
+  expect(others.open).toBe(false)
+  expect(others.querySelector('summary')!.textContent).toContain('1 other group')
+  expect([...others.querySelectorAll('.session-group-name')].map(n => n.textContent)).toEqual(['Everyone'])
+})
+
+// The half a person's own group list cannot show. An unmatched name beside
+// their own is how a misspelling is found without reading a config file.
+it('names a group that would grant but did not match', () => {
+  show({ session: { ...signedIn, wouldGrant: ['Brokkr Ticket Ledger Userss'] } })
+  const rows = [...root.querySelectorAll('.session-matched > li')]
+  expect(rows.map(r => r.querySelector('.session-group-name')?.textContent))
+    .toEqual(['Brokkr Ticket Ledger Admin', 'Brokkr Ticket Ledger Userss'])
+  expect(element('.would-grant').textContent).toContain('you are not in it')
+})
+
+it('says plainly when nothing grants', () => {
+  show({ session: { ...signedIn, granted: [], wouldGrant: [] } })
+  expect(element('.session-none').textContent).toContain('None of your groups')
+  expect(element('.session-others summary').textContent).toContain('2 other groups')
 })
 
 // The most common misconfiguration there is, so it says what to check rather

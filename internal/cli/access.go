@@ -58,3 +58,7 @@ func (a access) CanRead(c api.Caller, store string) bool {
 	return grants.CanRead(a.table.Roles(
 		grants.Principal{Subject: c.Subject, Groups: c.Groups}, store))
 }
+
+// Granting is the grant table's own answer, unfiltered. Deciding who may ask is
+// the handler's job: it asks only about a store the caller already reads.
+func (a access) Granting(store string) []string { return a.table.Granting(store) }

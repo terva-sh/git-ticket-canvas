@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2ND34E7KCEYBDXQAF328WJB
 title: Show who is signed in, and let them sign out
 type: task
-status: in-progress
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -18,17 +18,10 @@ origin: null
 dependencies: []
 blocks_on: none
 references: []
-claim:
-  actor: agent:claude/t3code
-  branch: t3code/implement-multiuser-canvas
-  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-acc5e2b7
-  commit: a22aacffc8f688344e01e997f5abbd2c87594461
-  session: null
-  claimed_at: 2026-09-16T15:24:27Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-16T15:24:16Z
-updated_at: 2026-09-16T15:33:03Z
+updated_at: 2026-09-16T15:45:45Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -67,7 +60,7 @@ Nothing here is a new permission surface. The endpoint answers about the caller 
 - [x] The control is absent on a desk canvas, which has no session
 - [x] The endpoint answers about the caller only, and names no store the caller cannot read
 - [x] The dialog shows the actor this person writes as on the current store, and whether it is chosen or merely suggested
-- [ ] A person can change their actor from the dialog, and the change sticks
+- [x] A person can change their actor from the dialog, and the change sticks
 - [x] actor_taken and actor_not_declared are shown as readable refusals rather than swallowed
 
 ## Notes
@@ -91,3 +84,17 @@ Criterion 8 — that a changed actor sticks — is left unticked deliberately.
 Every layer is tested. The dialog raises the change (`session-dialog.test.tsx`), the API binds it and refuses a taken id (`internal/api/actor_test.go`), and the record survives a restart (`internal/actors/actors_test.go`). What nobody has done is type a new actor into a browser against the running canvas and reload to see it come back, and that round trip is the whole of what the criterion asks. It needs a session, which means it needs the person whose session it is.
 
 Tick it when somebody has done that.
+
+## Summary
+
+A button in the toolbar carrying the person's name opens a dialog with the claims the provider sent, every group in the token, which of those granted something, the actor their writes to this store are stamped with, and a sign-out control.
+
+`GET /api/session` is the new endpoint. It is registered on every canvas, including a desk one, which answers that nobody is signed in so the browser can ask one question everywhere rather than reading a 404 as an answer. It reports about the caller and nobody else, and names groups but never stores: `grantingGroups` probes one group at a time, which is exact because grants are additive.
+
+The actor half gave `TKT-01M2MECN07` its first interface. The binding, the suggestion from provider claims, the first-claim-holds refusal and the declared-actor allowlist were all built and reachable only by curl.
+
+Verified live on the brokkr ledger canvas: the dialog showed the Authentik claims, separated `Brokkr Ticket Ledger User` and `Brokkr Ticket Ledger Admin` from fourteen groups that grant nothing here, and an actor changed to `human:sothr` came back chosen after a sign-out and a fresh login. `actors.json` holds the binding and its history.
+
+This also closes what left `TKT-01M2MEBNKV23GT9ATQ4PGZQSMB` criterion 1 unticked: the dialog is the first thing in the canvas that displays `email` and `name`, and both arrived from Authentik as sent.
+
+Follow-up filed: the group list is noisy for somebody in many groups, and shows nothing about groups that would grant access but were not matched.

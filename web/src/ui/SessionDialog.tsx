@@ -39,6 +39,13 @@ export function SessionDialog(p: SessionDialogProps) {
   }, [p.actor?.actor, touched])
 
   const granted = new Set(p.session.granted)
+  // Somebody in sixteen groups should not have to read past fourteen that do
+  // nothing to find the two that let them in. Lead with what grants, then with
+  // what would have, and keep the rest for comparison rather than dropping it:
+  // an unmatched-and-unexpected name beside an unmatched-and-expected one is
+  // how a typo is spotted.
+  const working = p.session.groups.filter(group => granted.has(group))
+  const idle = p.session.groups.filter(group => !granted.has(group))
   const changed = !!p.actor && draft.trim() !== '' && draft.trim() !== p.actor.actor
 
   return <div id="sessionDialog" class="session-dialog" role="dialog" aria-modal="true" aria-label="Your account"
@@ -58,12 +65,26 @@ export function SessionDialog(p: SessionDialogProps) {
         // rather than rendering an empty list and leaving somebody guessing.
         ? <p class="session-empty">Your login carried no groups at all. That is usually a provider
           sending them under a different claim than <code>groups</code>.</p>
-        : <ul class="session-groups">
-          {p.session.groups.map(group => <li key={group} class={granted.has(group) ? 'granted' : ''}>
+        : <ul class="session-groups session-matched">
+          {working.map(group => <li key={group} class="granted">
             <span class="session-group-name">{group}</span>
-            <span class="session-group-state">{granted.has(group) ? 'grants access' : 'grants nothing here'}</span>
+            <span class="session-group-state">grants access</span>
           </li>)}
+          {p.session.wouldGrant.map(group => <li key={group} class="would-grant">
+            <span class="session-group-name">{group}</span>
+            <span class="session-group-state">would grant &mdash; you are not in it</span>
+          </li>)}
+          {working.length === 0 && p.session.wouldGrant.length === 0 &&
+            <li class="session-none"><span>None of your groups grants anything here.</span></li>}
         </ul>}
+      {idle.length > 0 && <details class="session-others">
+        <summary>{idle.length} other {idle.length === 1 ? 'group' : 'groups'}, granting nothing here</summary>
+        <ul class="session-groups">
+          {idle.map(group => <li key={group}>
+            <span class="session-group-name">{group}</span>
+          </li>)}
+        </ul>
+      </details>}
     </section>
 
     {p.actor !== null && <section class="session-section">
