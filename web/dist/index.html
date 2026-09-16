@@ -72,11 +72,24 @@ button { cursor: pointer; }
 #toolbar .brand { overflow-wrap: anywhere; min-width: 0; }
 #stage { min-width: 0; min-height: 0; }
 
+/* Two rows, each with a left and a right group. The rows are declared rather
+   than discovered: one wrapping row let the browser decide which control fell
+   off the end, and that answer moved with the length of the store path. Each
+   group still wraps inside itself, so a narrow window loses nothing. */
 #toolbar {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line);
-  z-index: 20; flex-wrap: wrap;
+  --row-gap: 10px;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 6px 12px; background: var(--panel); border-bottom: 1px solid var(--line);
+  z-index: 20;
 }
+.toolbar-row { display: flex; align-items: center; gap: var(--row-gap); min-width: 0; flex-wrap: wrap; }
+/* A hairline so the second row reads as the other half of a layout rather than
+   as the overflow of the first. */
+.toolbar-row + .toolbar-row { padding-top: 6px; border-top: 1px solid var(--line-soft); }
+.toolbar-side { display: flex; align-items: center; gap: var(--row-gap); min-width: 0; flex-wrap: wrap; }
+/* Pushed to the right edge and packed from it, so the group grows leftwards
+   and its last control stays where the eye expects to find it. */
+.toolbar-side.right { margin-left: auto; justify-content: flex-end; }
 /* The header bar's own size, set by hand rather than chosen from the window:
    nothing about a window says how big this row should be, because a 27-inch
    screen and a 24-inch one report the same width. Scoped to `#toolbar` so the
@@ -86,11 +99,11 @@ button { cursor: pointer; }
    Each size is at least as large as what a coarse pointer already gets, so
    turning this up on a tablet never makes a target smaller. */
 html[data-toolbar="large"] #toolbar {
-  font-size: 15px; gap: 11px; padding: 10px 14px;
+  font-size: 15px; --row-gap: 11px; gap: 8px; padding: 8px 14px;
   --tool-y: 11px; --tool-x: 15px; --chip-y: 8px; --chip-x: 13px;
 }
 html[data-toolbar="larger"] #toolbar {
-  font-size: 17px; gap: 13px; padding: 12px 16px;
+  font-size: 17px; --row-gap: 13px; gap: 10px; padding: 10px 16px;
   --tool-y: 14px; --tool-x: 19px; --chip-y: 11px; --chip-x: 16px;
 }
 /* These carry fixed sizes so they sit quietly beside the controls. Relative
@@ -111,6 +124,8 @@ html[data-toolbar="larger"] #toolbar :is(.chip, .badge, .brand span) { font-size
 .tool[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink); border-color: transparent; }
 #search { min-width: 190px; }
 input.tool, select.tool { color: var(--ink); }
+/* The inspector still pushes with one of these. The toolbar used to, and now
+   sets its right-hand groups with `margin-left: auto` instead. */
 .spacer { flex: 1; }
 .chip-row { display: flex; gap: 4px; align-items: center; }
 .chip {
@@ -510,7 +525,7 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
 #composer .muted { margin-top: 6px; display: block; }
 [hidden] { display: none !important; }
 </style>
-  <script type="module" crossorigin src="./assets/index-B90R4Gx-.js"></script>
+  <script type="module" crossorigin src="./assets/index-BUKMWXuI.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-DcWPIGc4.css">
 </head>
 <body>

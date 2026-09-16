@@ -103,60 +103,87 @@ function Version({ version }: { version: VersionInfo | null | undefined }) {
 }
 
 export function Toolbar(p: ToolbarProps) {
+  // Two rows on purpose. One wrapping row let the browser decide which control
+  // fell off the end, and that answer changed with the length of the store path
+  // and the number of statuses a store defines. Placement now follows what a
+  // control is about:
+  //
+  //   context   what you are looking at  |  who you are, and what this window is
+  //   working   finding things           |  changing the view, and making things
   return <div id="toolbar">
-    <div class="brand">git-ticket <span id="storePath">{p.storePath}</span></div>
-    <Version version={p.version} />
-    {p.stores && <StorePicker {...p.stores} />}
-    <select id="boardSelect" class="tool" title="Board" value={p.board} onChange={e => p.onBoard(e.currentTarget.value)}>
-      {[...new Set([...p.boards, p.board])].map(board => <option key={board} value={board}>{board}</option>)}
-    </select>
-    <button id="newBoard" class="tool" title="New board" disabled={p.readOnly} onClick={p.onNewBoard}>+</button>
-    <input id="search" class="tool" type="search" placeholder="Filter  /" autoComplete="off" value={p.query} onInput={e => p.onQuery(e.currentTarget.value)} />
-    <div class="chip-row" id="statusFilters">{p.config?.statuses.map(status =>
-      <button key={status} class="chip" style={{ color: `var(--s-${status})` }} aria-pressed={p.filters.has(status)} onClick={() => p.onFilter(status)}><i class="dot" />{status}</button>)}</div>
-    <LabelFilter {...p} />
-    <div class="spacer" /><span class="badge" id="counts">{p.counts}</span>
-    <span class="badge warn" id="roBadge" hidden={!p.readOnly}>read-only</span>
-    <label class="relationship-control">Relationships <select id="relationshipMode" class="tool" value={p.relationships || 'selected'}
-      onChange={event => p.onRelationships?.(event.currentTarget.value as RelationshipMode)}>
-      <option value="all">All</option><option value="selected">Selected</option><option value="none">None</option>
-    </select></label>
-    {/* Density has a control here as well as in the display panel, deliberately:
-        it is the one display setting somebody changes while reading a board,
-        and the panel is where you go to understand the choice rather than to
-        make it. Both write the same preference, so they cannot disagree. */}
-    {p.onDensity && <label class="relationship-control">Cards <select id="cardDensity" class="tool"
-      title="Compact narrows cards to fit more of the board on screen"
-      value={p.densityChosen ? p.density || 'full' : ''}
-      onChange={event => p.onDensity?.((event.currentTarget.value || null) as Density | null)}>
-      <option value="">Automatic{p.densityAutomatic ? ` — ${p.densityAutomatic === 'compact' ? 'Compact' : 'Full'}` : ''}</option>
-      <option value="full">Full</option><option value="compact">Compact</option>
-    </select></label>}
-    {p.onNewFrame && <>
-      <button id="btnFrame" class="tool" disabled={p.readOnly || p.framePending} onClick={p.onNewFrame}>New frame</button>
-      <button id="btnFrameUndo" class="tool" disabled={p.readOnly || p.framePending || !p.undoFrame || !!p.undoFrame.blockedReason}
-        title={p.undoFrame?.blockedReason || p.undoFrame?.label || 'No frame history'} onClick={p.onUndoFrame}>Undo frame</button>
-      <button id="btnFrameRedo" class="tool" disabled={p.readOnly || p.framePending || !p.redoFrame || !!p.redoFrame.blockedReason}
-        title={p.redoFrame?.blockedReason || p.redoFrame?.label || 'No frame redo'} onClick={p.onRedoFrame}>Redo frame</button>
-    </>}
-    <button id="btnArrange" class="tool" title="Lay unplaced cards out in status lanes" disabled={p.readOnly || p.framePending} onClick={p.onArrange}>Arrange</button>
-    {p.zoom !== undefined && <div class="zoom" role="group" aria-label="Zoom">
-      <button id="btnZoomOut" class="tool" title="Zoom out" aria-label="Zoom out"
-        disabled={p.zoom <= MIN_ZOOM + 0.001} onClick={p.onZoomOut}>&minus;</button>
-      {/* The level is the reset. A separate button for something you press
-          rarely costs a slot in a toolbar that already runs off the side. */}
-      <button id="btnZoomReset" class="tool zoom-level" onClick={p.onZoomReset}
-        title="Reset to 1:1. Fit is the other one — it frames every card instead.">
-        {Math.round(p.zoom * 100)}%</button>
-      <button id="btnZoomIn" class="tool" title="Zoom in" aria-label="Zoom in"
-        disabled={p.zoom >= MAX_ZOOM - 0.001} onClick={p.onZoomIn}>+</button>
-    </div>}
-    <button id="btnFit" class="tool" title="Fit all cards in view" onClick={p.onFit}>Fit</button>
-    {p.onDisplay && <button id="btnDisplay" class="tool"
-      title="What this canvas chose from the size and shape of this window"
-      onClick={p.onDisplay}>Display</button>}
-    {p.account && <button id="btnAccount" class="tool" title="Your account, groups and actor"
-      onClick={p.account.onOpen}>{p.account.name}</button>}
-    <button id="btnNew" class="tool primary" title="New ticket (double-click the canvas)" disabled={p.readOnly} onClick={p.onNew}>New ticket</button>
+    <div class="toolbar-row" data-row="context">
+      <div class="toolbar-side">
+        <div class="brand">git-ticket <span id="storePath">{p.storePath}</span></div>
+        <Version version={p.version} />
+        {p.stores && <StorePicker {...p.stores} />}
+        <select id="boardSelect" class="tool" title="Board" value={p.board} onChange={e => p.onBoard(e.currentTarget.value)}>
+          {[...new Set([...p.boards, p.board])].map(board => <option key={board} value={board}>{board}</option>)}
+        </select>
+        <button id="newBoard" class="tool" title="New board" disabled={p.readOnly} onClick={p.onNewBoard}>+</button>
+      </div>
+      <div class="toolbar-side right">
+        {/* A property of the store rather than of the filters, so it sits with
+            the store rather than with the counts. */}
+        <span class="badge warn" id="roBadge" hidden={!p.readOnly}>read-only</span>
+        {p.onDisplay && <button id="btnDisplay" class="tool"
+          title="What this canvas chose from the size and shape of this window"
+          onClick={p.onDisplay}>Display</button>}
+        {p.account && <button id="btnAccount" class="tool" title="Your account, groups and actor"
+          onClick={p.account.onOpen}>{p.account.name}</button>}
+      </div>
+    </div>
+
+    <div class="toolbar-row" data-row="working">
+      <div class="toolbar-side">
+        <input id="search" class="tool" type="search" placeholder="Filter  /" autoComplete="off" value={p.query} onInput={e => p.onQuery(e.currentTarget.value)} />
+        <div class="chip-row" id="statusFilters">{p.config?.statuses.map(status =>
+          <button key={status} class="chip" style={{ color: `var(--s-${status})` }} aria-pressed={p.filters.has(status)} onClick={() => p.onFilter(status)}><i class="dot" />{status}</button>)}</div>
+        <LabelFilter {...p} />
+        {/* What the filters to its left left behind, so it reads as their
+            result rather than as a fact about the store. */}
+        <span class="badge" id="counts">{p.counts}</span>
+      </div>
+      <div class="toolbar-side right">
+        <label class="relationship-control">Relationships <select id="relationshipMode" class="tool" value={p.relationships || 'selected'}
+          onChange={event => p.onRelationships?.(event.currentTarget.value as RelationshipMode)}>
+          <option value="all">All</option><option value="selected">Selected</option><option value="none">None</option>
+        </select></label>
+        {/* Density has a control here as well as in the display panel,
+            deliberately: it is the one display setting somebody changes while
+            reading a board, and the panel is where you go to understand the
+            choice rather than to make it. Both write the same preference, so
+            they cannot disagree. */}
+        {p.onDensity && <label class="relationship-control">Cards <select id="cardDensity" class="tool"
+          title="Compact narrows cards to fit more of the board on screen"
+          value={p.densityChosen ? p.density || 'full' : ''}
+          onChange={event => p.onDensity?.((event.currentTarget.value || null) as Density | null)}>
+          <option value="">Automatic{p.densityAutomatic ? ` — ${p.densityAutomatic === 'compact' ? 'Compact' : 'Full'}` : ''}</option>
+          <option value="full">Full</option><option value="compact">Compact</option>
+        </select></label>}
+        {p.onNewFrame && <>
+          <button id="btnFrame" class="tool" disabled={p.readOnly || p.framePending} onClick={p.onNewFrame}>New frame</button>
+          <button id="btnFrameUndo" class="tool" disabled={p.readOnly || p.framePending || !p.undoFrame || !!p.undoFrame.blockedReason}
+            title={p.undoFrame?.blockedReason || p.undoFrame?.label || 'No frame history'} onClick={p.onUndoFrame}>Undo frame</button>
+          <button id="btnFrameRedo" class="tool" disabled={p.readOnly || p.framePending || !p.redoFrame || !!p.redoFrame.blockedReason}
+            title={p.redoFrame?.blockedReason || p.redoFrame?.label || 'No frame redo'} onClick={p.onRedoFrame}>Redo frame</button>
+        </>}
+        <button id="btnArrange" class="tool" title="Lay unplaced cards out in status lanes" disabled={p.readOnly || p.framePending} onClick={p.onArrange}>Arrange</button>
+        {p.zoom !== undefined && <div class="zoom" role="group" aria-label="Zoom">
+          <button id="btnZoomOut" class="tool" title="Zoom out" aria-label="Zoom out"
+            disabled={p.zoom <= MIN_ZOOM + 0.001} onClick={p.onZoomOut}>&minus;</button>
+          {/* The level is the reset. A separate button for something you press
+              rarely costs a slot in a row that is already the longer of the two. */}
+          <button id="btnZoomReset" class="tool zoom-level" onClick={p.onZoomReset}
+            title="Reset to 1:1. Fit is the other one — it frames every card instead.">
+            {Math.round(p.zoom * 100)}%</button>
+          <button id="btnZoomIn" class="tool" title="Zoom in" aria-label="Zoom in"
+            disabled={p.zoom >= MAX_ZOOM - 0.001} onClick={p.onZoomIn}>+</button>
+        </div>}
+        <button id="btnFit" class="tool" title="Fit all cards in view" onClick={p.onFit}>Fit</button>
+        {/* Last, where a primary action belongs. The wrapping row used to leave
+            it alone on a line of its own at the far left. */}
+        <button id="btnNew" class="tool primary" title="New ticket (double-click the canvas)" disabled={p.readOnly} onClick={p.onNew}>New ticket</button>
+      </div>
+    </div>
   </div>
 }
