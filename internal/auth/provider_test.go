@@ -113,7 +113,7 @@ func TestALoginYieldsAnIdentity(t *testing.T) {
 	if strings.Join(identity.Groups, ",") != "Brokkr Staff,Brokkr Ledger Admin" {
 		t.Errorf("groups = %v", identity.Groups)
 	}
-	if got := identity.Actor("drew"); got != "human:drew" {
+	if got := identity.Actor(); got != "human:drew" {
 		t.Errorf("offered actor = %q, want human:drew", got)
 	}
 }

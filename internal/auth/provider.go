@@ -373,10 +373,11 @@ func (p *Provider) identityFrom(token *oidc.IDToken) (Identity, error) {
 		return Identity{}, fmt.Errorf("the id token's claims could not be read: %w", err)
 	}
 	return Identity{
-		Subject: token.Subject,
-		Email:   parsed.Email,
-		Name:    nameOrUsername(parsed),
-		Groups:  groupsFrom(everything[p.groupsClaim()]),
+		Subject:           token.Subject,
+		Email:             parsed.Email,
+		Name:              nameOrUsername(parsed),
+		Groups:            groupsFrom(everything[p.groupsClaim()]),
+		PreferredUsername: parsed.PreferredUsername,
 	}, nil
 }
 

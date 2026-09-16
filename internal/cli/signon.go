@@ -3,7 +3,9 @@ package cli
 import (
 	"log"
 	"net/http"
+	"time"
 
+	"github.com/terva-sh/git-ticket-canvas/internal/actors"
 	"github.com/terva-sh/git-ticket-canvas/internal/api"
 	"github.com/terva-sh/git-ticket-canvas/internal/auth"
 	"github.com/terva-sh/git-ticket-canvas/internal/config"
@@ -17,14 +19,14 @@ import (
 // registry, which asks it what each request may see. Both are nil-shaped for
 // the desk canvas: no login, and an Access of nil, which the registry reads as
 // one person who may see everything.
-func signOn(kind Kind, cfg config.Config) (func(http.Handler) http.Handler, api.Access, error) {
+func signOn(kind Kind, cfg config.Config, actorPath string) (func(http.Handler) http.Handler, api.Access, *actors.Bindings, error) {
 	if kind != Served {
-		return func(next http.Handler) http.Handler { return next }, nil, nil
+		return func(next http.Handler) http.Handler { return next }, nil, nil, nil
 	}
 
 	table, notes, err := cfg.Grants()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	for _, note := range notes {
 		log.Printf("note   %s", note)
@@ -40,7 +42,19 @@ func signOn(kind Kind, cfg config.Config) (func(http.Handler) http.Handler, api.
 		GroupsClaim:  cfg.Identity.GroupsClaim,
 	}, sessions)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
+	}
+
+	// Who writes under which actor id. Unlike the favorites file, a record that
+	// will not parse stops the canvas: it is the only account of who wrote what,
+	// and carrying on as though nobody had claimed anything would let the next
+	// person claim somebody else's name.
+	bound, err := actors.Open(actorPath)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	for _, held := range bound.Held() {
+		log.Printf("actor  %s on %s, since %s", held.Actor, held.Store, held.Since.UTC().Format(time.RFC3339))
 	}
 	log.Printf("signon %s as %s, returning to %s", cfg.Identity.Issuer, cfg.Identity.ClientID, provider.RedirectURL())
 	for _, resource := range table.Resources() {
@@ -56,5 +70,5 @@ func signOn(kind Kind, cfg config.Config) (func(http.Handler) http.Handler, api.
 		mux.Handle("/", next)
 		return provider.Guard(mux)
 	}
-	return wrap, access{table: table}, nil
+	return wrap, access{table: table}, bound, nil
 }

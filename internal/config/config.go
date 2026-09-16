@@ -66,6 +66,10 @@ type Store struct {
 	// the rule the whole grant model exists to protect, so it is the absence of
 	// configuration rather than something an operator has to write.
 	Roles map[string]string `yaml:"roles,omitempty"`
+	// EnforceActors turns this store's declared actors into an allowlist for the
+	// people using a served canvas, narrowing what they may claim to ids the
+	// store already names. Off by default, and read only by the served canvas.
+	EnforceActors bool `yaml:"enforceActors,omitempty"`
 	// HonourGroups names groups from the top-level Roles map whose role applies
 	// to this store. The top-level map grants nothing by itself: with a global
 	// role map, adding a repository to look at it yourself grants it to

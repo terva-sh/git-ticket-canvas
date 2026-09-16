@@ -111,17 +111,18 @@ func TestAnEmptySessionIDIsNotASession(t *testing.T) {
 // names, and the `human:` prefix is the convention a store's own actors use.
 func TestTheOfferedActorFollowsThePrefillOrder(t *testing.T) {
 	for _, c := range []struct {
-		name      string
-		identity  Identity
-		preferred string
-		want      string
+		name     string
+		identity Identity
+		want     string
 	}{
-		{"preferred username wins", Identity{Email: "d@example.com", Name: "Drew"}, "drew", "human:drew"},
-		{"then the local part of the email", Identity{Email: "d.short@example.com", Name: "Drew"}, "", "human:d.short"},
-		{"then the name", Identity{Name: "Drew Short"}, "", "human:Drew Short"},
-		{"and nothing when there is nothing", Identity{}, "", ""},
+		{"preferred username wins",
+			Identity{PreferredUsername: "drew", Email: "d@example.com", Name: "Drew"}, "human:drew"},
+		{"then the local part of the email",
+			Identity{Email: "d.short@example.com", Name: "Drew"}, "human:d.short"},
+		{"then the name", Identity{Name: "Drew Short"}, "human:Drew Short"},
+		{"and nothing when there is nothing", Identity{}, ""},
 	} {
-		if got := c.identity.Actor(c.preferred); got != c.want {
+		if got := c.identity.Actor(); got != c.want {
 			t.Errorf("%s: actor = %q, want %q", c.name, got, c.want)
 		}
 	}

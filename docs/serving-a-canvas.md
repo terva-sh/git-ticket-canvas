@@ -107,6 +107,77 @@ name and the resolved filesystem path of every repository served.
 
 Marking a favorite is filtered the same way, for the same reason.
 
+## The actor a write is stamped with
+
+A served canvas is read-only, so nothing is stamped yet. The choosing and the
+binding are built now anyway, because the record they produce is what gives a
+store's `updated_by` field any meaning once writes are switched on, and a record
+that starts the day writes do is a record with a hole at the front.
+
+Each person sets their own actor id, per store:
+
+```
+GET  /api/stores/{store}/actor
+PUT  /api/stores/{store}/actor   {"actor": "human:drew"}
+```
+
+`GET` offers one before they have chosen: the provider's `preferred_username`,
+then the local part of the email, then the display name, first non-empty
+winning, offered as `human:<value>`. The response says whether that is a
+suggestion (`chosen: false`) or a decision.
+
+Two rules hold the record together, and neither constrains what anybody may
+type:
+
+**An actor id belongs to one subject per store, first claim holding.** Two people
+cannot both write as `human:drew`, and nobody can take over an id another has
+been writing under. Changing your own actor does not release the old one either,
+so the name your history is under cannot be claimed by somebody else later.
+
+**Every claim and every change is recorded.** The canvas can always answer which
+subject was writing as a given actor on a given date, and when that changed.
+
+What the rules do not prevent is somebody claiming the id of a person who has
+never signed in here, because there is no binding to conflict with. If you need
+more, turn the store's own declared actors into an allowlist:
+
+```yaml
+stores:
+  - name: ledger
+    path: /srv/ledger
+    enforceActors: true
+```
+
+That is off by default. The cost of it being on is that every new person is
+blocked until somebody edits a file, and the case it defends against is one
+where the people involved already have accounts on the same canvas.
+
+### Reading the record
+
+`${XDG_STATE_HOME:-~/.local/state}/git-ticket-canvas/actors.json`, beside the
+favorites file and deliberately not in it: a bug in the favorites path must not
+be able to rewrite who wrote what. `--state` moves both.
+
+It holds every current binding and an append-only list of every claim and every
+change, each with a timestamp, the store, the subject, the actor id, and what it
+replaced. The canvas prints the bindings at startup. There is no API for reading
+it, because there is no administration surface yet; an operator reads the file.
+
+Unlike the favorites file, a record that will not parse stops the canvas rather
+than starting empty. Carrying on as though nobody had ever claimed an id would
+let the next person claim somebody else's name.
+
+The binding is not touched by a grant. Revoking somebody's access and granting it
+again leaves their id theirs, so re-granting does not free it for a different
+person to claim and inherit the appearance of their history.
+
+### The desk canvas
+
+Unchanged. `git-ticket-canvas` resolves one actor when a store opens, from
+`--actor` or the store's own `config.yml`, and accepts an id the store does not
+list so that `--actor me@example.com` keeps working in a store that never
+declared one. It has no actor route at all.
+
 ## Sessions
 
 A login is held server-side against an opaque random id. Nothing about the

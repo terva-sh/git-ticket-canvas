@@ -33,6 +33,10 @@ func (a access) Caller(req *http.Request) (api.Caller, bool) {
 	}
 	return api.Caller{
 		Subject: identity.Subject,
+		// A suggestion built from the provider's claims, so that nobody has to
+		// think about an actor id on a first login. Nothing is bound until they
+		// accept or replace it.
+		Actor: identity.Actor(),
 		// Keyed on the subject and prefixed, so that a provider issuing the
 		// desk canvas's own key cannot collect somebody's favorites.
 		StateKey: state.Subject(identity.Subject),

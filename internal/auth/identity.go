@@ -24,6 +24,9 @@ type Identity struct {
 	Email   string
 	Name    string
 	Groups  []string
+	// PreferredUsername is carried only so that Actor has its first choice to
+	// offer. Nothing keys on it, for the same reason nothing keys on Email.
+	PreferredUsername string
 }
 
 // Principal is this identity as the grant model sees it.
@@ -40,8 +43,8 @@ func (i Identity) Principal() grants.Principal {
 //
 // This is a suggestion and nothing more. TKT-01M2MECN07 is where a person sets
 // what their writes are stamped with, and where an id binds to one subject.
-func (i Identity) Actor(preferredUsername string) string {
-	for _, candidate := range []string{preferredUsername, localPart(i.Email), i.Name} {
+func (i Identity) Actor() string {
+	for _, candidate := range []string{i.PreferredUsername, localPart(i.Email), i.Name} {
 		if candidate != "" {
 			return "human:" + candidate
 		}

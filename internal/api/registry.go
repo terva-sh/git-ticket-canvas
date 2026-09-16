@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/terva-sh/git-ticket-canvas/internal/actors"
 	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
 	"github.com/terva-sh/git-ticket-canvas/internal/config"
 	"github.com/terva-sh/git-ticket-canvas/internal/discover"
@@ -102,6 +103,12 @@ type StoreSpec struct {
 	// Parent is the id of the store that declared this one as a child, empty
 	// for everything else. The browser renders a child under its parent.
 	Parent string
+	// EnforceActors turns the store's own declared actors into an allowlist for
+	// the people using a served canvas. It is off by default: the cost of it
+	// being on is that every new person is blocked until an operator edits a
+	// file, and the case it defends against is one where the people involved
+	// already have accounts on the same canvas.
+	EnforceActors bool
 }
 
 // StoreStatus is what the registry knows about one store.
@@ -175,6 +182,10 @@ type RegistryOptions struct {
 	// Access is who is asking and what they hold. A nil value is the canvas on
 	// somebody's desk: one person, every store, and nothing to check.
 	Access Access
+	// Actors records which authenticated subject writes under which actor id
+	// on which store. A nil value means nobody chooses an actor, which is the
+	// desk canvas: it resolves one when a store opens, as it always has.
+	Actors *actors.Bindings
 }
 
 // Access is how a registry learns who is asking and what they may see.
@@ -211,6 +222,10 @@ type Caller struct {
 	// StateKey is what this person's favorites and last store are filed under.
 	StateKey string
 	Groups   []string
+	// Actor is the id to offer this person on a store they have not chosen one
+	// for, built from the identity provider's claims. It is a suggestion:
+	// nothing is bound until they accept or replace it.
+	Actor string
 }
 
 // RescanSource is what a rescan searches again.
@@ -896,6 +911,15 @@ func (r *Registry) Handler() http.Handler {
 	mux.HandleFunc("GET /api/favorites", r.handleFavorites)
 	mux.HandleFunc("PUT /api/favorites", r.handleSetFavorite)
 	mux.HandleFunc("POST /api/stores/rescan", r.handleRescan)
+	// Registered only where there is somebody to have an actor. The desk canvas
+	// resolves one when a store opens, exactly as it always has, so adding a
+	// route it would always refuse would be adding surface for nothing.
+	if r.opts.Access != nil {
+		mux.HandleFunc("GET /api/stores/{store}/actor", r.handleActor)
+		mux.HandleFunc("PUT /api/stores/{store}/actor", r.handleSetActor)
+		mux.HandleFunc("GET /api/actor", r.handleFlatActor)
+		mux.HandleFunc("PUT /api/actor", r.handleFlatActor)
+	}
 	mux.HandleFunc("/api/stores/{store}/", r.handleStore)
 	mux.HandleFunc("GET /api/version", r.handleVersion)
 	mux.HandleFunc("/api/", r.handleFlat)

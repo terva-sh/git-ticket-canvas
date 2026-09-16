@@ -27,6 +27,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/terva-sh/git-ticket-canvas/internal/actors"
 	"github.com/terva-sh/git-ticket-canvas/internal/api"
 	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
 	"github.com/terva-sh/git-ticket-canvas/internal/config"
@@ -294,7 +295,7 @@ func Run(kind Kind, args []string) error {
 
 	// Who may see what, and who is asking. A desk canvas builds neither, and
 	// the registry's nil Access is that canvas: one person, every store.
-	guard, gate, err := signOn(kind, cfg)
+	guard, gate, bound, err := signOn(kind, cfg, beside(*statePath, actors.FileName))
 	if err != nil {
 		return err
 	}
@@ -308,6 +309,7 @@ func Run(kind Kind, args []string) error {
 		Rescan:      api.RescanSource{Config: cfg, Merge: merging},
 		State:       remembered,
 		Access:      gate,
+		Actors:      bound,
 	})
 	for _, warning := range found.Warnings {
 		log.Printf("warn   %s", warning)
@@ -414,6 +416,23 @@ func reportStores(registry *api.Registry) error {
 		return errors.New("no configured store could be opened")
 	}
 	return nil
+}
+
+// beside puts a second file in the same directory as the state file.
+//
+// The actor record is not in the state file and shares its directory, which is
+// already created 0700 and is already outside every repository. Keeping the two
+// apart means a bug in the favorites path cannot rewrite who wrote what; keeping
+// them together means one --state moves both.
+func beside(statePath, name string) string {
+	if statePath != "" {
+		return filepath.Join(filepath.Dir(statePath), name)
+	}
+	dir, err := state.Dir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(dir, name)
 }
 
 // openState opens the file the canvas remembers favorites in.
