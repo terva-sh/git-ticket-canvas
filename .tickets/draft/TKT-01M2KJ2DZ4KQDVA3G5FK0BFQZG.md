@@ -14,16 +14,18 @@ parent: null
 origin: null
 dependencies: []
 blocks_on: none
-references: []
+references:
+  - ref: doc:multiuser
+    path: docs/multiuser-design-v1.md
 claim: null
 archive: null
 created_at: 2026-09-15T22:12:47Z
-updated_at: 2026-09-15T22:12:47Z
+updated_at: 2026-09-16T06:28:03Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
 updated_by:
-  id: agent:t3code/d30689a3
+  id: agent:claude/t3code
   name: ""
 extensions: {}
 ---
@@ -81,3 +83,13 @@ schema change with a mutation and a merge story, or a few lines in
 - [ ] Opening a board with a home set starts there; opening one without a home behaves exactly as it does today.
 - [ ] If the home point lands in the layout file, one change is a one-line diff and two boards setting different homes merge without a driver, held down by a test in internal/layout.
 - [ ] The live viewport is not written to a tracked file, so panning never produces a diff.
+
+## Notes
+
+**agent:claude/t3code** at 2026-09-16T06:28:03Z
+
+Where the home view is stored is settled by docs/multiuser-design-v1.md: per-user state, not the ticket store.
+
+Two people looking at one board want different home views, and a home view committed into a store puts one person's camera position in everybody's git history. TKT-01M2MEAYQBB43APVFJW17SNC5T keys canvas state per user and is where this value belongs.
+
+Recorded now so this is not built into the layout first and migrated afterwards. It does not have to wait for that ticket: the single-user case is the same file it would have used anyway.
