@@ -26,7 +26,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T19:29:45Z
-updated_at: 2026-09-16T19:30:47Z
+updated_at: 2026-09-16T19:36:00Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -58,7 +58,7 @@ The mirror is also missing the `v0.3.0` and `v0.3.1` tags. They are not being pu
 - [x] just parity-check passes at the release commit
 - [x] just release-check and just release-snapshot pass
 - [x] just release-rehearse passes against a clean tagged clone
-- [ ] origin main carries the release commit and its CI result was read, not assumed
+- [x] origin main carries the release commit and its CI result was read, not assumed
 - [ ] github main carries the same commit and the Windows lane passed
 - [ ] An annotated v0.4.0 tag is on that exact commit on both forges
 - [ ] github published five archives plus checksums.txt, verified by SHA-256 and by --version --json
@@ -78,3 +78,15 @@ Local checks at be5d407 plus the release ticket commit.
 - `just release-rehearse`: the same five, built from a clean tagged throwaway clone at `0.0.0-rehearsal`. Tag, archives and clone removed; nothing published.
 
 Ticket state: `TKT-01M2ND1RNXB8941M21MRZRJDN2` is closed with its fifth criterion unticked and split into `TKT-01M2NV3WMAD902MKM5REAT4FTA`, rather than carried half-done into a release. `TKT-01M2KHX3QNR779RE8M9MM36V9V` is in-progress and is not mine: it is claimed by `agent:t3code/d30689a3` on another branch, and it is not in this release's scope. Left alone.
+
+**agent:claude/t3code** at 2026-09-16T19:35:41Z
+
+Forgejo run 58, "Embedded frontend and Go parity", on 355ba5c78ef5ea8bdf966f2346e8bb04bb56cb6c: success. https://git.local.sothr.com/terva-sh/git-ticket-canvas/actions/runs/58
+
+Read from the API rather than assumed. The runs on be5d407 and 9422686 were cancelled by the newer push, which is the concurrency group doing its job and not a failure.
+
+**agent:claude/t3code** at 2026-09-16T19:36:00Z
+
+The mirror hold is lifted and `github/main` moved 5144a9b..355ba5c by fast-forward. No force, no tag pushed with it, and the branch named explicitly rather than by a refspec that could carry something else.
+
+That closes a 22-commit gap the mirror had carried since the multi-user work began. `v0.3.0` and `v0.3.1` are still absent there and are staying absent for now: a `v*` tag push to github publishes a release, so backfilling them would publish two releases months late that nobody asked for.

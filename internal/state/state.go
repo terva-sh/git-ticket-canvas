@@ -122,20 +122,68 @@ func dirFor(goos, xdgState, localAppData, home string) string {
 	switch goos {
 	case "darwin":
 		if home != "" {
-			return filepath.Join(home, "Library", "Application Support", Product)
+			return joinFor(goos, home, "Library", "Application Support", Product)
 		}
 	case "windows":
 		if localAppData != "" {
-			return filepath.Join(localAppData, Product)
+			return joinFor(goos, localAppData, Product)
 		}
 	}
-	if filepath.IsAbs(xdgState) {
-		return filepath.Join(xdgState, Product)
+	if isAbsFor(goos, xdgState) {
+		return joinFor(goos, xdgState, Product)
 	}
 	if home != "" {
-		return filepath.Join(home, ".local", "state", Product)
+		return joinFor(goos, home, ".local", "state", Product)
 	}
 	return ""
+}
+
+// joinFor and isAbsFor are path/filepath for a platform that is named rather
+// than the one underfoot.
+//
+// filepath reads the host, so using it here would have made the goos argument
+// decorative: every branch would have been checked against Linux's rules on a
+// Linux machine and against Windows's on a Windows one, which is three branches
+// nobody tested and exactly what passing the platform in was meant to avoid.
+// It shipped that way once and the Windows lane found it.
+//
+// Where the argument matches the host these agree with filepath, so no machine
+// resolves anywhere new.
+func joinFor(goos string, parts ...string) string {
+	sep := "/"
+	if goos == "windows" {
+		sep = `\`
+	}
+	var out string
+	for _, part := range parts {
+		switch {
+		case part == "":
+		case out == "":
+			out = part
+		default:
+			// Trimming both separators on both sides, because a value from the
+			// environment may use either and a doubled one is a different path
+			// to some readers.
+			out = strings.TrimRight(out, `/\`) + sep + strings.Trim(part, `/\`)
+		}
+	}
+	return out
+}
+
+func isAbsFor(goos, p string) bool {
+	if goos != "windows" {
+		return strings.HasPrefix(p, "/")
+	}
+	// A Windows path is absolute only with a volume behind it. `\state` is
+	// rooted on whichever drive the process happens to be using, and a state
+	// directory that moves with the working directory is not one.
+	if strings.HasPrefix(p, `\\`) || strings.HasPrefix(p, "//") {
+		return true // UNC
+	}
+	if len(p) < 3 || p[1] != ':' || (p[2] != '\\' && p[2] != '/') {
+		return false
+	}
+	return p[0] >= 'A' && p[0] <= 'Z' || p[0] >= 'a' && p[0] <= 'z'
 }
 
 // LegacyDir is where every platform used to look, and where a canvas that ran

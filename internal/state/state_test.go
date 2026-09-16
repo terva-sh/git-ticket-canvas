@@ -372,6 +372,14 @@ func assertKeys[V any](t *testing.T, what string, got map[string]V, want []strin
 }
 
 func TestDirFollowsXDG(t *testing.T) {
+	// XDG is not the rule on macOS or Windows, where Dir() answers from
+	// Library/Application Support and LOCALAPPDATA. Asserting XDG semantics
+	// there reports a defect that is not present, which is what the Windows
+	// lane did. Those two branches are covered by the platform table below,
+	// which needs no particular host to check them.
+	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+		t.Skipf("%s resolves by its own convention rather than XDG", runtime.GOOS)
+	}
 	state := testpath.Abs("/somewhere/state")
 	t.Setenv("XDG_STATE_HOME", state)
 	got, err := Dir()
@@ -399,28 +407,43 @@ func TestDirFollowsXDG(t *testing.T) {
 	}
 }
 
-// Every branch, on one machine. Three of these are unreachable on any given
-// platform if the resolver reads runtime.GOOS directly, which for a path is how
-// a release ships writing somewhere nobody looks.
+// Every branch, on one machine, whichever machine that is.
+//
+// Every `want` here is a literal. Building one with filepath would ask the host
+// what a path looks like, and the host is the thing these cases are written to
+// disagree with: a Windows expectation assembled on Linux is not a Windows
+// expectation. That is how this passed on Linux while three of its four
+// branches were checking the resolver against the wrong platform's rules.
 func TestTheStateDirectoryFollowsThePlatform(t *testing.T) {
 	const home = "/home/person"
+	const winHome = `C:\Users\p`
 	for _, c := range []struct {
 		name, goos, xdg, localAppData, home, want string
 	}{
 		{"macOS ignores XDG", "darwin", "/xdg", "", home,
 			"/home/person/Library/Application Support/git-ticket-canvas"},
-		{"Windows takes LOCALAPPDATA", "windows", "", `C:\Users\p\AppData\Local`, home,
-			filepath.Join(`C:\Users\p\AppData\Local`, "git-ticket-canvas")},
-		{"Windows without it falls back", "windows", "", "", home,
-			filepath.Join(home, ".local", "state", "git-ticket-canvas")},
+		{"Windows takes LOCALAPPDATA", "windows", "", `C:\Users\p\AppData\Local`, winHome,
+			`C:\Users\p\AppData\Local\git-ticket-canvas`},
+		{"Windows without it falls back", "windows", "", "", winHome,
+			`C:\Users\p\.local\state\git-ticket-canvas`},
+		// Rooted on the current drive rather than absolute, so it is not a
+		// state directory: it would move with the working directory.
+		{"Windows ignores a drive-relative XDG", "windows", `\state`, "", winHome,
+			`C:\Users\p\.local\state\git-ticket-canvas`},
+		{"Windows takes a volume-qualified XDG", "windows", `D:\state`, "", winHome,
+			`D:\state\git-ticket-canvas`},
 		{"Linux takes an absolute XDG", "linux", "/xdg", "", home, "/xdg/git-ticket-canvas"},
 		// The specification says relative values are ignored, and a relative
 		// state directory would put the actor record wherever the canvas
 		// happened to be started from.
 		{"Linux ignores a relative XDG", "linux", "relative/path", "", home,
-			filepath.Join(home, ".local", "state", "git-ticket-canvas")},
+			"/home/person/.local/state/git-ticket-canvas"},
+		// A Windows path is not absolute to Linux either, and a value carried
+		// between machines must not silently become a relative one.
+		{"Linux ignores a Windows XDG", "linux", `C:\state`, "", home,
+			"/home/person/.local/state/git-ticket-canvas"},
 		{"Linux without XDG", "linux", "", "", home,
-			filepath.Join(home, ".local", "state", "git-ticket-canvas")},
+			"/home/person/.local/state/git-ticket-canvas"},
 		{"nothing to go on", "linux", "", "", "", ""},
 	} {
 		t.Run(c.name, func(t *testing.T) {
