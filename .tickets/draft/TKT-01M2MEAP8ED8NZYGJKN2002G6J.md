@@ -22,7 +22,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-16T06:26:37Z
-updated_at: 2026-09-16T06:35:43Z
+updated_at: 2026-09-16T14:26:42Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -57,3 +57,22 @@ Handoff written for a fresh session: ~/.local/state/agent-handoffs/git-ticket-ca
 It carries the read order, the four promoted tickets and their sequence, the seven properties that fail silently if dropped, the verification gate (just check), and the repository traps that have already cost time this month. It is coordination state; this ticket and docs/multiuser-design-v1.md remain the record.
 
 TKT-01M2MEC1, TKT-01M2MECN1P and TKT-01M2MED3 were deliberately left as drafts. The first two build the administration surface, which the design document says can grant its own caller more access and deserves an adversarial review rather than an unattended build. The third needs a choice between four options with real trade-offs, and choosing is the maintainer's.
+
+**agent:claude/t3code** at 2026-09-16T14:26:42Z
+
+The first four phases are implemented. TKT-01M2MEAY, TKT-01M2MEB8, TKT-01M2MEBN and TKT-01M2MECN07 are done, in that order, each with its own summary.
+
+Where the epic's own criteria stand, which is not for an agent to tick:
+
+**"docs/multiuser-design-v1.md is implemented or amended where it was wrong."** Implemented, and one amendment is proposed and not yet written. The design says the desk tool's loopback refusal has "no override"; the published container image cannot work under that rule, because a process inside a container must bind 0.0.0.0 to be reachable and cannot see whether the host mapped the port to loopback. The maintainer chose a self-naming unsafe flag on 2026-09-16, and the argument that carried it is that the design already permits exactly that shape for the plaintext-issuer refusal. The proposed wording is in a note on TKT-01M2MEB8. Amending the document is not done, because none of the four tickets asked for it.
+
+**"A canvas published at a hostname refuses every request it was not granted."** True for reading, which is all a served canvas does. Not verified against a real identity provider: the first criterion on TKT-01M2MEBN is left unticked for that reason and says what to check.
+
+**"The desk tool on loopback behaves as it does today."** True, with one addition: `-unsafe-publish-without-authentication` exists, and it is the amendment above. Everything else about its flags, defaults and behaviour is pinned by `TestEachCommandHasItsOwnFlags`, which reads the command's own help output.
+
+Three children remain drafts and were not touched: TKT-01M2MEC1, TKT-01M2MECN1P, TKT-01M2MED3.
+
+Two things found while building that nothing tracks yet, neither filed because filing under an epic a person is still steering is their call:
+
+- A served canvas shows no login state. There is no `/api/session`, no name in the toolbar, and no logout control, so somebody logged in cannot see as whom or log out without typing `/auth/logout`. Nothing breaks; the browser works end to end because an unauthenticated page request is redirected and comes back.
+- Group membership is read once at login and never again. Somebody removed from a group keeps what it granted until their session idles out, up to twelve hours, or until the canvas restarts.
