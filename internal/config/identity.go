@@ -29,6 +29,17 @@ type Identity struct {
 	ClientID string `yaml:"clientId,omitempty"`
 	// ClientSecret is the registration's secret, empty for a public client.
 	ClientSecret string `yaml:"clientSecret,omitempty"`
+	// BaseURL is the public URL this canvas is reached at. The redirect the
+	// provider sends a browser back to is built from it, and it is configured
+	// rather than taken from a request's Host header because a header is
+	// chosen by whoever sent the request.
+	BaseURL string `yaml:"baseUrl,omitempty"`
+	// Scopes are requested beyond openid, profile and email. A provider that
+	// puts group membership behind its own scope is named here.
+	Scopes []string `yaml:"scopes,omitempty"`
+	// GroupsClaim is the ID token claim holding group names. Empty means the
+	// claim called groups, which is what Authentik and Keycloak both use.
+	GroupsClaim string `yaml:"groupsClaim,omitempty"`
 }
 
 // Configured reports whether anything named a provider at all.
@@ -37,7 +48,7 @@ type Identity struct {
 // that a shared configuration file carries a provider it is going to ignore,
 // and a half-written provider is still worth saying that about.
 func (i Identity) Configured() bool {
-	return i.Issuer != "" || i.ClientID != "" || i.ClientSecret != ""
+	return i.Issuer != "" || i.ClientID != "" || i.ClientSecret != "" || i.BaseURL != ""
 }
 
 // Validate refuses a served canvas that has nothing to authenticate against.
@@ -54,10 +65,13 @@ func (i Identity) Validate() error {
 	if strings.TrimSpace(i.ClientID) == "" {
 		missing = append(missing, "clientId")
 	}
+	if strings.TrimSpace(i.BaseURL) == "" {
+		missing = append(missing, "baseUrl")
+	}
 	if len(missing) > 0 {
 		return fmt.Errorf(
 			"no identity provider is configured: %s %s not set.\n"+
-				"Put them under `identity:` in the configuration file, or pass -issuer and -client-id.\n"+
+				"Put them under `identity:` in the configuration file, or pass -issuer, -client-id and -base-url.\n"+
 				"A served canvas authenticates every request and has nothing to authenticate against. "+
 				"For a canvas on your own machine, run git-ticket-canvas instead",
 			strings.Join(missing, " and "), plural(len(missing), "is", "are"))
@@ -80,7 +94,22 @@ func (i Identity) Validate() error {
 		return errors.New("the issuer " + i.Issuer + " is not https: discovery over a plaintext scheme is " +
 			"unauthenticated, so whoever can rewrite it chooses the keys every token is verified against")
 	}
+
+	base, err := url.Parse(i.BaseURL)
+	if err != nil || base.Scheme == "" || base.Host == "" {
+		return fmt.Errorf("the canvas base URL %q is not an absolute URL, so there is nothing for the "+
+			"identity provider to redirect back to", i.BaseURL)
+	}
+	if base.Scheme != "https" && !loopback(base.Hostname()) {
+		return fmt.Errorf("the canvas base URL %q is not https: a session cookie sent over a plaintext "+
+			"connection is a session anybody on the path can take. http is permitted only on loopback, "+
+			"for a canvas you are testing on your own machine", i.BaseURL)
+	}
 	return nil
+}
+
+func loopback(host string) bool {
+	return host == "localhost" || host == "127.0.0.1" || host == "::1"
 }
 
 func plural(n int, one, many string) string {

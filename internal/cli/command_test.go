@@ -72,12 +72,17 @@ func build(t *testing.T, pkg string) string {
 func storeIn(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
+	initStore(t, dir)
+	return dir
+}
+
+func initStore(t *testing.T, dir string) {
+	t.Helper()
 	if _, err := ticket.Init(dir, ticket.InitOptions{
 		Actor: ticket.Actor{ID: "agent:test/cli", Name: "CLI test"},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	return dir
 }
 
 // The rule the split exists to make structural: a canvas with no
@@ -177,6 +182,7 @@ func TestTheServedCanvasRefusesAPlaintextIssuer(t *testing.T) {
 	err := Run(Served, []string{
 		"git-ticket-canvas-server", "-store", storeIn(t),
 		"-issuer", "http://id.example.com", "-client-id", "canvas",
+		"-base-url", "https://canvas.example.com",
 	})
 	if err == nil {
 		t.Fatal("a plaintext issuer was accepted")
@@ -200,7 +206,7 @@ func TestEachCommandHasItsOwnFlags(t *testing.T) {
 		extra []string
 	}{
 		{Desk, deskPackage, []string{unsafePublishFlag}},
-		{Served, servedPackage, []string{"client-id", "client-secret", "issuer"}},
+		{Served, servedPackage, []string{"base-url", "client-id", "client-secret", "issuer"}},
 	} {
 		want := append(append([]string{}, common...), c.extra...)
 		sort.Strings(want)
@@ -235,19 +241,103 @@ func flagNames(t *testing.T, binary string) []string {
 // Read-only is what makes it acceptable to ship an access-control system before
 // the attribution problem is solved, so it is the served canvas's default
 // rather than something an operator has to remember.
+//
+// Read from the command's own help, because that is where an operator checks
+// what they are getting without passing a flag.
 func TestTheServedCanvasDefaultsToReadOnly(t *testing.T) {
-	store := storeIn(t)
+	for _, c := range []struct {
+		kind Kind
+		pkg  string
+		want string
+	}{
+		{Served, servedPackage, "(default true)"},
+		{Desk, deskPackage, ""},
+	} {
+		line := helpLine(t, build(t, c.pkg), "read-only")
+		if c.want == "" {
+			if strings.Contains(line, "default") {
+				t.Errorf("%s: -read-only reads %q, want no default; the desk canvas writes", c.kind, line)
+			}
+			continue
+		}
+		if !strings.Contains(line, c.want) {
+			t.Errorf("%s: -read-only reads %q, want %q", c.kind, line, c.want)
+		}
+	}
+}
+
+// Nothing behind the login is reachable without one, and the two refusals
+// differ because their callers do: a browser is sent to the provider, and a
+// fetch is told 401 rather than handed an HTML login page to parse as JSON.
+func TestTheServedCanvasRefusesAnUnauthenticatedRequest(t *testing.T) {
 	url, stop := serve(t, build(t, servedPackage),
-		"-store", store, "-addr", "127.0.0.1:0",
-		"-issuer", "https://id.example.invalid", "-client-id", "canvas")
+		"-store", storeIn(t), "-addr", "127.0.0.1:0",
+		"-issuer", "https://id.example.invalid", "-client-id", "canvas",
+		"-base-url", "http://127.0.0.1:7777")
 	defer stop()
 
-	if code, _ := call(t, "GET", url+"/api/board", ""); code != http.StatusOK {
-		t.Errorf("GET /api/board = %d, want 200; a read-only canvas still reads", code)
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	for _, c := range []struct {
+		path string
+		want int
+	}{
+		{"/api/board", http.StatusUnauthorized},
+		{"/api/stores", http.StatusUnauthorized},
+		{"/api/favorites", http.StatusUnauthorized},
+		{"/api/version", http.StatusUnauthorized},
+		{"/", http.StatusFound},
+	} {
+		response, err := client.Get(url + c.path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(response.Body)
+		response.Body.Close()
+		if response.StatusCode != c.want {
+			t.Errorf("GET %s = %d (%s), want %d", c.path, response.StatusCode, body, c.want)
+		}
+		if c.want == http.StatusFound && !strings.HasPrefix(response.Header.Get("Location"), "/auth/login") {
+			t.Errorf("GET %s redirected to %q, want the login", c.path, response.Header.Get("Location"))
+		}
+		if c.want == http.StatusUnauthorized && !strings.Contains(string(body), `"login"`) {
+			t.Errorf("GET %s answered %s, want it to say where to log in", c.path, body)
+		}
 	}
-	if code, body := call(t, "POST", url+"/api/tickets", `{"title":"Written by a served canvas"}`); code != http.StatusForbidden {
-		t.Errorf("POST /api/tickets = %d (%s), want 403 with no -read-only passed", code, body)
+
+	// The login route is the one hole in the guard, and it is the only one. It
+	// answers with the provider being unreachable rather than with a redirect,
+	// which is the right failure for an issuer that does not exist.
+	response, err := client.Get(url + "/auth/login")
+	if err != nil {
+		t.Fatal(err)
 	}
+	response.Body.Close()
+	if response.StatusCode == http.StatusFound {
+		t.Error("the login redirected somewhere with no reachable provider behind it")
+	}
+}
+
+// helpLine is one flag's line from a command's own help output.
+func helpLine(t *testing.T, binary, flagName string) string {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	var help bytes.Buffer
+	cmd := exec.CommandContext(ctx, binary, "-h")
+	cmd.Stdout, cmd.Stderr = &help, &help
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("%s -h: %v\n%s", binary, err, help.String())
+	}
+	lines := strings.Split(help.String(), "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "-"+flagName) && i+1 < len(lines) {
+			return line + " " + lines[i+1]
+		}
+	}
+	t.Fatalf("%s -h does not mention -%s:\n%s", binary, flagName, help.String())
+	return ""
 }
 
 // The desk canvas is unchanged: it writes, because loopback plus your own

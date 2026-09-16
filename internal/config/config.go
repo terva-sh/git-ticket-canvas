@@ -60,6 +60,18 @@ var DefaultExclude = []string{"node_modules", "vendor", "target", "dist", "build
 // store resolves its own from its config.yml.
 type Store struct {
 	Name string `yaml:"name"`
+	// Roles maps an identity-provider group to what it may do with this store,
+	// and is read only by the served canvas. A store that names none is
+	// private: not readable, not listed, and not acknowledged to exist. That is
+	// the rule the whole grant model exists to protect, so it is the absence of
+	// configuration rather than something an operator has to write.
+	Roles map[string]string `yaml:"roles,omitempty"`
+	// HonourGroups names groups from the top-level Roles map whose role applies
+	// to this store. The top-level map grants nothing by itself: with a global
+	// role map, adding a repository to look at it yourself grants it to
+	// everyone whose group is in that map, and this is what keeps the
+	// convenience without the failure.
+	HonourGroups []string `yaml:"honourGroups,omitempty"`
 	// Derived is true when nobody wrote this name and the canvas took it from
 	// the path. A written name is kept as the store's id; a derived one is
 	// replaced by a hash, because a name taken from a path is not unique and
@@ -92,6 +104,10 @@ type Config struct {
 	// file, which an operator writes, and never to a store's own config.yml.
 	// The desk canvas reads it, says it is ignoring it, and ignores it.
 	Identity Identity `yaml:"identity,omitempty"`
+	// Roles names what a group may do, in one place, so that a store does not
+	// have to repeat it. It grants nothing at all on its own: a store honours a
+	// group by name or does not have it.
+	Roles map[string]string `yaml:"roles,omitempty"`
 	// ExcludeDefaults turns the built-in list off when set to false, which is
 	// how Exclude is replaced rather than extended. A nil pointer means unset,
 	// and unset means the defaults apply.
@@ -151,7 +167,8 @@ func Load(file, env string, flags []string, base string) (Config, error) {
 		if err != nil {
 			return Config{}, err
 		}
-		cfg.Roots, cfg.Exclude, cfg.Identity = parsed.Roots, parsed.Exclude, parsed.Identity
+		cfg.Roots, cfg.Exclude = parsed.Roots, parsed.Exclude
+		cfg.Identity, cfg.Roles = parsed.Identity, parsed.Roles
 		for _, s := range parsed.Stores {
 			entries = append(entries, entry{s, fromFile})
 		}

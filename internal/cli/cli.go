@@ -197,11 +197,6 @@ func Run(kind Kind, args []string) error {
 		if cfg.Identity, err = identity.resolve(cfg.Identity); err != nil {
 			return err
 		}
-		// TKT-01M2MEBN is what makes this configuration do anything. Until it
-		// lands, the provider is checked and then not used, and a canvas served
-		// by this build answers every request without asking who is asking.
-		log.Printf("warn   this build has no sign-on yet: the identity provider is required and not yet consulted, " +
-			"so every request is served unauthenticated; do not publish it")
 	}
 
 	// Searching is on when anything asked for it: -R, --depth, a --root, or a
@@ -297,6 +292,13 @@ func Run(kind Kind, args []string) error {
 		}
 	}
 
+	// Who may see what, and who is asking. A desk canvas builds neither, and
+	// the registry's nil Access is that canvas: one person, every store.
+	guard, gate, err := signOn(kind, cfg)
+	if err != nil {
+		return err
+	}
+
 	registry := api.NewRegistry(api.RegistryOptions{
 		Assets:      assets,
 		Version:     buildinfo.Read(),
@@ -305,6 +307,7 @@ func Run(kind Kind, args []string) error {
 		Warm:        warm,
 		Rescan:      api.RescanSource{Config: cfg, Merge: merging},
 		State:       remembered,
+		Access:      gate,
 	})
 	for _, warning := range found.Warnings {
 		log.Printf("warn   %s", warning)
@@ -338,7 +341,7 @@ func Run(kind Kind, args []string) error {
 		return err
 	}
 	server := &http.Server{
-		Handler:           registry.Handler(),
+		Handler:           guard(registry.Handler()),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	log.Printf("canvas http://%s", ln.Addr())

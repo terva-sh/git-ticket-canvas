@@ -16,6 +16,7 @@ type identityFlags struct {
 	issuer       *string
 	clientID     *string
 	clientSecret *string
+	baseURL      *string
 }
 
 func (f *identityFlags) register(flags *flag.FlagSet) {
@@ -25,6 +26,8 @@ func (f *identityFlags) register(flags *flag.FlagSet) {
 		"OpenID Connect client id, overriding the configuration file")
 	f.clientSecret = flags.String("client-secret", "",
 		"OpenID Connect client secret, overriding the configuration file; a file is the better place for it")
+	f.baseURL = flags.String("base-url", "",
+		"the public URL this canvas is reached at, which the provider redirects back to")
 }
 
 // resolve layers the flags over the configuration file and refuses a canvas
@@ -38,6 +41,9 @@ func (f *identityFlags) resolve(from config.Identity) (config.Identity, error) {
 	}
 	if f.clientID != nil && *f.clientID != "" {
 		from.ClientID = *f.clientID
+	}
+	if f.baseURL != nil && *f.baseURL != "" {
+		from.BaseURL = *f.baseURL
 	}
 	if f.clientSecret != nil && *f.clientSecret != "" {
 		// A secret on a command line is readable by every process on the

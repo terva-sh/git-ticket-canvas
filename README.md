@@ -50,8 +50,9 @@ Flags include `-store`, `-addr`, `-actor`, and `-read-only`. Use `-h` for help,
 `--version` for build provenance, or `--version --json` for machine-readable
 output. `git-ticket-canvas` refuses a non-loopback `-addr`, because it has no
 authentication and the address it binds is the whole of its access control.
-To serve other people, run `git-ticket-canvas-server` with an issuer and a
-client id.
+To serve other people, run `git-ticket-canvas-server`: it needs an OpenID
+Connect provider, grants read access per store, and keeps a store nobody granted
+invisible rather than public. See [serving a canvas](docs/serving-a-canvas.md).
 
 With Go, Node.js 22.12 or newer, npm, and just installed, rebuild and install
 from source:
@@ -162,6 +163,8 @@ the layout file and claim a placement nobody chose.
 main.go              the desk canvas: one call into internal/cli
 cmd/...-server       the served canvas: the same, with the other Kind
 internal/cli         flags, refusals, store discovery, actor resolution, serving
+internal/auth        the relying party, server-side sessions, the login guard
+internal/grants      which roles an identity holds on a named resource
 internal/layout      the board file: read, write, canonical render
 internal/api         JSON API over the ticket library + DTOs + op dispatch
 web/src/main.ts      Preact entry point

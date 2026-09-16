@@ -65,32 +65,50 @@ reaching for a different tool. The one exception is a container, below.
 ## Serve a canvas to other people
 
 ```sh
-git-ticket-canvas-server -store /path/to/repo \
-  -issuer https://id.example.com -client-id git-ticket-canvas
+git-ticket-canvas-server -config /etc/git-ticket-canvas.yml -addr 127.0.0.1:7777
 ```
 
-It refuses to start without an issuer and a client id. Put them under
-`identity:` in the canvas configuration file rather than on the command line,
-which is where the client secret belongs too: a secret in an argument is
+It refuses to start without an issuer, a client id, and the public URL it is
+reached at. Put them in the canvas configuration file rather than on the command
+line, which is where the client secret belongs too: a secret in an argument is
 readable by every other process on the machine.
 
 ```yaml
 identity:
-  issuer: https://id.example.com
+  issuer: https://id.example.com/application/o/canvas/
   clientId: git-ticket-canvas
   clientSecret: ...
+  baseUrl: https://canvas.example.com
+
+roles:
+  "Brokkr Staff": reader
+
 stores:
   - name: ledger
     path: /srv/ledger
+    roles:
+      "Brokkr Ledger Admin": reader
+    honourGroups: ["Brokkr Staff"]
 ```
 
-Identity never comes from a store's own `.tickets/config.yml`. A ticket store is
-a git repository, and repository bytes must not decide who the canvas trusts to
-log in.
+Register `https://canvas.example.com/auth/callback` as the redirect URI. The
+canvas prints it at startup beside the issuer, so a mismatch is visible before
+anybody has typed a password.
 
 Access is granted per store, and a store nobody granted is invisible rather than
 public: adding a repository to the configuration to look at it yourself does not
-hand it to everybody who can log in. The served canvas is read-only.
+hand it to everybody who can log in, and a store the caller does not hold
+answers exactly as one that is not configured. The top-level `roles:` map is a
+convenience and grants nothing until a store names the group under
+`honourGroups`.
+
+Identity never comes from a store's own `.tickets/config.yml`. A ticket store is
+a git repository, and repository bytes must not decide who the canvas trusts to
+log in, or who may read anything.
+
+The served canvas is read-only, sessions are held server-side behind an opaque
+cookie and do not survive a restart, and there is no administration interface
+yet. See [serving a canvas](docs/serving-a-canvas.md) for the whole of it.
 
 ## Serve a local repository in a container
 
