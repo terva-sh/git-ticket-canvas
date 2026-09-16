@@ -23,7 +23,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-16T06:27:56Z
-updated_at: 2026-09-16T06:28:14Z
+updated_at: 2026-09-16T15:36:48Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -50,3 +50,23 @@ See `docs/multiuser-design-v1.md`.
 - [ ] The options are weighed in the ticket and one is chosen, with the rejected ones and their reasons recorded
 - [ ] The per-request actor question is settled, including what happens to the snapshot cache
 - [ ] Writer roles are either enabled under the chosen model or explicitly deferred with a reason
+
+## Notes
+
+**agent:claude/t3code** at 2026-09-16T15:36:48Z
+
+**Writes were switched on for the brokkr ledger deployment on 2026-09-16, on the maintainer's decision, to dogfood the tooling. This ticket is not settled by that and should not be closed by it.**
+
+What was done: `-read-only=false` on `git-ticket-canvas.service`, serving `/home/sothr/workspace/ledger` at `https://ledger.brokkr.local.sothr.com`. Note that deleting the flag would have changed nothing; the served command defaults it to true.
+
+What that turned on, verified in the tree at `41ecbe6` rather than assumed:
+
+**Nothing authorizes a write per caller.** `api.Access` answers `Caller` and `CanRead` and has no `CanWrite`. The only write gate in the process is the `readOnly` boolean on the server. So anybody who can read a store can now edit it, and the `writer` role still grants nothing, because nothing asks. The grant vocabulary and the write path are not connected at either end.
+
+**Every write is stamped with the store's own actor.** It is resolved once when the store opens and lives on the `*Server` (`actor: s.actor`), so it is `human:sothr` for this deployment regardless of who is signed in. The per-person binding that `TKT-01M2MECN07` built is written to `actors.json` and never consulted on a write. Today that is harmless because one person uses this canvas and the store's actor is that person. The day a second person writes, both sets of edits are recorded as the first, and nothing in the store will say otherwise.
+
+**The canvas still never commits.** Edits accumulate as uncommitted changes in `/home/sothr/workspace/ledger`, which `git worktree list` shows is the main tree of a repository with two live agent worktrees. This is the live risk and it is not hypothetical: an agent running `git commit` in that tree sweeps up whatever the canvas has written, under its own message and actor.
+
+So of this ticket's four options, what is deployed is closest to "the canvas commits nothing and somebody watches", which was not on the list because it is not a design. The option this makes most attractive is the third — a served canvas pointed at a working tree nothing else uses — because it is available today, costs one `git worktree add`, and removes the only risk of the three that can destroy work rather than merely mislabel it.
+
+The acceptance criteria are untouched. Nothing here weighs the options, and the per-request actor question is not settled: the cost recorded in the description still stands, that the actor is part of the cached board response and making it per-request means either unsharing the snapshot cache or taking the actor out of the payload.
