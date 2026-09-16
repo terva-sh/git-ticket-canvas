@@ -48,7 +48,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-16T06:27:10Z
-updated_at: 2026-09-16T14:17:30Z
+updated_at: 2026-09-16T15:09:42Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -218,6 +218,37 @@ So the half of the criterion about what a login yields and what keys on it is de
 What to do when you have one: register `<baseUrl>/auth/callback`, start the server, log in, and check that groups arrive non-empty. If they do not, `identity.groupsClaim` and `identity.scopes` are the two settings that matter, and `docs/serving-a-canvas.md` says what each provider tends to need. Then tick this box.
 
 Every other criterion on this ticket is earned by a test named in the summary.
+
+**agent:claude/t3code** at 2026-09-16T15:09:42Z
+
+**Run against a real provider: Authentik 2026.5.7, on brokkr, 2026-09-16.** The canvas serves the ledger store at `https://ledger.brokkr.local.sothr.com` behind Traefik, and a person logged in through it.
+
+This is the criterion that was left unticked because a fake IdP cannot earn it. Here is exactly what the real one settled, and what it did not.
+
+### Settled
+
+**`groups` needs no extra scope and no `groupsClaim` setting on Authentik.** The default `profile` mapping emits `"groups": [group.name for group in request.user.groups.all()]`, so the canvas's default of reading `groups` from the ID token is right as shipped. The operator's guide already said this about Authentik and Keycloak; it is now measured on one of them rather than asserted.
+
+**The group claim arrives and the grant matches on it.** Proved by consequence rather than by reading a token, which is the stronger direction: the ledger store is granted only through `honourGroups` naming two Authentik groups, so if `groups` had been missing or empty, `CanRead` would have been false, `GET /api/stores` would have been empty, and the board would have been blank. It rendered 79 of 79 tickets. Authentik's own event records the authorization with scopes `profile openid email` through the explicit-consent flow.
+
+**Everything downstream keys on subject.** The provider is configured `sub_mode: hashed_user_id`, so the subject is opaque and stable and is not the email or the username. The session, the state key and the actor binding all took it without incident.
+
+**A second browser with no session was still refused** while the first was reading the board, which is the session boundary holding under concurrent use rather than in a unit test.
+
+**The authorization request is what it should be on the wire**: code flow, PKCE `S256`, state and nonce present, exact strict redirect URI, attempt cookie `HttpOnly` and `Secure`. The redirect Traefik returns is built from `baseUrl` and not from the backend's own host, which is the thing that would break silently behind a proxy.
+
+### Not settled, which is why this criterion stays unticked
+
+The criterion names four claims. `subject` and `groups` are demonstrated above. **`email` and `name` are not.** They were requested, consented and almost certainly delivered — the `email` scope is in Authentik's record of the authorization — but nothing in the canvas displays them, so nobody has seen them. There is no `/api/session`, the board carries no identity, and a successful login writes nothing to the log.
+
+That is the same gap already recorded on the epic, and this is the first time it has had a concrete cost: a deployment cannot show that the claims it receives are the claims it asked for. Two things would each close it, and the second is better:
+
+1. `GET /api/session` returning the principal, which the missing login UI needs anyway.
+2. **One log line on a successful login** naming subject, name and groups. An operator reading the unit's journal today cannot tell who has been reading a ticket store, and Authentik's event log is the only record that anybody signed in at all. For a canvas whose entire purpose is serving a store to several people, that is a hole in the record, not a missing convenience.
+
+### A provider-side trap worth carrying into the operator's guide
+
+Authentik 2026.5.7 defaults an **API-created** OAuth2 provider's `grant_types` to an empty list, and an empty list refuses every authorization with `error=invalid_request` and "The request is otherwise malformed" — redirected back to the client, before any flow runs, **with no event written on the provider's side**. Every other field looks correct. The UI populates it, so this bites only somebody automating provider creation, which is exactly what a deployment guide encourages. `docs/serving-a-canvas.md` should say so under registering the canvas with a provider.
 
 ## Summary
 
