@@ -335,7 +335,6 @@ input.tool, select.tool { color: var(--ink); }
 }
 .card.compact .card-progress { margin-top: 8px; }
 .card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), 0 8px 22px -10px rgba(0,0,0,.6); }
-.card.dimmed { opacity: .18; }
 .card.link-target { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 /* Settled work recedes. Not hidden: the history is why a board is trustworthy,
    and a board that forgets what was finished cannot be read backwards. It just
@@ -353,6 +352,18 @@ input.tool, select.tool { color: var(--ink); }
    part, because the question about a blocked card is what it waits on. */
 .card.blocked-card { opacity: .8; }
 .card.blocked-card .card-title { color: var(--ink-dim); }
+/* Filtering has to win over every appearance above, and it is the last word on
+   opacity for that reason. `done`, `archived` and `blocked-card` set opacity at
+   the same specificity this does, and their hover and selected variants set it
+   higher, so when this rule sat above them a filtered-out card in any of those
+   states kept its place on the board. That reads as the filter half-working:
+   most of the board recedes and the settled and blocked cards stay put, which
+   is the opposite of what a filter is for. Naming the variants here rather than
+   reaching for `!important` keeps the next opacity rule beatable on purpose. */
+.card.dimmed,
+.card.dimmed:hover,
+.card.dimmed.selected,
+.card.dimmed.selected:hover { opacity: .18; }
 /* The loudest thing on the board, because it is what `git ticket ready`
    answers and it was previously a word in body text. */
 .card.startable { border-left-width: 5px; }

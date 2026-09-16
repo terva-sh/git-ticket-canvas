@@ -7,7 +7,10 @@ status: draft
 status_reason: null
 priority: normal
 due_on: null
-labels: []
+labels:
+  - canvas
+  - config
+  - idea
 assignees: []
 milestone: null
 parent: null
@@ -18,12 +21,12 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-15T17:53:59Z
-updated_at: 2026-09-15T17:53:59Z
+updated_at: 2026-09-16T20:44:24Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
 updated_by:
-  id: agent:t3code/d30689a3
+  id: agent:claude/t3code
   name: ""
 extensions: {}
 ---

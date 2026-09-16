@@ -9,8 +9,8 @@ priority: normal
 due_on: null
 labels:
   - auth
-  - multiuser
   - security
+  - multiuser
 assignees: []
 milestone: null
 parent: TKT-01M2MEAP8ED8NZYGJKN2002G6J
@@ -24,7 +24,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-16T06:27:22Z
-updated_at: 2026-09-16T06:28:14Z
+updated_at: 2026-09-16T20:45:17Z
 created_by:
   id: agent:claude/t3code
   name: ""

@@ -8,9 +8,9 @@ status_reason: null
 priority: normal
 due_on: null
 labels:
-  - ui
   - canvas
   - labels
+  - ui
 assignees: []
 milestone: null
 parent: TKT-01M2441T0PTXRFK6VC4FM1PET7
@@ -28,13 +28,13 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-10T23:16:24Z
-updated_at: 2026-09-10T23:16:24Z
+updated_at: 2026-09-16T20:45:17Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
 updated_by:
-  id: agent:terva/mieli
-  name: Mieli
+  id: agent:claude/t3code
+  name: ""
 extensions: {}
 ---
 

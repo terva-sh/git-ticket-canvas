@@ -7,7 +7,9 @@ status: draft
 status_reason: null
 priority: normal
 due_on: null
-labels: []
+labels:
+  - api
+  - canvas
 assignees: []
 milestone: null
 parent: TKT-01M2K38J5NGC6MNZKKEX285B61
@@ -18,12 +20,12 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-15T17:54:29Z
-updated_at: 2026-09-15T17:54:29Z
+updated_at: 2026-09-16T20:44:24Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
 updated_by:
-  id: agent:t3code/d30689a3
+  id: agent:claude/t3code
   name: ""
 extensions: {}
 ---
