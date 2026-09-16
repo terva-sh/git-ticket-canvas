@@ -61,6 +61,8 @@ export interface CanvasProps {
 
 export interface CanvasHandle {
   fit(): void
+  /** Hand every selected card back to automatic placement. */
+  releaseSelected(): void
   /** Put the board back at an exact view. */
   setView(view: View): void
   /** Multiply the magnification, about the centre of the viewport. */
@@ -98,7 +100,8 @@ type Gesture = GestureBase & (
 )
 interface LocalState {
   view: View
-  previews: Map<string, Card>
+  /** A null is a removal in flight: the card is going back to the rules. */
+  previews: Map<string, Card | null>
   gesture: Gesture | null
   motion: Point | null
   frame: number | null
@@ -117,7 +120,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
    * gesture starting and the callback running. */
   const activeWidth = () => cardWidthFor(latest.current.density ?? 'full')
   const local = useRef<LocalState>({
-    view: { x: 120, y: 90, k: 1 }, previews: new Map(), gesture: null,
+    view: { x: 120, y: 90, k: 1 }, previews: new Map<string, Card | null>(), gesture: null,
     motion: null, frame: null, frameCount: 0, mounted: false,
   }).current
   const [, setRevision] = useState(0)
@@ -166,7 +169,14 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   function positions(): Map<string, Placement> {
     placementCalculations.current++
     const p = latest.current
-    const pinned = { ...p.cards, ...Object.fromEntries(local.previews) }
+    // Spreading the previews would leave a null under the id. `isPinned` and
+    // `posOf` both test truthiness so it would behave, but a card on its way
+    // back to the rules has no saved position and the set should say so.
+    const pinned: Cards = { ...p.cards }
+    for (const [id, card] of local.previews) {
+      if (card) pinned[id] = card
+      else delete pinned[id]
+    }
     const automatic = autoPlace(p.tickets.values(), pinned, p.statuses)
     const result = new Map<string, Placement>()
     for (const id of p.tickets.keys()) {
@@ -251,7 +261,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     p.onCompose({ x: client.x - bounds.left, y: client.y - bounds.top, sceneX: scene.x, sceneY: scene.y })
   }
 
-  function save(changes: Cards) {
+  function save(changes: CardChanges) {
     if (!Object.keys(changes).length) return
     const p = latest.current
     if (p.readOnly) { p.onError('read-only'); return }
@@ -275,6 +285,28 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     catch (error) { failed(error); complete() }
   }
 
+  /** Hand cards back to the rules. A saved position is the only thing that
+   * makes a card manual, so removing it is the whole operation.
+   *
+   * Dragging moves every selected card, so this releases every selected card
+   * when the pressed one is in the selection, and just that card when it is
+   * not. Anything already automatic is dropped rather than written as a
+   * redundant removal that would still cost a round trip.
+   */
+  function releaseCards(ids: readonly string[]) {
+    const p = latest.current
+    const changes: CardChanges = {}
+    for (const id of ids) if (p.cards[id]) changes[id] = null
+    save(changes)
+  }
+  // Stable, because CardView is memoized and a fresh callback per render would
+  // re-render every card on every pan frame. It reads the selection through
+  // `latest` for the same reason every other callback here does.
+  const releaseCard = useCallback((id: string) => {
+    const p = latest.current
+    releaseCards(p.selection.has(id) ? [...p.selection] : [id])
+  }, [])
+
   function captureFrame(frame: Frame) {
     return captureMembers(latest.current.frames || {}, frame, [...positions()].map(([id, point]) => ({
       id, x: point.x, y: point.y, w: activeWidth(),
@@ -284,6 +316,10 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
 
   useImperativeHandle(ref, () => ({
     fit,
+    // Compact density hides the card head, and with it the only control this
+    // has. A board read at compact is exactly the large one somebody most
+    // needs to undo a drag on, so the keyboard reaches it too.
+    releaseSelected() { releaseCards([...latest.current.selection]) },
     // Used to put somebody back where they left a board they are already
     // looking at. Coming back to a board this component was not mounted for
     // goes through initialView instead, which nothing can race.
@@ -595,12 +631,13 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
           frameTitle={Object.values(props.frames || {}).find(frame => frame.members.includes(ticket.id))?.title}
           frameMember={!!props.selectedFrame && !!props.frames?.[props.selectedFrame]?.members.includes(ticket.id)}
           target={gesture?.kind === 'link' && gesture.to === ticket.id} register={measurements.register}
-          density={props.density}
+          density={props.density} onRelease={props.readOnly ? undefined : releaseCard}
           incarnation={props.samplingPublication?.tickets.find(item => item.id === ticket.id)?.incarnation} />
       })}</div>
     </div>
     {props.frameCreating && <div id="frameDrawHint" role="status">Draw on empty canvas to capture card centers, or enter bounds in the frame panel. Escape cancels.</div>}
     <div id="hint">drag canvas to pan · scroll to zoom · double-click to file a ticket · drag the right handle to link
+      {!props.readOnly && ' · u hands the selection back to automatic placement'}
       {props.relationships !== 'none' && <div>Solid arrow: ticket → dependency · Dashed warm arrow: parent → child · hover or select to name one edge</div>}
     </div>
     {props.children}

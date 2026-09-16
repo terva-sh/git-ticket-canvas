@@ -17,11 +17,15 @@ interface CardViewProps {
   /** How much of the ticket to show. Defaults to the full presentation. */
   density?: Density
   incarnation?: symbol
+  /** Hands this card back to automatic placement. Absent on a read-only
+   * canvas, which is why an absent prop renders a plain label rather than a
+   * disabled button. */
+  onRelease?: (id: string) => void
   register: (id: string, element: HTMLDivElement, incarnation?: symbol) => (() => void)
 }
 
 // Memoization keeps metadata out of the per-frame pan and link updates.
-export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, selected, dimmed, target, frameTitle, frameMember, density = 'full', incarnation, register }: CardViewProps) {
+export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, selected, dimmed, target, frameTitle, frameMember, density = 'full', incarnation, onRelease, register }: CardViewProps) {
   const compact = density === 'compact'
   const element = useRef<HTMLDivElement>(null)
   // Refresh regression diagnostic; unlike DOM mutation counts this sees renders.
@@ -89,7 +93,17 @@ export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, sel
     </div>}
     {!compact && frameTitle && <div class="card-frame-membership">Frame: {frameTitle}</div>}
     {!compact && <div class="card-head"><span class="card-id">{t.short || t.id}</span><span class="card-type">{t.type}</span>
-      <span class="card-placement">{pinned ? 'Manual' : 'Automatic'}</span></div>}
+      {/* Dragging a card is otherwise a one-way door: it takes a saved
+        * position and nothing but editing the layout file gives it back. The
+        * label that reports the state is where somebody looks to change it, so
+        * the word stays `Manual` and the accessible name says what pressing
+        * does. An automatic card has nothing to hand back. */}
+      {pinned && onRelease
+        ? <button type="button" class="card-placement release" data-release={t.id}
+          title="Placed by hand. Press to hand it back to automatic placement."
+          aria-label={`Hand ${t.short || t.id} back to automatic placement`}
+          onClick={() => onRelease(t.id)}>Manual</button>
+        : <span class="card-placement">{pinned ? 'Manual' : 'Automatic'}</span>}</div>}
     <div class="handle" title="Drag to another card to make that ticket depend on this one" />
   </div>
 })

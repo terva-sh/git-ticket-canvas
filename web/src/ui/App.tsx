@@ -516,6 +516,12 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       if (event.key === '/') { event.preventDefault(); document.getElementById('search')?.focus() }
       if (event.key === 'n') { event.preventDefault(); canvas.current?.composeCentre() }
       if (event.key === 'f') { event.preventDefault(); canvas.current?.fit() }
+      // Compact density hides the card head, which carries the only control for
+      // this, and a large board is where both compact and an accidental drag
+      // are most likely.
+      // Canvas.save refuses on a read-only board and says so, so this does not
+      // check first: a silent key is worse than one that explains itself.
+      if (event.key === 'u') { event.preventDefault(); canvas.current?.releaseSelected() }
       if ((event.key === 'Delete' || event.key === 'Backspace') && latest.current.selected && !frameLatest.current.selected && !frameLatest.current.draft && !frameRequest.current) {
         event.preventDefault()
         const ticket = store.state.tickets.get(latest.current.selected)

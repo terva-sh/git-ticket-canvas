@@ -318,6 +318,11 @@ input.tool, select.tool { color: var(--ink); }
 .card-id { font-family: var(--mono); font-size: 10px; color: var(--ink-dim); overflow-wrap: anywhere; }
 .card-type { font-size: 10px; color: var(--ink-dim); }
 .card-placement { font-size: 10px; color: var(--ink-dim); margin-left: auto; }
+/* The label that reports the placement is also how you change it, so it reads
+   as the same word until you are near it. A dotted underline is the only
+   standing difference; colour and a solid underline arrive on hover. */
+button.card-placement { background: none; border: 0; padding: 0; text-decoration: underline dotted; text-underline-offset: 2px; }
+button.card-placement:hover, button.card-placement:focus-visible { color: var(--accent); text-decoration-style: solid; }
 .card-title { font-size: 16px; font-weight: 650; line-height: 1.4; word-break: break-word; margin-bottom: 12px; }
 .card-state { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .card-priority { color: var(--ink-dim); font-size: 11px; }
@@ -442,7 +447,7 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
 #composer .muted { margin-top: 6px; display: block; }
 [hidden] { display: none !important; }
 </style>
-  <script type="module" crossorigin src="./assets/index-AqwTzxek.js"></script>
+  <script type="module" crossorigin src="./assets/index-BKtbJoNr.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-3zWs_XiM.css">
 </head>
 <body>
