@@ -20,7 +20,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-16T21:01:16Z
-updated_at: 2026-09-16T21:01:22Z
+updated_at: 2026-09-16T23:16:37Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -61,3 +61,19 @@ Worth deciding rather than assuming. Options, none obviously right:
 
 Whatever is chosen, the count reaching zero should probably say why: `0 of 80`
 is true but unhelpful when a board has gone blank.
+
+## Notes
+
+**agent:claude/t3code** at 2026-09-16T23:16:37Z
+
+Measured the three options against this store rather than arguing them, 123 tickets, taking every 2- and 3-way combination of the six most common labels.
+
+Three labels under the current intersection: 13 of the 20 combinations give exactly 0. Under union the same 20 give between 37 and 74 matches, against a store of 123. Two labels under intersection: 6 of 15 give 0; under union, 15 to 67.
+
+That kills the first option on its own terms. 'Make label includes union, matching the status chips' was the one I expected to recommend, because it matches what people seem to expect and matches the chips next to it. But on real data it replaces a blank board with an unfiltered one: selecting three labels would show more than half the store. The reported complaint was 'the filter shows me nothing'; union answers it with 'the filter shows me everything', and neither is a filter.
+
+The useful reading is that neither operator is right at three labels, because the two are useful at different widths. Intersection narrows well at two labels when the pair is real -- canvas+ui gives 39 of 123, idea+readability gives 11 -- and collapses when the pair is not. Union is only useful at one or two labels before it stops excluding anything.
+
+So the choice is not which operator. It is that a board has no way to tell the difference between 'the filter is working and nothing matches' and 'the filter does not mean what you thought'. 0 of 80 is true and says neither.
+
+This also makes the third option, an any/all toggle, look less like extra furniture than it did when it was filed. It is the only one of the three that serves both widths. The cost is a third control in a toolbar that already overflowed once, on TKT-01M2NHFKX.
