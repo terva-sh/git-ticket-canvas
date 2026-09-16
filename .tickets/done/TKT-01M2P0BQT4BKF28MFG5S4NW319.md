@@ -29,7 +29,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T21:01:01Z
-updated_at: 2026-09-16T21:02:29Z
+updated_at: 2026-09-16T21:21:00Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -112,6 +112,38 @@ the next rule that needs to beat this one still can.
 Confirmed the test guards the bug rather than just passing alongside it: with
 the rule back above the status rules, the done card reports opacity 0.55 and the
 test fails on that number. With the fix it reports 0.18.
+
+**agent:claude/t3code** at 2026-09-16T21:21:00Z
+
+CI failed on the first push of this fix while the same commit passed the gate
+locally, and this Forgejo build exposes no way to read why: the run status API
+reports failure, the log endpoints 404 for both curl and `tea actions runs
+logs`, and the step endpoint wants a browser session. So the cause is still
+unknown rather than diagnosed, and saying otherwise would be guessing.
+
+What was ruled out rather than assumed:
+
+- The visual baseline in `canvas-density.spec.ts` is opt-in behind
+  CANVAS_VISUAL and skipped in CI too, so it is not reacting to the new rule.
+- No other browser spec asserts opacity, and nothing else reads `dimmed`.
+- The open label popover does not cover the hovered card: measured, it sits
+  ~690px away, so a font difference could not move it onto the card.
+- The spec is stable locally across repeated runs.
+
+Two changes in response, both worth having regardless of what CI was objecting
+to. The hover assertion no longer goes through Playwright's actionability path,
+which is the only thing in the new test that depended on where the board laid a
+card out; it moves the mouse to the measured centre and then asserts the hover
+actually landed, so a miss reports itself rather than passing vacuously — .18 is
+the expected value whether or not the hover works.
+
+And the cascade itself is now guarded by a test that needs no browser at all.
+`web/src/ui/card-dimming.test.ts` parses the stylesheet, computes specificity,
+and fails when any rule setting opacity on a card is not beaten by a dimmed one.
+That is the actual regression, checked directly rather than through something a
+renderer has to agree with. It caught two things the hand-written fix missed on
+first pass: comments swallowed into a selector, and `.card:hover .handle`, which
+sets opacity on something inside the card rather than on the card.
 
 ## Summary
 

@@ -95,8 +95,15 @@ test('a filtered-out card recedes whatever its status looks like', async ({ page
   expect(Number(await opacity(stuck.id))).toBeCloseTo(0.18, 2)
   expect(Number(await opacity(plain.id))).toBe(1)
 
-  // Hover and selection are the two states that set opacity above this one's
-  // specificity, so they get asked too rather than assumed.
-  await card(page, settled.id).hover()
+  // Hover sets opacity a specificity step above dimming, so it gets asked too.
+  // Moving the mouse rather than calling `hover()` keeps this off Playwright's
+  // actionability path, which depends on where the board laid the card out and
+  // on what else is on top of it. Whether the hover landed is then asserted
+  // rather than assumed, so a miss reports itself instead of passing for the
+  // wrong reason: not hovering would also leave the card at .18.
+  const box = (await card(page, settled.id).boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  expect(await card(page, settled.id).evaluate(node => node.matches(':hover')),
+    'the mouse did not land on the card, so the hover assertion would prove nothing').toBe(true)
   expect(Number(await opacity(settled.id))).toBeCloseTo(0.18, 2)
 })
