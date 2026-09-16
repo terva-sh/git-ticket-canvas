@@ -69,3 +69,34 @@ test('label filters and status filters narrow together', async ({ page, app }) =
   await expect(counts(page)).toHaveText('0 of 2')
   await expect(page.locator('.card.dimmed')).toHaveCount(2)
 })
+
+// The bug this guards: `dimmed` is only a class, and three appearance rules set
+// opacity on a card at the same specificity it does. When the dimmed rule sat
+// above them in the stylesheet, a filtered-out card that was done, archived or
+// blocked kept its own opacity and stayed on the board. Every assertion above
+// still passed, because the class was there — it just did nothing. So this asks
+// the browser what it actually painted.
+test('a filtered-out card recedes whatever its status looks like', async ({ page, app }) => {
+  const settled = await app.create('Finished work', { x: 0, y: 0 })
+  await app.patch(settled, [{ op: 'setStatus', status: 'done', reason: 'finished' }])
+  const stuck = await app.create('Waiting on something', { x: 350, y: 0 })
+  await app.patch(stuck, [{ op: 'setStatus', status: 'ready' }, { op: 'setStatus', status: 'blocked', reason: 'waiting' }])
+  const plain = await app.create('Ordinary', { x: 700, y: 0 })
+  await app.patch(plain, [{ op: 'addLabel', label: 'ui' }])
+
+  await page.goto(app.url)
+  await summary(page).click()
+  // Requires `ui`, which only the ordinary card carries, so the other two go.
+  await chip(page, 'ui').click()
+  await expect(counts(page)).toHaveText('1 of 3')
+
+  const opacity = (id: string) => card(page, id).evaluate(node => getComputedStyle(node).opacity)
+  expect(Number(await opacity(settled.id))).toBeCloseTo(0.18, 2)
+  expect(Number(await opacity(stuck.id))).toBeCloseTo(0.18, 2)
+  expect(Number(await opacity(plain.id))).toBe(1)
+
+  // Hover and selection are the two states that set opacity above this one's
+  // specificity, so they get asked too rather than assumed.
+  await card(page, settled.id).hover()
+  expect(Number(await opacity(settled.id))).toBeCloseTo(0.18, 2)
+})
