@@ -26,7 +26,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T19:29:45Z
-updated_at: 2026-09-16T19:29:53Z
+updated_at: 2026-09-16T19:30:47Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -54,10 +54,10 @@ The mirror is also missing the `v0.3.0` and `v0.3.1` tags. They are not being pu
 
 ## Acceptance criteria
 
-- [ ] The source state is clean, and every release-scope ticket is finished or explicitly deferred with evidence
-- [ ] just parity-check passes at the release commit
-- [ ] just release-check and just release-snapshot pass
-- [ ] just release-rehearse passes against a clean tagged clone
+- [x] The source state is clean, and every release-scope ticket is finished or explicitly deferred with evidence
+- [x] just parity-check passes at the release commit
+- [x] just release-check and just release-snapshot pass
+- [x] just release-rehearse passes against a clean tagged clone
 - [ ] origin main carries the release commit and its CI result was read, not assumed
 - [ ] github main carries the same commit and the Windows lane passed
 - [ ] An annotated v0.4.0 tag is on that exact commit on both forges
@@ -65,3 +65,16 @@ The mirror is also missing the `v0.3.0` and `v0.3.1` tags. They are not being pu
 - [ ] The real download installer works into a temporary prefix
 - [ ] The published module resolves through the Go proxy for a clean Go-only install
 - [ ] The GHCR image pulls anonymously and reports the right version
+
+## Notes
+
+**agent:claude/t3code** at 2026-09-16T19:30:47Z
+
+Local checks at be5d407 plus the release ticket commit.
+
+- `just parity-check` passed end to end, including the 72-test browser suite and the Go-only build at clean HEAD. It is what caught TKT-01M2NT8E0TN7PMMJM1NFY35DF3, which is in this release; `just check`, the ordinary loop, does not run the browser suite.
+- `just release-check`: one configuration file validated, `release` disabled as it should be.
+- `just release-snapshot`: five archives, both commands in each, checksums, licenses, provenance, the two unauthenticated-bind refusals, and the embedded HTTP assets. Snapshot names itself `0.3.3-next` and is not a release identity.
+- `just release-rehearse`: the same five, built from a clean tagged throwaway clone at `0.0.0-rehearsal`. Tag, archives and clone removed; nothing published.
+
+Ticket state: `TKT-01M2ND1RNXB8941M21MRZRJDN2` is closed with its fifth criterion unticked and split into `TKT-01M2NV3WMAD902MKM5REAT4FTA`, rather than carried half-done into a release. `TKT-01M2KHX3QNR779RE8M9MM36V9V` is in-progress and is not mine: it is claimed by `agent:t3code/d30689a3` on another branch, and it is not in this release's scope. Left alone.
