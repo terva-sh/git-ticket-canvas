@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2MECN07R2P8DJK770CMHNQE
 title: Let a person set the actor their writes are stamped with
 type: task
-status: draft
+status: ready
 status_reason: null
 priority: normal
 due_on: null
@@ -23,7 +23,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-16T06:27:42Z
-updated_at: 2026-09-16T06:28:07Z
+updated_at: 2026-09-16T06:34:29Z
 created_by:
   id: agent:claude/t3code
   name: ""

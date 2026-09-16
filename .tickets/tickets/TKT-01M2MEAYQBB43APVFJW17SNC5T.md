@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2MEAYQBB43APVFJW17SNC5T
 title: Key canvas state per user instead of per process
 type: task
-status: draft
+status: ready
 status_reason: null
 priority: normal
 due_on: null
@@ -22,7 +22,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-16T06:26:46Z
-updated_at: 2026-09-16T06:28:07Z
+updated_at: 2026-09-16T06:34:29Z
 created_by:
   id: agent:claude/t3code
   name: ""

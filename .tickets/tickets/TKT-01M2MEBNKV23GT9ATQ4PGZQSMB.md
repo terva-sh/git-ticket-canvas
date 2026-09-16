@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2MEBNKV23GT9ATQ4PGZQSMB
 title: Authenticate with OpenID Connect and grant read access per store
 type: task
-status: draft
+status: ready
 status_reason: null
 priority: normal
 due_on: null
@@ -24,7 +24,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-16T06:27:10Z
-updated_at: 2026-09-16T06:28:07Z
+updated_at: 2026-09-16T06:34:29Z
 created_by:
   id: agent:claude/t3code
   name: ""

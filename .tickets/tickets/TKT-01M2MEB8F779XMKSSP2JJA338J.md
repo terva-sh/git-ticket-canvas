@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2MEB8F779XMKSSP2JJA338J
 title: Split the desk canvas and the served canvas into two commands
 type: task
-status: draft
+status: ready
 status_reason: null
 priority: normal
 due_on: null
@@ -23,7 +23,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-16T06:26:56Z
-updated_at: 2026-09-16T06:28:07Z
+updated_at: 2026-09-16T06:34:29Z
 created_by:
   id: agent:claude/t3code
   name: ""
