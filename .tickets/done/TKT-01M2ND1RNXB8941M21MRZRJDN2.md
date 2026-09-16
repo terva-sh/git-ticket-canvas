@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2ND1RNXB8941M21MRZRJDN2
 title: Make the card show what deserves attention
 type: task
-status: in-progress
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -17,17 +17,10 @@ origin: null
 dependencies: []
 blocks_on: none
 references: []
-claim:
-  actor: agent:claude/t3code
-  branch: t3code/implement-multiuser-canvas
-  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-acc5e2b7
-  commit: aaf81a4166fcbb24fb3e4f87e9390c4dabb16748
-  session: null
-  claimed_at: 2026-09-16T16:41:57Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-16T15:23:31Z
-updated_at: 2026-09-16T16:44:19Z
+updated_at: 2026-09-16T19:29:33Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -78,14 +71,16 @@ Not because it is hard: the canvas already knows its own scale, so the mapping c
 
 Everything else in this ticket is done and deployed.
 
+**agent:claude/t3code** at 2026-09-16T19:29:33Z
+
+Closing this with criterion 5 unticked rather than carrying it further. Everything else shipped and is deployed; the remaining half is now TKT-01M2NV3WMAD902MKM5REAT4FTA, which is a decision before it is code.
+
+The reason it moved rather than being finished here: TKT-01M2NHFKXWYHX69YQ7KJRW1MP0 made density a choice from the viewport with an explicit `Automatic` and a stored override, so "follows zoom" would now be a third input to a value that already has two. That is a question about what density should mean, not the small mapping this criterion assumed when it was written.
+
 ## Summary
 
-The card now weighs actionability rather than lifecycle.
+A card's weight follows what somebody could act on rather than where it is in its lifecycle. Done and archived recede — including the `.card.done` rule that gave a finished ticket its title colour back after a neutral border had just taken it away — without being hidden, because a board that forgets what was finished cannot be read backwards. Blocked reads as inert and says what it waits on, counted from the readiness the server resolved rather than from the raw dependency list. Startable carries the strongest treatment on the board, which is what `git ticket ready` answers and the most useful fact on a canvas. A claimed card names who holds it, and an expired claim is not a claim.
 
-`.card.done` neutralised the left border and then restored the title colour, which made a finished ticket, if anything, more legible than a live one. Settled work now sits at reduced opacity and desaturated, with the title dimmed — and returns to full weight on hover or selection, because receding must not mean unreadable. It is not hidden: the history is why a board can be read backwards.
+None of it is stored in the layout file or on a ticket: every one of these is derived from the ticket the server already sent.
 
-Blocked reads as inert and keeps promoting what it waits on. Startable carries the heaviest left border and the only coloured alert text on the card, which is right because it is what `git ticket ready` answers and it was previously a word in body text.
-
-A claimed card says who holds it, which a canvas serving several people needed and nothing provided. An expired claim is not a claim: it reserves nothing and must stop telling people the work is taken, which is a test rather than a comment.
-
-Nothing here is stored. Every class is computed from the ticket and the view, so there is no record to migrate and no way for a board to disagree with the tickets it shows.
+Criterion 5, density following zoom, is not done and is not being counted as done. It was deferred here so that it and the zoom control would not invent two preference mechanisms, and by the time both had landed the premise had moved: density is now chosen from the viewport with an explicit `Automatic` and a stored override, so "follows zoom" would be a third input to one value. That is TKT-01M2NV3WMAD902MKM5REAT4FTA, and it is a decision before it is code.
