@@ -208,6 +208,27 @@ export function toClient(scene: Point, view: View, origin: StageOrigin): Point {
 }
 
 /** Apply the legacy wheel curve while keeping the scene point under the cursor. */
+/** The magnification a board opens at, and the limits a control must respect.
+ *
+ * Shared with zoomAt rather than repeated, because a control that could reach a
+ * scale the wheel cannot is a control that can strand somebody somewhere they
+ * cannot scroll out of. */
+export const MIN_ZOOM = 0.1;
+export const MAX_ZOOM = 2.5;
+export const DEFAULT_ZOOM = 1;
+
+/** Zoom to an exact scale about the centre of the viewport.
+ *
+ * The wheel zooms about the pointer, which is right when the pointer is what
+ * chose the place. A control has no pointer on the board, so it holds the
+ * middle of what somebody is looking at still instead. */
+export function zoomTo(view: View, k: number, stage: Size): View {
+  const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, k));
+  const centre = { x: stage.width / 2, y: stage.height / 2 };
+  const before = { x: (centre.x - view.x) / view.k, y: (centre.y - view.y) / view.k };
+  return { x: centre.x - before.x * next, y: centre.y - before.y * next, k: next };
+}
+
 export function zoomAt(
   view: View,
   client: Point,
@@ -215,7 +236,7 @@ export function zoomAt(
   deltaY: number,
 ): View {
   const before = toScene(client, view, origin);
-  const k = Math.min(2.5, Math.max(0.1, view.k * Math.exp(-deltaY * 0.0015)));
+  const k = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, view.k * Math.exp(-deltaY * 0.0015)));
   return {
     x: client.x - origin.left - before.x * k,
     y: client.y - origin.top - before.y * k,

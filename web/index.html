@@ -156,6 +156,13 @@ input.tool, select.tool { color: var(--ink); }
 /* Your account: who you are, which groups did the work, what your writes are
    stamped with, and the way out. Anchored to the right because the control
    that opens it is there. */
+.zoom { display: inline-flex; gap: 0; }
+.zoom > .tool { border-radius: 0; }
+.zoom > .tool:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.zoom > .tool:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+/* Wide enough that 100% and 40% do not shuffle the buttons beside them. */
+.zoom-level { min-width: 52px; font-variant-numeric: tabular-nums; }
+
 .session-dialog {
   position: fixed; top: 56px; right: 12px; z-index: 40; width: min(420px, calc(100vw - 24px));
   max-height: calc(100vh - 68px); overflow-y: auto;

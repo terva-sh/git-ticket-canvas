@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CARD_WIDTH, COMPACT_CARD_WIDTH, autoPlace, cardWidthFor, fitView, isPinned,
-  posOf, toClient, toScene, zoomAt,
+  MAX_ZOOM, MIN_ZOOM, posOf, toClient, toScene, zoomAt, zoomTo,
 } from './geometry';
 
 describe('cardWidthFor', () => {
@@ -242,3 +242,35 @@ describe('fitView', () => {
       .toEqual({ x: -141, y: 1, k: 0.15 });
   });
 });
+
+describe('zoomTo', () => {
+  const stage = { width: 800, height: 600 }
+
+  // The wheel zooms about the pointer, which is right when the pointer chose
+  // the place. A control has no pointer on the board, so it holds the middle of
+  // what somebody is looking at still.
+  it('holds the centre of the viewport still', () => {
+    const view = { x: -100, y: -50, k: 1 }
+    const centreBefore = { x: (400 - view.x) / view.k, y: (300 - view.y) / view.k }
+    const next = zoomTo(view, 2, stage)
+    const centreAfter = { x: (400 - next.x) / next.k, y: (300 - next.y) / next.k }
+    expect(centreAfter.x).toBeCloseTo(centreBefore.x)
+    expect(centreAfter.y).toBeCloseTo(centreBefore.y)
+    expect(next.k).toBe(2)
+  })
+
+  // A control that could reach a scale the wheel cannot is a control that can
+  // strand somebody somewhere they cannot scroll out of.
+  it('clamps to the same limits the wheel obeys', () => {
+    expect(zoomTo({ x: 0, y: 0, k: 1 }, 99, stage).k).toBe(MAX_ZOOM)
+    expect(zoomTo({ x: 0, y: 0, k: 1 }, 0, stage).k).toBe(MIN_ZOOM)
+  })
+
+  it('is a no-op at the level it is already at', () => {
+    const view = { x: -100, y: -50, k: 1.25 }
+    const next = zoomTo(view, 1.25, stage)
+    expect(next.k).toBeCloseTo(view.k)
+    expect(next.x).toBeCloseTo(view.x)
+    expect(next.y).toBeCloseTo(view.y)
+  })
+})

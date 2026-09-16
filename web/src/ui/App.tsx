@@ -9,6 +9,8 @@ import type { ActorResponse, CardChanges, PersonResponse, Cards, Frame, Op, Sess
 import { FrameHistory, applyFrameOperation, assertFrameOperation, createFrame, moveFrame, resizeFrame, updateFrame, deleteFrame, setMembership } from '../platform/canvas/frames'
 import type { FrameOperation, FrameState, Point } from '../platform/canvas/frames'
 import type { Density } from '../platform/canvas/geometry'
+import { OPENING_ZOOM } from './canvas/zoomMemory'
+import { recall, remember } from './canvas/zoomMemory'
 import { sameJSON } from '../platform/tickets/reconcile'
 import { cycleLabel, labelUniverse, matchesTicket, type LabelFilters } from '../platform/tickets/filters'
 import { FramePanel, FrameMembership } from './FramesPanel'
@@ -81,6 +83,9 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
   // Session state, like `relationships`. Nothing persists it, so a reload
   // returns to the full presentation.
   const [density, setDensity] = useState<Density>('full')
+  // The magnification, mirrored here only so the toolbar can show it. The
+  // canvas owns the view; this follows it.
+  const [zoom, setZoom] = useState(OPENING_ZOOM)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [sync, setSync] = useState<LiveStatus>({ connection: 'connecting', stale: false, degraded: false, readFailed: false })
   const live = useRef<LiveUpdates>()
@@ -388,6 +393,19 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       .catch(() => { if (!cancelled) setPeopleList(null) })
     return () => { cancelled = true }
   }, [account, registry, session?.admin])
+  // Restore what this person left this board at. The canvas owns the view, so
+  // this pushes rather than initialises: a board switch inside one store does
+  // not remount it.
+  useEffect(() => {
+    if (!storeId || !snapshot.board) return
+    const held = recall(storeId, snapshot.board) ?? OPENING_ZOOM
+    setZoom(held)
+    canvas.current?.zoomTo(held)
+  }, [storeId, snapshot.board])
+  const zoomChanged = (k: number) => {
+    setZoom(k)
+    if (storeId && snapshot.board) remember(storeId, snapshot.board, k)
+  }
   const chooseActor = async (wanted: string) => {
     if (!storeId) return
     setActorBusy(true); setActorError(undefined)
@@ -510,6 +528,9 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       counts={`${[...snapshot.tickets.values()].filter(matches).length} of ${snapshot.tickets.size}`}
       relationships={relationships} onRelationships={setRelationships}
       density={density} onDensity={setDensity}
+      zoom={zoom} onZoomIn={() => canvas.current?.zoomBy(1.25)}
+      onZoomOut={() => canvas.current?.zoomBy(1 / 1.25)}
+      onZoomReset={() => canvas.current?.resetZoom()}
       onNewFrame={() => canvas.current?.newFrame()} onUndoFrame={() => { void frameHistoryAction(false) }} onRedoFrame={() => { void frameHistoryAction(true) }}
       framePending={!!framePreview} undoFrame={history.undoEntry} redoFrame={history.redoEntry}
       labels={labelUniverse(snapshot.config?.labels, snapshot.tickets.values())} labelFilters={ui.labelFilters}
@@ -541,6 +562,7 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       frames={displayed.frames} selectedFrame={frameUI.selected} frameCreating={!!frameUI.draft} layoutBusy={!!framePreview}
       onSelectFrame={selectFrame} onNewFrame={newFrameDraft} onFrameMove={frameMove} onFrameResize={frameResize}
       statuses={snapshot.config?.statuses || []} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters}
+      onZoom={zoomChanged}
       relationships={relationships} density={density} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>
       <div id="formsRoot">

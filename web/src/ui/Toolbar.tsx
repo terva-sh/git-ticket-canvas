@@ -1,6 +1,7 @@
 import type { Schema, VersionInfo } from '../platform/tickets/types'
 import type { LabelFilters, LabelState } from '../platform/tickets/filters'
 import type { Density } from '../platform/canvas/geometry'
+import { MAX_ZOOM, MIN_ZOOM } from '../platform/canvas/geometry'
 import type { RelationshipMode } from './canvas/Edges'
 import { StorePicker, type StorePickerProps } from './StorePicker'
 
@@ -22,6 +23,9 @@ export interface ToolbarProps {
   stores?: StorePickerProps
   /** Absent on a desk canvas, which has no session to describe or to end. */
   account?: { name: string; onOpen(): void }
+  /** The magnification, as a scale where 1 is 1:1. */
+  zoom?: number
+  onZoomIn?(): void; onZoomOut?(): void; onZoomReset?(): void
 }
 
 const stateWords: Record<LabelState | 'off', string> = {
@@ -124,6 +128,17 @@ export function Toolbar(p: ToolbarProps) {
         title={p.redoFrame?.blockedReason || p.redoFrame?.label || 'No frame redo'} onClick={p.onRedoFrame}>Redo frame</button>
     </>}
     <button id="btnArrange" class="tool" title="Lay unplaced cards out in status lanes" disabled={p.readOnly || p.framePending} onClick={p.onArrange}>Arrange</button>
+    {p.zoom !== undefined && <div class="zoom" role="group" aria-label="Zoom">
+      <button id="btnZoomOut" class="tool" title="Zoom out" aria-label="Zoom out"
+        disabled={p.zoom <= MIN_ZOOM + 0.001} onClick={p.onZoomOut}>&minus;</button>
+      {/* The level is the reset. A separate button for something you press
+          rarely costs a slot in a toolbar that already runs off the side. */}
+      <button id="btnZoomReset" class="tool zoom-level" onClick={p.onZoomReset}
+        title="Reset to 1:1. Fit is the other one — it frames every card instead.">
+        {Math.round(p.zoom * 100)}%</button>
+      <button id="btnZoomIn" class="tool" title="Zoom in" aria-label="Zoom in"
+        disabled={p.zoom >= MAX_ZOOM - 0.001} onClick={p.onZoomIn}>+</button>
+    </div>}
     <button id="btnFit" class="tool" title="Fit all cards in view" onClick={p.onFit}>Fit</button>
     {p.account && <button id="btnAccount" class="tool" title="Your account, groups and actor"
       onClick={p.account.onOpen}>{p.account.name}</button>}

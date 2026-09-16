@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import { forwardRef } from 'preact/compat'
 import { useCallback, useImperativeHandle, useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { autoPlace, cardWidthFor, fitView, posOf, toScene, zoomAt } from '../platform/canvas/geometry'
+import { autoPlace, cardWidthFor, DEFAULT_ZOOM, fitView, posOf, toScene, zoomAt, zoomTo } from '../platform/canvas/geometry'
 import { captureMembers } from '../platform/canvas/frames'
 import type { Density, Point, View } from '../platform/canvas/geometry'
 import type { Card, CardChanges, Cards, Frame, Frames, Ticket } from '../platform/tickets/types'
@@ -19,6 +19,9 @@ import { SampledFrame } from './canvas/SampledFrame'
 const empty: LabelFilters = new Map()
 
 export interface CanvasProps {
+  /** Told whenever the magnification changes, because the view is a ref and
+   * nothing outside this component can see it move. */
+  onZoom?(k: number): void
   samplingProbe?: import('./canvas/committedSampling').CommittedSampling
   samplingPublication?: import('./canvas/committedSampling').SamplingPublication | null
   samplingReady?: () => boolean
@@ -57,6 +60,12 @@ export interface CanvasProps {
 
 export interface CanvasHandle {
   fit(): void
+  /** Multiply the magnification, about the centre of the viewport. */
+  zoomBy(factor: number): void
+  /** Set an exact magnification, about the centre of the viewport. */
+  zoomTo(k: number): void
+  /** Back to 1:1. Distinct from fit, which frames every card instead. */
+  resetZoom(): void
   focus(id: string): void
   arrange(): void
   composeCentre(): void
@@ -110,6 +119,16 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   }).current
   const [, setRevision] = useState(0)
   const redraw = () => setRevision(n => n + 1)
+  // The view is a ref so that a wheel gesture can keep every delta and render
+  // once a frame. That means nothing outside here sees it change, so a control
+  // that displays the level has to be told.
+  const reportZoom = () => latest.current.onZoom?.(local.view.k)
+  const commitView = (view: View) => {
+    const changed = view.k !== local.view.k
+    local.view = view
+    if (changed) reportZoom()
+    redraw()
+  }
   const measurements = useMeasurements(stage)
   const [controls] = useState(() => new ControlMeasurements())
   const controlsChanged = useCallback(() => { if (local.mounted) setRevision(n => n + 1) }, [local])
@@ -217,7 +236,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       ...Object.values(latest.current.frames || {}).map(frame => ({ x: frame.x, y: frame.y - 24,
         width: frame.w, height: frame.h + 24 })),
     ], viewport(), 0)
-    if (view) { local.view = view; redraw() }
+    if (view) commitView(view)
   }
 
   function compose(client: Point) {
@@ -263,6 +282,26 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
 
   useImperativeHandle(ref, () => ({
     fit,
+    // A control has no pointer on the board, so these hold the middle of the
+    // viewport still rather than zooming about a corner.
+    zoomBy(factor: number) {
+      if (!stage.current) return
+      const bounds = stage.current.getBoundingClientRect()
+      commitView(zoomTo(local.view, local.view.k * factor, bounds))
+    },
+    zoomTo(k: number) {
+      if (!stage.current) return
+      const bounds = stage.current.getBoundingClientRect()
+      commitView(zoomTo(local.view, k, bounds))
+    },
+    // Distinct from fit: fit frames everything, which is what you want when you
+    // have lost the board. This is 1:1, which is what you want when you have
+    // chosen a magnification and drifted off it.
+    resetZoom() {
+      if (!stage.current) return
+      const bounds = stage.current.getBoundingClientRect()
+      commitView(zoomTo(local.view, DEFAULT_ZOOM, bounds))
+    },
     captureFrame,
     framePositions: positions,
     layoutReady: () => !local.gesture && !local.previews.size,
@@ -451,7 +490,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     event.preventDefault()
     if (local.gesture || !stage.current) return
     // Updating the ref preserves every wheel delta while only rendering once per frame.
+    const before = local.view.k
     local.view = zoomAt(local.view, { x: event.clientX, y: event.clientY }, stage.current.getBoundingClientRect(), event.deltaY)
+    if (local.view.k !== before) reportZoom()
     if (local.frame !== null) return
     local.frame = requestAnimationFrame(() => {
       local.frame = null
