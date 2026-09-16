@@ -19,9 +19,10 @@ import { SampledFrame } from './canvas/SampledFrame'
 const empty: LabelFilters = new Map()
 
 export interface CanvasProps {
-  /** Told whenever the magnification changes, because the view is a ref and
-   * nothing outside this component can see it move. */
-  onZoom?(k: number): void
+  /** Told whenever the view moves, because it is a ref and nothing outside this
+   * component can see it change. Called per motion frame during a drag, so a
+   * listener that does more than compare must debounce. */
+  onView?(view: View): void
   samplingProbe?: import('./canvas/committedSampling').CommittedSampling
   samplingPublication?: import('./canvas/committedSampling').SamplingPublication | null
   samplingReady?: () => boolean
@@ -60,6 +61,8 @@ export interface CanvasProps {
 
 export interface CanvasHandle {
   fit(): void
+  /** Put the board back at an exact view. */
+  setView(view: View): void
   /** Multiply the magnification, about the centre of the viewport. */
   zoomBy(factor: number): void
   /** Set an exact magnification, about the centre of the viewport. */
@@ -122,11 +125,10 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   // The view is a ref so that a wheel gesture can keep every delta and render
   // once a frame. That means nothing outside here sees it change, so a control
   // that displays the level has to be told.
-  const reportZoom = () => latest.current.onZoom?.(local.view.k)
+  const reportView = () => latest.current.onView?.(local.view)
   const commitView = (view: View) => {
-    const changed = view.k !== local.view.k
     local.view = view
-    if (changed) reportZoom()
+    reportView()
     redraw()
   }
   const measurements = useMeasurements(stage)
@@ -282,6 +284,10 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
 
   useImperativeHandle(ref, () => ({
     fit,
+    // Used to put somebody back where they left a board they are already
+    // looking at. Coming back to a board this component was not mounted for
+    // goes through initialView instead, which nothing can race.
+    setView(view: View) { cancel(); commitView({ ...view }) },
     // A control has no pointer on the board, so these hold the middle of the
     // viewport still rather than zooming about a corner.
     zoomBy(factor: number) {
@@ -323,6 +329,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
         y: viewport().height / 2 - (point.y + (measurements.heights.get(id) ?? 120) / 2) * k,
         k,
       }
+      reportView()
       redraw()
     },
     arrange() {
@@ -407,6 +414,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     if (gesture.kind === 'pan') {
       local.view = { ...gesture.view, x: gesture.view.x + point.x - gesture.pointer.x,
         y: gesture.view.y + point.y - gesture.pointer.y }
+      reportView()
     } else if (gesture.kind === 'card') {
       const dx = (point.x - gesture.pointer.x) / gesture.view.k
       const dy = (point.y - gesture.pointer.y) / gesture.view.k
@@ -490,9 +498,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     event.preventDefault()
     if (local.gesture || !stage.current) return
     // Updating the ref preserves every wheel delta while only rendering once per frame.
-    const before = local.view.k
     local.view = zoomAt(local.view, { x: event.clientX, y: event.clientY }, stage.current.getBoundingClientRect(), event.deltaY)
-    if (local.view.k !== before) reportZoom()
+    reportView()
     if (local.frame !== null) return
     local.frame = requestAnimationFrame(() => {
       local.frame = null

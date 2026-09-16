@@ -20,7 +20,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-16T16:40:59Z
-updated_at: 2026-09-16T16:56:37Z
+updated_at: 2026-09-16T17:19:22Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -52,6 +52,12 @@ That ticket makes density follow zoom, so these two touch the same value from op
 - [x] Reset returns to 1:1, and is distinct from Fit
 - [x] The level is remembered per board across a reload
 - [x] The level is in browser storage and never in the layout file
+
+## Notes
+
+**agent:claude/t3code** at 2026-09-16T17:19:22Z
+
+Criterion 3, "the level is remembered per board across a reload", was ticked here and did not hold. The write worked; the restore was an effect that pushed the level in after mount, and the opening fit ran a frame later and overwrote it. Nobody would have seen it work. Fixed in TKT-01M2NKHS0MT0GVBTX6YAA0F3NT, which also stores the position this ticket never did.
 
 ## Summary
 

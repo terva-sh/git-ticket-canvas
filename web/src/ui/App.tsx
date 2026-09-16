@@ -8,9 +8,9 @@ import { LiveUpdates, type LiveStatus } from '../platform/tickets/live'
 import type { ActorResponse, CardChanges, PersonResponse, Cards, Frame, Op, SessionResponse, StoreSummary, Ticket, VersionInfo } from '../platform/tickets/types'
 import { FrameHistory, applyFrameOperation, assertFrameOperation, createFrame, moveFrame, resizeFrame, updateFrame, deleteFrame, setMembership } from '../platform/canvas/frames'
 import type { FrameOperation, FrameState, Point } from '../platform/canvas/frames'
-import type { Density } from '../platform/canvas/geometry'
-import { OPENING_ZOOM } from './canvas/zoomMemory'
-import { recall, remember } from './canvas/zoomMemory'
+import type { Density, View } from '../platform/canvas/geometry'
+import { OPENING_ZOOM } from './canvas/viewMemory'
+import { recall, remember } from './canvas/viewMemory'
 import { sameJSON } from '../platform/tickets/reconcile'
 import { cycleLabel, labelUniverse, matchesTicket, type LabelFilters } from '../platform/tickets/filters'
 import { FramePanel, FrameMembership } from './FramesPanel'
@@ -92,6 +92,9 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
   const latest = useRef(ui); latest.current = ui
   const generation = useRef(0), feedbackId = useRef(0), busy = useRef(false), mounted = useRef(true)
   const deferredRead = useRef(false), canvas = useRef<CanvasHandle>(null), fitFrame = useRef(0)
+  /** Debounces the view write, because a pan reports every motion frame. */
+  const viewWrite = useRef<ReturnType<typeof setTimeout>>()
+  const pendingView = useRef<(() => void) | null>(null)
   const publish = () => {
     if (!mounted.current || published.current === store.state) return
     if (store.state.layoutSchema !== null) historyFor(store.state.board).observe({ cards: store.state.cards, frames: store.state.frames, tickets: store.state.tickets })
@@ -126,7 +129,7 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
         cancelAnimationFrame(fitFrame.current)
         fitFrame.current = requestAnimationFrame(() => {
           fitFrame.current = 0
-          if (mounted.current && !busy.current) canvas.current?.fit()
+          if (mounted.current && !busy.current) restoreOrFit()
         })
       }
     }
@@ -393,18 +396,37 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       .catch(() => { if (!cancelled) setPeopleList(null) })
     return () => { cancelled = true }
   }, [account, registry, session?.admin])
-  // Restore what this person left this board at. The canvas owns the view, so
-  // this pushes rather than initialises: a board switch inside one store does
-  // not remount it.
-  useEffect(() => {
+  // Where a board opens. Somebody who left a board at a magnification and a
+  // corner is put back there; somebody arriving for the first time gets the fit
+  // that frames every card. The two are one decision rather than two, because
+  // the opening fit and a restore both want the view and only one can have it.
+  //
+  // This runs on the first read of a board rather than from an effect on
+  // storeId: the canvas remounts while a store opens, and an effect that pushes
+  // a view races that remount.
+  function restoreOrFit() {
+    const board = store.state.board
+    const held = storeId && board ? recall(storeId, board) : null
+    if (held) { setZoom(held.k); canvas.current?.setView(held) }
+    else canvas.current?.fit()
+  }
+  // Called per motion frame during a pan, so the write waits for the gesture to
+  // settle and the magnifier is told only when the number it shows changed.
+  const viewChanged = (view: View) => {
+    setZoom(current => (Math.abs(current - view.k) > 0.0001 ? view.k : current))
     if (!storeId || !snapshot.board) return
-    const held = recall(storeId, snapshot.board) ?? OPENING_ZOOM
-    setZoom(held)
-    canvas.current?.zoomTo(held)
-  }, [storeId, snapshot.board])
-  const zoomChanged = (k: number) => {
-    setZoom(k)
-    if (storeId && snapshot.board) remember(storeId, snapshot.board, k)
+    const board = snapshot.board, at = { ...view }
+    pendingView.current = () => remember(storeId, board, at)
+    clearTimeout(viewWrite.current)
+    viewWrite.current = setTimeout(flushView, 300)
+  }
+  // Reloading within the debounce is exactly how somebody finds out the canvas
+  // forgot where they were, so leaving the page writes what is owed.
+  function flushView() {
+    clearTimeout(viewWrite.current)
+    const write = pendingView.current
+    pendingView.current = null
+    write?.()
   }
   const chooseActor = async (wanted: string) => {
     if (!storeId) return
@@ -501,11 +523,15 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       }
     }
     document.addEventListener('keydown', keyboard)
+    const leaving = () => flushView()
+    window.addEventListener('pagehide', leaving)
     return () => {
       mounted.current = false
       bridge?.dispose(); probe?.hold()
       cancelAnimationFrame(fitFrame.current)
       document.removeEventListener('keydown', keyboard)
+      window.removeEventListener('pagehide', leaving)
+      flushView()
     }
   }, [store, registry])
   const matches = (ticket: Ticket) =>
@@ -562,7 +588,7 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       frames={displayed.frames} selectedFrame={frameUI.selected} frameCreating={!!frameUI.draft} layoutBusy={!!framePreview}
       onSelectFrame={selectFrame} onNewFrame={newFrameDraft} onFrameMove={frameMove} onFrameResize={frameResize}
       statuses={snapshot.config?.statuses || []} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters}
-      onZoom={zoomChanged}
+      onView={viewChanged}
       relationships={relationships} density={density} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>
       <div id="formsRoot">
