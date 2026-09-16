@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2NW7N2CGN6ZXQHVQ6ZHSYVK
 title: Resolve the state directory without asking the host which platform it is
 type: bug
-status: in-progress
+status: done
 status_reason: null
 priority: high
 due_on: null
@@ -16,17 +16,10 @@ origin: null
 dependencies: []
 blocks_on: none
 references: []
-claim:
-  actor: agent:claude/t3code
-  branch: t3code/state-dir-portability
-  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-acc5e2b7
-  commit: 355ba5c78ef5ea8bdf966f2346e8bb04bb56cb6c
-  session: null
-  claimed_at: 2026-09-16T19:48:59Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-16T19:48:52Z
-updated_at: 2026-09-16T19:52:28Z
+updated_at: 2026-09-16T19:56:49Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -57,7 +50,7 @@ Production behaviour on any given machine is unaffected: where the argument matc
 - [x] dirFor joins and tests absoluteness by the platform it was given, not the one it is running on
 - [x] The platform table asserts literal paths rather than paths built by the host's filepath
 - [x] A test about XDG does not run where XDG is not the rule, and says so
-- [ ] go test ./... passes on the Windows lane
+- [x] go test ./... passes on the Windows lane
 - [x] Nothing about where any platform resolves to has changed
 
 ## Notes
@@ -67,3 +60,13 @@ Production behaviour on any given machine is unaffected: where the argument matc
 Criterion 4 stays unticked until the lane itself is read. Nothing here can run a Windows binary: the check available locally is that the table is now host-independent by construction, so passing on Linux means the same arithmetic passes anywhere. `GOOS=windows go vet ./...` is clean, which catches a compile break but says nothing about an assertion.
 
 Two cases went in that the original table did not have, because they are the ones the old code would have got wrong in the other direction: a drive-relative `\state` on Windows is not absolute and must fall back, and a `C:\state` carried to Linux is not absolute either and must not silently become a relative directory.
+
+## Summary
+
+`joinFor` and `isAbsFor` follow the platform they are handed rather than the one underfoot, so `dirFor`'s goos argument now means what its comment always said it meant. `filepath` made that argument decorative: each branch was only ever checked against the host's rules, which is three of four untested on any machine and the exact failure the comment was written to prevent.
+
+The table asserts literal paths now. Assembling a Windows expectation with `filepath.Join` on Linux produces a Linux path and compares it against a Linux answer, which is how this passed everywhere it ran. Two cases went in that the old code would have got wrong in the other direction: a drive-relative `\state` on Windows is rooted on whichever drive the process is using rather than absolute, and a `C:\state` carried to Linux is not absolute either and must not quietly become a relative directory under the working directory.
+
+`TestDirFollowsXDG` skips on macOS and Windows, where XDG is not the rule. It was calling a correct `LOCALAPPDATA` answer a defect, and the platform table covers those branches from any host.
+
+Where the argument matches the host, old and new agree: no machine resolves anywhere new. Windows lane on bfac0eb3377c87cc6c81dfa04852a637799480a9, job `windows`: success. https://github.com/terva-sh/git-ticket-canvas/actions/runs/35143206504
