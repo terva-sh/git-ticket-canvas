@@ -99,7 +99,7 @@ export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, sel
         * the word stays `Manual` and the accessible name says what pressing
         * does. An automatic card has nothing to hand back. */}
       {pinned && onRelease
-        ? <button type="button" class="card-placement release" data-release={t.id}
+        ? <button type="button" class="card-placement" data-release={t.id}
           title="Placed by hand. Press to hand it back to automatic placement."
           aria-label={`Hand ${t.short || t.id} back to automatic placement`}
           onClick={() => onRelease(t.id)}>Manual</button>
