@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bytes"
@@ -38,10 +38,11 @@ func TestParseBuildVersion(t *testing.T) {
 
 func TestVersionOutput(t *testing.T) {
 	v := versionInfo{SchemaVersion: 1, Kind: "version", Version: "v1.2.3", Commit: "0123456789abcdef", Go: "go1.25.0"}
+	machineOutput := ""
 	for _, modified := range []bool{false, true} {
 		v.Modified = modified
 		var human bytes.Buffer
-		if err := writeVersionInfo(&human, v, false); err != nil {
+		if err := writeVersionInfo(&human, Desk, v, false); err != nil {
 			t.Fatal(err)
 		}
 		suffix := ""
@@ -52,8 +53,18 @@ func TestVersionOutput(t *testing.T) {
 		if human.String() != want {
 			t.Errorf("human output = %q, want %q", human.String(), want)
 		}
+		// The line names the command that printed it, so that two binaries in
+		// one archive can be told apart by what they say rather than by which
+		// file you happened to run.
+		var served bytes.Buffer
+		if err := writeVersionInfo(&served, Served, v, false); err != nil {
+			t.Fatal(err)
+		}
+		if got := served.String(); got != "git-ticket-canvas-server "+strings.TrimPrefix(want, "git-ticket-canvas ") {
+			t.Errorf("served output = %q, want it to name the served command", got)
+		}
 		var machine bytes.Buffer
-		if err := writeVersionInfo(&machine, v, true); err != nil {
+		if err := writeVersionInfo(&machine, Desk, v, true); err != nil {
 			t.Fatal(err)
 		}
 		boolText := "false"
@@ -64,9 +75,20 @@ func TestVersionOutput(t *testing.T) {
 		if machine.String() != wantJSON {
 			t.Errorf("JSON output = %q, want %q", machine.String(), wantJSON)
 		}
+		machineOutput = machine.String()
 	}
+	// The JSON is the build's identity rather than the executable's, so both
+	// commands answer with the same bytes and GET /api/version agrees.
+	var servedJSON bytes.Buffer
+	if err := writeVersionInfo(&servedJSON, Served, v, true); err != nil {
+		t.Fatal(err)
+	}
+	if servedJSON.String() != machineOutput {
+		t.Errorf("served JSON = %q, want the same value the desk command reports", servedJSON.String())
+	}
+
 	var fallback bytes.Buffer
-	if err := writeVersionInfo(&fallback, parseBuildVersion(nil), false); err != nil {
+	if err := writeVersionInfo(&fallback, Desk, parseBuildVersion(nil), false); err != nil {
 		t.Fatal(err)
 	}
 	if want := "git-ticket-canvas devel (unknown, " + runtime.Version() + ")\n"; fallback.String() != want {
@@ -81,7 +103,7 @@ func (w versionErrorWriter) Write([]byte) (int, error) { return 0, w.err }
 func TestVersionWriteError(t *testing.T) {
 	want := errors.New("write failed")
 	for _, asJSON := range []bool{false, true} {
-		if err := writeVersionInfo(versionErrorWriter{want}, parseBuildVersion(nil), asJSON); !errors.Is(err, want) {
+		if err := writeVersionInfo(versionErrorWriter{want}, Desk, parseBuildVersion(nil), asJSON); !errors.Is(err, want) {
 			t.Errorf("write(asJSON=%v) = %v, want %v", asJSON, err, want)
 		}
 	}
@@ -94,7 +116,7 @@ func TestExecutableHelpAndVersionWithoutStore(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	if output, err := exec.CommandContext(ctx, "go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
+	if output, err := exec.CommandContext(ctx, "go", "build", "-o", binary, deskPackage).CombinedOutput(); err != nil {
 		t.Fatalf("build executable: %v\n%s", err, output)
 	}
 	outside := t.TempDir()
@@ -136,7 +158,7 @@ func TestExecutableHelpAndVersionWithoutStore(t *testing.T) {
 			t.Fatalf("incomplete version: %+v", v)
 		}
 		var expected bytes.Buffer
-		if err := writeVersionInfo(&expected, v, false); err != nil {
+		if err := writeVersionInfo(&expected, Desk, v, false); err != nil {
 			t.Fatal(err)
 		}
 		if stdout != expected.String() {

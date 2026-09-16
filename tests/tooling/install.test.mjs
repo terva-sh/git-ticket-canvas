@@ -58,10 +58,20 @@ test('default install ignores GOBIN, replaces atomically, and is discoverable by
   passed(install(env))
   assert.notEqual(statSync(binary).ino, oldInode)
   assert.equal(statSync(binary).mode & 0o777, 0o755)
-  assert.deepEqual(readdirSync(dest), ['git-ticket-canvas'])
+  // Both commands, because the desk canvas refuses a non-loopback address and
+  // names the other one. Being told to run something that is not installed is
+  // worse than the error it replaced.
+  assert.deepEqual(readdirSync(dest).sort(), ['git-ticket-canvas', 'git-ticket-canvas-server'])
+  assert.equal(statSync(join(dest, 'git-ticket-canvas-server')).mode & 0o777, 0o755)
   const help = spawnSync('git', ['ticket-canvas', '-h'], { env, cwd: home, encoding: 'utf8' })
   passed(help)
   assert.match(help.stderr, /git-ticket-canvas/)
+  // The served command is the one that requires a provider. Its own refusal is
+  // how this test tells the two binaries apart rather than trusting the name.
+  const served = spawnSync(join(dest, 'git-ticket-canvas-server'), ['-store', home],
+    { env, cwd: home, encoding: 'utf8' })
+  assert.notEqual(served.status, 0)
+  assert.match(served.stderr, /identity provider/)
 })
 
 test('falls back to ~/bin and warns when destination is absent from PATH', t => {
@@ -70,6 +80,7 @@ test('falls back to ~/bin and warns when destination is absent from PATH', t => 
   const result = install(env)
   passed(result)
   assert.ok(statSync(join(home, 'bin/git-ticket-canvas')).isFile())
+  assert.ok(statSync(join(home, 'bin/git-ticket-canvas-server')).isFile())
   assert.match(result.stderr, /not on PATH/)
 })
 
@@ -92,6 +103,8 @@ test('build failure preserves the installed binary and leaves no staging file', 
   const result = install({ ...env, GOFLAGS: '-not-a-real-go-flag' }, [dest])
   assert.notEqual(result.status, 0)
   assert.equal(readFileSync(join(dest, 'git-ticket-canvas'), 'utf8'), 'keep me')
+  // Both commands are built before either is installed, so a build that fails
+  // leaves the destination exactly as it was rather than half replaced.
   assert.deepEqual(readdirSync(dest), ['git-ticket-canvas'])
 })
 

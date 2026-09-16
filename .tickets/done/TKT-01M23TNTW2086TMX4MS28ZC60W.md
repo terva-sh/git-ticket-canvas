@@ -26,7 +26,7 @@ references:
   - ref: release:image
     path: Dockerfile
   - ref: release:version
-    path: version.go
+    path: internal/cli/version.go
   - ref: release:runbook
     path: docs/releasing.md
   - ref: release:evidence
@@ -38,12 +38,12 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-09T19:35:20Z
-updated_at: 2026-09-15T21:17:38Z
+updated_at: 2026-09-16T13:52:13Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
 updated_by:
-  id: agent:t3code/d30689a3
+  id: agent:claude/t3code
   name: ""
 extensions: {}
 ---

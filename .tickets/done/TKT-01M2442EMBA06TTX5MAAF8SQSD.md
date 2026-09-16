@@ -20,9 +20,9 @@ references:
   - ref: design:canvas-organization
     path: docs/canvas-organization-design.md
   - ref: code:version
-    path: version.go
+    path: internal/cli/version.go
   - ref: test:version
-    path: version_test.go
+    path: internal/cli/version_test.go
   - ref: code:api
     path: internal/api/server.go
   - ref: code:toolbar
@@ -36,13 +36,13 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-09T22:19:31Z
-updated_at: 2026-09-10T01:33:32Z
+updated_at: 2026-09-16T13:52:13Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
 updated_by:
-  id: agent:terva/mieli
-  name: Mieli
+  id: agent:claude/t3code
+  name: ""
 extensions: {}
 ---
 

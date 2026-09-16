@@ -14,6 +14,9 @@ import zipfile
 
 TARGETS = {"linux_amd64": "tar.gz", "linux_arm64": "tar.gz", "darwin_amd64": "tar.gz",
            "darwin_arm64": "tar.gz", "windows_amd64": "zip"}
+# Both commands ship in every archive: the desk canvas, and the served canvas
+# that requires an identity provider.
+COMMANDS = ("git-ticket-canvas", "git-ticket-canvas-server")
 DOCS = {"LICENSE", "THIRD_PARTY_LICENSES", "README-release.md"}
 
 
@@ -89,6 +92,25 @@ def smoke(binary, root):
         process.stderr.close()
 
 
+def refuse_unauthenticated(desk, server):
+    """The split is the product, so a release that lost it must not ship.
+
+    The desk canvas has no authentication, so it must refuse an address anybody
+    can reach. The served canvas authenticates every request, so it must refuse
+    to start with nothing to authenticate against. Both refusals are checked
+    against the built artifact rather than the source, because a build that
+    silently swapped the two entrypoints would pass every Go test.
+    """
+    refused = subprocess.run([str(desk), "-addr", "0.0.0.0:0", "-store", "."],
+                             capture_output=True, text=True, timeout=30)
+    check(refused.returncode != 0 and "git-ticket-canvas-server" in refused.stderr,
+          f"the desk command accepted a non-loopback address: {refused.stderr}")
+    refused = subprocess.run([str(server), "-addr", "127.0.0.1:0", "-store", "."],
+                             capture_output=True, text=True, timeout=30)
+    check(refused.returncode != 0 and "identity provider" in refused.stderr,
+          f"the served command started with no identity provider: {refused.stderr}")
+
+
 def verify(directory, tag=None, *, published=False, expected_commit=None):
     directory = Path(directory)
     if published:
@@ -116,35 +138,49 @@ def verify(directory, tag=None, *, published=False, expected_commit=None):
     check(actual == set(expected), "missing or extra release archives")
     with tempfile.TemporaryDirectory(prefix="canvas-release-verify-") as temp:
         root = Path(temp)
-        native = None
+        native, native_server = None, None
         for name, target in expected.items():
             path = directory / name
             check(hashlib.sha256(path.read_bytes()).hexdigest() == sums[name], f"checksum mismatch: {name}")
             files = archive_files(path)
-            binary_name = "git-ticket-canvas.exe" if target.startswith("windows") else "git-ticket-canvas"
-            check(set(files) == DOCS | {binary_name}, f"unexpected archive contents: {name}")
+            suffix = ".exe" if target.startswith("windows") else ""
+            names = {command: command + suffix for command in COMMANDS}
+            check(set(files) == DOCS | set(names.values()), f"unexpected archive contents: {name}")
             for doc in DOCS:
                 check(files[doc] == Path(doc).read_bytes(), f"archive documentation differs: {doc}")
-            binary = root / (target + (".exe" if target.startswith("windows") else ""))
-            binary.write_bytes(files[binary_name])
-            binary.chmod(0o755)
-            info = subprocess.check_output(["go", "version", "-m", str(binary)], text=True)
-            check("github.com/terva-sh/git-ticket-canvas" in info, f"wrong module: {name}")
-            check(f"vcs.revision={commit}" in info, f"wrong build commit: {name}")
-            goos, goarch = target.split("_")
-            check(f"GOOS={goos}" in info and f"GOARCH={goarch}" in info, f"wrong build target: {name}")
-            if tag:
-                check(f"\tmod\tgithub.com/terva-sh/git-ticket-canvas\t{tag}\t" in info,
-                      f"wrong build version: {name}")
-                check("vcs.modified=false" in info, f"dirty release artifact: {name}")
-            if target == "linux_amd64":
-                native = binary
+            # One directory per target, so a binary's own name survives and the
+            # two commands do not have to be told apart by a mangled filename.
+            unpacked = root / target
+            unpacked.mkdir(exist_ok=True)
+            for command, binary_name in names.items():
+                binary = unpacked / binary_name
+                binary.write_bytes(files[binary_name])
+                binary.chmod(0o755)
+                info = subprocess.check_output(["go", "version", "-m", str(binary)], text=True)
+                check("github.com/terva-sh/git-ticket-canvas" in info, f"wrong module: {name}/{binary_name}")
+                check(f"vcs.revision={commit}" in info, f"wrong build commit: {name}/{binary_name}")
+                goos, goarch = target.split("_")
+                check(f"GOOS={goos}" in info and f"GOARCH={goarch}" in info,
+                      f"wrong build target: {name}/{binary_name}")
+                if tag:
+                    check(f"\tmod\tgithub.com/terva-sh/git-ticket-canvas\t{tag}\t" in info,
+                          f"wrong build version: {name}/{binary_name}")
+                    check("vcs.modified=false" in info, f"dirty release artifact: {name}/{binary_name}")
+                if target == "linux_amd64":
+                    if command == "git-ticket-canvas":
+                        native = binary
+                    else:
+                        native_server = binary
         got = json.loads(subprocess.check_output([str(native), "--version", "--json"], text=True))
         check(got["commit"] == commit, "native version reports wrong commit")
         if tag:
             check(got["version"] == tag and got["modified"] is False, "native release provenance mismatch")
+        served = json.loads(subprocess.check_output([str(native_server), "--version", "--json"], text=True))
+        check(served == got, "the two commands report different builds")
+        refuse_unauthenticated(native, native_server)
         smoke(native, root)
-    print(f"Verified five archives, checksums, licenses, provenance and embedded HTTP assets for {version}.")
+    print(f"Verified five archives with both commands, checksums, licenses, provenance, "
+          f"the unauthenticated-bind refusals and embedded HTTP assets for {version}.")
 
 
 if __name__ == "__main__":

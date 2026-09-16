@@ -1,9 +1,16 @@
 # git-ticket-canvas
 
 An infinite canvas over a [git-ticket](https://github.com/terva-sh/git-ticket) store.
-One Go binary serves the Preact frontend and HTTP API. The frontend uses
+A Go binary serves the Preact frontend and HTTP API. The frontend uses
 TypeScript and Vite; its built assets are committed in `web/dist` and embedded
 in the binary. No Node process or database is required at runtime.
+
+There are two commands. `git-ticket-canvas` is the canvas on your own machine:
+loopback, writable, no authentication, and it refuses an address anybody else
+could reach. `git-ticket-canvas-server` is the canvas published at a hostname:
+it refuses to start without an OpenID Connect provider, defaults to read-only,
+and grants read access per store. Which one is running is answerable from its
+name rather than from the flags it was given.
 
 ![Thirty tickets on the canvas, fitted to the window. Solid arrows are dependencies, faint dashed ones are parent links.](docs/images/canvas.png)
 
@@ -30,6 +37,7 @@ No JavaScript toolchain is needed for this build:
 
 ```sh
 go build -o git-ticket-canvas .
+go build -o git-ticket-canvas-server ./cmd/git-ticket-canvas-server
 ./git-ticket-canvas -store /path/to/repo -read-only
 ```
 
@@ -40,7 +48,10 @@ layout files but never commits or pushes them.
 
 Flags include `-store`, `-addr`, `-actor`, and `-read-only`. Use `-h` for help,
 `--version` for build provenance, or `--version --json` for machine-readable
-output. Keep the server on loopback; it has no authentication.
+output. `git-ticket-canvas` refuses a non-loopback `-addr`, because it has no
+authentication and the address it binds is the whole of its access control.
+To serve other people, run `git-ticket-canvas-server` with an issuer and a
+client id.
 
 With Go, Node.js 22.12 or newer, npm, and just installed, rebuild and install
 from source:
@@ -148,13 +159,16 @@ the layout file and claim a placement nobody chose.
 ## Architecture
 
 ```
-main.go              flags, embed, store discovery, actor resolution
+main.go              the desk canvas: one call into internal/cli
+cmd/...-server       the served canvas: the same, with the other Kind
+internal/cli         flags, refusals, store discovery, actor resolution, serving
 internal/layout      the board file: read, write, canonical render
 internal/api         JSON API over the ticket library + DTOs + op dispatch
 web/src/main.ts      Preact entry point
 web/src/ui           App, Canvas, inspector, composer, toolbar, feedback
 web/src/platform     typed HTTP client, ticket state, write queues, geometry
 web/dist             committed Vite output, served from go:embed
+web/assets.go        the go:embed of web/dist, shared by both commands
 ```
 
 Preact owns the browser UI. `App` owns accepted store snapshots, selection,

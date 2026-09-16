@@ -21,18 +21,23 @@ set positional-arguments
 default:
     @just --list
 
-# Rebuild frontend assets, then build ./git-ticket-canvas. Raw go build uses committed dist.
+# Rebuild frontend assets, then build both commands. Raw go build uses committed dist.
 build: web-build
     go build -o git-ticket-canvas .
+    go build -o git-ticket-canvas-server ./cmd/git-ticket-canvas-server
 
 # Rebuild and install like git-ticket: DIR or ~/.local/bin then ~/bin. No sudo.
 # Current installation guide: docs/local-install.md
 install DIR="": web-build
     bash scripts/install-local.sh "$@"
 
-# Rebuild and run; forward arguments unchanged to git-ticket-canvas.
+# Rebuild and run the desk canvas; forward arguments unchanged.
 run *args: build
     exec ./git-ticket-canvas "$@"
+
+# Rebuild and run the served canvas; it needs --issuer and --client-id.
+serve *args: build
+    exec ./git-ticket-canvas-server "$@"
 
 # Run all Go tests with the race detector and coverage; accepts Go test flags.
 test *args:

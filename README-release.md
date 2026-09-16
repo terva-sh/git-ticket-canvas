@@ -1,8 +1,16 @@
 # git-ticket-canvas
 
-A browser canvas for a Git-native `.tickets` work ledger. One Go binary serves
+A browser canvas for a Git-native `.tickets` work ledger. Two Go binaries serve
 the Preact frontend and HTTP API. Ticket mutations retain server revision checks;
 card positions live beside the tickets. No Node process is needed at runtime.
+
+`git-ticket-canvas` is the canvas on your own machine: loopback, writable, no
+authentication, pointed at repositories you already have. It refuses an address
+anybody else could reach. `git-ticket-canvas-server` is the canvas published at
+a hostname: it refuses to start without an OpenID Connect provider, defaults to
+read-only, and grants read access per store. Which one you are running is
+answerable from its name rather than from the flags it was given, which is why
+there are two of them and not one flag.
 
 This is the release usage guide. It supersedes installation examples in earlier
 README and development guides without changing those historical records.
@@ -11,8 +19,9 @@ README and development guides without changing those historical records.
 
 Download an archive and `checksums.txt` from
 https://github.com/terva-sh/git-ticket-canvas/releases. Verify its SHA-256 checksum,
-unpack it, and place `git-ticket-canvas` on PATH. Native Windows uses the amd64
-zip and `git-ticket-canvas.exe`; Linux and macOS have amd64 and arm64 tarballs.
+unpack it, and place `git-ticket-canvas` and `git-ticket-canvas-server` on PATH.
+Every archive carries both. Native Windows uses the amd64 zip and the `.exe`
+names; Linux and macOS have amd64 and arm64 tarballs.
 Keep LICENSE and THIRD_PARTY_LICENSES with redistributed copies.
 
 After the first release is published, the repository's `install.sh` provides
@@ -27,7 +36,9 @@ sh install.sh
 From a source checkout, `just install [DIR]` follows the same destination policy
 and rebuilds the frontend first. See `docs/local-install.md`.
 Go-only consumers can use `go install github.com/terva-sh/git-ticket-canvas@VERSION`
-with a published tag. That uses GOBIN or GOPATH/bin, not the script's destination.
+with a published tag, and
+`go install github.com/terva-sh/git-ticket-canvas/cmd/git-ticket-canvas-server@VERSION`
+for the served canvas. That uses GOBIN or GOPATH/bin, not the script's destination.
 
 ```sh
 git ticket-canvas --version
@@ -41,9 +52,45 @@ This is not `git ticket canvas`. The existing `git ticket` CLI initializes and
 manages the store independently. Version and help work without a store.
 Use `-h` for application help; Git may interpret `--help` as a manual-page request.
 
-The browser is at http://127.0.0.1:7777. Keep it on loopback: this prototype has
-no authentication. To edit, remove `-read-only` and set `-actor human:your-id`.
-The application never commits or pushes ticket changes for you.
+The browser is at http://127.0.0.1:7777. To edit, remove `-read-only` and set
+`-actor human:your-id`. The application never commits or pushes ticket changes
+for you.
+
+`git-ticket-canvas` has no authentication of any kind, so it refuses a
+non-loopback `-addr` and its error names the other command. There is no flag
+that turns that into a warning, because a warning has an override and the
+override is what somebody reaches for at exactly the moment they should be
+reaching for a different tool. The one exception is a container, below.
+
+## Serve a canvas to other people
+
+```sh
+git-ticket-canvas-server -store /path/to/repo \
+  -issuer https://id.example.com -client-id git-ticket-canvas
+```
+
+It refuses to start without an issuer and a client id. Put them under
+`identity:` in the canvas configuration file rather than on the command line,
+which is where the client secret belongs too: a secret in an argument is
+readable by every other process on the machine.
+
+```yaml
+identity:
+  issuer: https://id.example.com
+  clientId: git-ticket-canvas
+  clientSecret: ...
+stores:
+  - name: ledger
+    path: /srv/ledger
+```
+
+Identity never comes from a store's own `.tickets/config.yml`. A ticket store is
+a git repository, and repository bytes must not decide who the canvas trusts to
+log in.
+
+Access is granted per store, and a store nobody granted is invisible rather than
+public: adding a repository to the configuration to look at it yourself does not
+hand it to everybody who can log in. The served canvas is read-only.
 
 ## Serve a local repository in a container
 
@@ -74,15 +121,36 @@ docker run --rm --name ticket-canvas \
   -p 127.0.0.1:7777:7777 \
   --mount "type=bind,src=$(pwd),dst=/repo" \
   ghcr.io/terva-sh/git-ticket-canvas:VERSION \
-  -store /repo -addr 0.0.0.0:7777 -actor human:your-id
+  -store /repo -addr 0.0.0.0:7777 -actor human:your-id \
+  -unsafe-publish-without-authentication
 ```
 
 The UID must be allowed to write the store. Binding `0.0.0.0` inside the container
-is necessary for port forwarding; keep the host-side mapping on `127.0.0.1`.
-Do not expose this unauthenticated server to a network. No blanket Git
-`safe.directory` exception is configured. Image `--version` reports the same
-provenance as the archive. Stable tags also move the minor and `latest` image
-tags; prereleases move only their exact tag.
+is necessary for port forwarding, and `-unsafe-publish-without-authentication` is
+what lets the desk canvas do it: a process inside a container cannot see whether
+the host mapped that port to a loopback address, so the decision is the
+operator's and the flag is where they record it. The default command already
+passes it. **Keep the host-side mapping on `127.0.0.1`.** `-p 7777:7777` publishes
+an unauthenticated canvas to every machine that can reach this host.
+
+The image ships `git-ticket-canvas-server` too. To serve other people, override
+the entrypoint and give it a provider:
+
+```sh
+docker run --rm --name ticket-canvas \
+  --user "$(id -u):$(id -g)" \
+  -p 127.0.0.1:7777:7777 \
+  --mount "type=bind,src=$(pwd),dst=/repo,readonly" \
+  --entrypoint git-ticket-canvas-server \
+  ghcr.io/terva-sh/git-ticket-canvas:VERSION \
+  -store /repo -addr 0.0.0.0:7777 \
+  -issuer https://id.example.com -client-id git-ticket-canvas
+```
+
+No blanket Git `safe.directory` exception is configured. Image `--version`
+reports the same provenance as the archive, from either command. Stable tags
+also move the minor and `latest` image tags; prereleases move only their exact
+tag.
 
 ## Development and release verification
 

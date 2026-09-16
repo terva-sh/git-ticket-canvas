@@ -17,6 +17,8 @@ spec.loader.exec_module(v)
 
 
 class VerifierTests(unittest.TestCase):
+    """Every archive carries both commands, so every fixture here does too."""
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -27,7 +29,9 @@ class VerifierTests(unittest.TestCase):
             name = f"git-ticket-canvas_1.2.3_{target}.{ext}"
             self.names.append(name)
             files = {doc: Path(doc).read_bytes() for doc in v.DOCS}
-            files["git-ticket-canvas.exe" if ext == "zip" else "git-ticket-canvas"] = b"binary"
+            suffix = ".exe" if ext == "zip" else ""
+            for command in v.COMMANDS:
+                files[command + suffix] = b"binary"
             if ext == "zip":
                 with zipfile.ZipFile(self.root / name, "w") as archive:
                     for path, data in files.items():
@@ -48,13 +52,20 @@ class VerifierTests(unittest.TestCase):
         if args[:2] == ["git", "rev-parse"]:
             return "a" * 40 + "\n"
         if args[:3] == ["go", "version", "-m"]:
-            goos, goarch = Path(args[3]).stem.split("_")
+            # Each archive is unpacked into a directory named for its target, so
+            # the binaries inside keep the names a person would run.
+            goos, goarch = Path(args[3]).parent.name.split("_")
             return "\tmod\tgithub.com/terva-sh/git-ticket-canvas\tv1.2.3\t\n\tbuild\tvcs.revision=" + "a" * 40 + f"\n\tbuild\tvcs.modified=false\n\tbuild\tGOOS={goos}\n\tbuild\tGOARCH={goarch}\n"
         return json.dumps({"commit": "a" * 40, "version": "v1.2.3", "modified": False})
 
     def verify(self):
-        with patch.object(v.subprocess, "check_output", side_effect=self.commands), patch.object(v, "smoke") as smoke:
+        with patch.object(v.subprocess, "check_output", side_effect=self.commands), \
+                patch.object(v, "refuse_unauthenticated") as refusals, patch.object(v, "smoke") as smoke:
             v.verify(self.root, "v1.2.3")
+            # Both are executions of the real artifact, which these tests fake.
+            # That they ran at all is the part worth asserting here; what they
+            # check is covered by the Go tests for the same two refusals.
+            refusals.assert_called_once()
             smoke.assert_called_once()
 
     def test_valid_release_reaches_smoke(self):
@@ -89,7 +100,8 @@ class VerifierTests(unittest.TestCase):
     def test_missing_notice_fails_after_valid_checksum(self):
         name = next(name for name in self.names if name.endswith(".zip"))
         with zipfile.ZipFile(self.root / name, "w") as archive:
-            archive.writestr("git-ticket-canvas.exe", b"binary")
+            for command in v.COMMANDS:
+                archive.writestr(command + ".exe", b"binary")
         self.manifest()
         with self.assertRaisesRegex(RuntimeError, "unexpected archive contents"):
             self.verify()
@@ -124,8 +136,10 @@ class PublishedVerifierTests(VerifierTests):
         (self.root / "metadata.json").unlink()
 
     def verify(self, tag="v1.2.3", commit="a" * 40):
-        with patch.object(v.subprocess, "check_output", side_effect=self.commands), patch.object(v, "smoke") as smoke:
+        with patch.object(v.subprocess, "check_output", side_effect=self.commands), \
+                patch.object(v, "refuse_unauthenticated") as refusals, patch.object(v, "smoke") as smoke:
             v.verify(self.root, tag, published=True, expected_commit=commit)
+            refusals.assert_called_once()
             smoke.assert_called_once()
 
     def test_wrong_version_fails(self):

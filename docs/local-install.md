@@ -36,8 +36,12 @@ Git discovers `git-ticket-canvas` on PATH as `git ticket-canvas`; no alias is
 needed. Use `-h` because Git may interpret `--help` as a request for a manual page.
 No store mutation is needed to verify help or discovery.
 
-`just install` does not use GOBIN. Raw `go install .` remains available for
-Go-only consumers and retains Go's GOBIN/GOPATH behavior. To keep both tools in
+`just install` installs both commands, `git-ticket-canvas` and
+`git-ticket-canvas-server`, because the desk canvas refuses a non-loopback
+address and names the other one: being told to run something that is not on the
+machine is worse than the error it replaced. It does not use GOBIN. Raw
+`go install .` and `go install ./cmd/git-ticket-canvas-server` remain available
+for Go-only consumers and retain Go's GOBIN/GOPATH behavior. To keep both tools in
 the same place, use their `just install` recipes with the same default or explicit
 directory. Existing `git-ticket` and old `tkcanvas` installations are untouched.
 

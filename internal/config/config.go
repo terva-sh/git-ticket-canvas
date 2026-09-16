@@ -88,6 +88,10 @@ type Config struct {
 	Roots   []Root   `yaml:"roots,omitempty"`
 	Stores  []Store  `yaml:"stores,omitempty"`
 	Exclude []string `yaml:"exclude,omitempty"`
+	// Identity is who the served canvas trusts to log in. It belongs to this
+	// file, which an operator writes, and never to a store's own config.yml.
+	// The desk canvas reads it, says it is ignoring it, and ignores it.
+	Identity Identity `yaml:"identity,omitempty"`
 	// ExcludeDefaults turns the built-in list off when set to false, which is
 	// how Exclude is replaced rather than extended. A nil pointer means unset,
 	// and unset means the defaults apply.
@@ -147,7 +151,7 @@ func Load(file, env string, flags []string, base string) (Config, error) {
 		if err != nil {
 			return Config{}, err
 		}
-		cfg.Roots, cfg.Exclude = parsed.Roots, parsed.Exclude
+		cfg.Roots, cfg.Exclude, cfg.Identity = parsed.Roots, parsed.Exclude, parsed.Identity
 		for _, s := range parsed.Stores {
 			entries = append(entries, entry{s, fromFile})
 		}

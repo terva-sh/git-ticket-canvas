@@ -1,5 +1,6 @@
-# Ignore both the current binary and old local builds.
+# Ignore both the current binaries and old local builds.
 /git-ticket-canvas
+/git-ticket-canvas-server
 /tkcanvas
 node_modules/
 test-results/
