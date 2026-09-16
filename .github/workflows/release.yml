@@ -41,7 +41,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y just
-          go install github.com/terva-sh/git-ticket/cmd/git-ticket@v0.18.1
+          go install github.com/terva-sh/git-ticket/cmd/git-ticket@v0.19.0
           npm ci
           npx playwright install --with-deps chromium
       - name: Verify embedded parity before packaging
