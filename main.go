@@ -209,7 +209,7 @@ func run() error {
 	}
 	var warm []string
 	if remembered != nil {
-		warm = remembered.Warm()
+		warm = remembered.Warm(state.LocalUser)
 	}
 
 	registry := api.NewRegistry(api.RegistryOptions{

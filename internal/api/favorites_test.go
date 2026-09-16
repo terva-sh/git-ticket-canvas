@@ -105,7 +105,7 @@ func TestARootChangeMovesNeitherTheFavoriteNorTheID(t *testing.T) {
 	if len(first) != 1 {
 		t.Fatalf("stores = %+v, want one", first)
 	}
-	if err := remembered.SetFavorite(discover.Key(path), true); err != nil {
+	if err := remembered.SetFavorite(state.LocalUser, discover.Key(path), true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -161,10 +161,10 @@ func TestNoConfigurationFileIsRewritten(t *testing.T) {
 func TestFavoritesAreOpenedAtStartup(t *testing.T) {
 	remembered, _ := stateIn(t)
 	r, paths := lazyRegistry(t, RegistryOptions{State: remembered}, 3)
-	if err := remembered.SetFavorite(discover.Key(paths[2]), true); err != nil {
+	if err := remembered.SetFavorite(state.LocalUser, discover.Key(paths[2]), true); err != nil {
 		t.Fatal(err)
 	}
-	r.opts.Warm = remembered.Warm()
+	r.opts.Warm = remembered.Warm(state.LocalUser)
 	if err := r.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -186,10 +186,41 @@ func TestTheStoreLastLookedAtIsRemembered(t *testing.T) {
 	defer server.Close()
 	request(t, server, "GET", "/api/stores/b/board", "", http.StatusOK)
 
-	if got := remembered.Snapshot().LastStore; got != discover.Key(paths[1]) {
+	if got := remembered.Snapshot(state.LocalUser).LastStore; got != discover.Key(paths[1]) {
 		t.Errorf("last store = %q, want the one just looked at", got)
 	}
-	if got := remembered.Warm(); len(got) == 0 || got[0] != discover.Key(paths[1]) {
+	if got := remembered.Warm(state.LocalUser); len(got) == 0 || got[0] != discover.Key(paths[1]) {
 		t.Errorf("warm = %v, want the store just looked at first", got)
+	}
+}
+
+// The registry files what it remembers under the no-auth key, and under
+// nothing else.
+//
+// A canvas on a desk has one person at it, so there is one key and this test
+// can only see one half of the property. It is here so that teaching the
+// registry to read a signed-in subject off the request is a change somebody
+// makes on purpose, rather than one the suite happens to keep passing through.
+func TestFavoritesAreFiledUnderTheNoAuthKey(t *testing.T) {
+	remembered, _ := stateIn(t)
+	r, paths := lazyRegistry(t, RegistryOptions{State: remembered}, 1)
+	if err := r.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(r.Handler())
+	defer server.Close()
+	request(t, server, "PUT", "/api/favorites", `{"store":"a","favorite":true}`, http.StatusOK)
+	request(t, server, "GET", "/api/stores/a/board", "", http.StatusOK)
+
+	key := discover.Key(paths[0])
+	if !remembered.Favorite(state.LocalUser, key) {
+		t.Errorf("the favorite was not filed under %q", state.LocalUser)
+	}
+	if got := remembered.Snapshot(state.LocalUser).LastStore; got != key {
+		t.Errorf("last store under %q = %q, want the store just looked at", state.LocalUser, got)
+	}
+	someone := state.Subject("someone-who-has-not-signed-in")
+	if remembered.Favorite(someone, key) || remembered.Snapshot(someone).LastStore != "" {
+		t.Error("a key nobody wrote under picked up the desk canvas's state")
 	}
 }

@@ -165,8 +165,12 @@ type RegistryOptions struct {
 	// built by a test wants.
 	Rescan RescanSource
 	// State is what the canvas remembers between runs: which stores are
-	// favorites and which one was open last. A nil value keeps nothing, which
-	// is what a test wants and what a canvas over one store does not need.
+	// favorites and which one was open last, keyed by the person it belongs
+	// to. A nil value keeps nothing, which is what a test wants and what a
+	// canvas over one store does not need.
+	//
+	// Grants are deliberately not in it. A bug in the favorites path must not
+	// be able to corrupt a permission table.
 	State *state.Store
 }
 
@@ -367,13 +371,22 @@ func (r *Registry) touch(name string) {
 	}
 }
 
+// stateUser is whose favorites and last store a request reads and writes.
+//
+// There is one key today, because the canvas has one person at it and nothing
+// authenticates. It is a method rather than the constant spelled at four call
+// sites so that the answer has one place to come from when a request carries a
+// signed-in subject, and so that a call site that forgot to ask is a call site
+// that does not compile.
+func (r *Registry) stateUser() string { return state.LocalUser }
+
 // favorite reports whether a store is marked. It is called with the registry
 // lock held, and the state has its own.
 func (r *Registry) favorite(e *entry) bool {
 	if r.opts.State == nil {
 		return false
 	}
-	return r.opts.State.Favorite(discover.Key(e.spec.Path))
+	return r.opts.State.Favorite(r.stateUser(), discover.Key(e.spec.Path))
 }
 
 // rememberLast records the store somebody is looking at.
@@ -384,7 +397,7 @@ func (r *Registry) rememberLast(e *entry) {
 	if r.opts.State == nil {
 		return
 	}
-	if err := r.opts.State.SetLastStore(discover.Key(e.spec.Path)); err != nil {
+	if err := r.opts.State.SetLastStore(r.stateUser(), discover.Key(e.spec.Path)); err != nil {
 		log.Printf("warn   the store last used could not be saved: %v", err)
 	}
 }
@@ -890,7 +903,7 @@ func (r *Registry) handleSetFavorite(w http.ResponseWriter, req *http.Request) {
 		})
 		return
 	}
-	if err := r.opts.State.SetFavorite(path, body.Favorite); err != nil {
+	if err := r.opts.State.SetFavorite(r.stateUser(), path, body.Favorite); err != nil {
 		writeJSON(w, http.StatusInternalServerError, errBody{Code: "state_write_failed", Message: err.Error()})
 		return
 	}
@@ -905,7 +918,7 @@ func (r *Registry) favorites() favoritesResponse {
 	if r.opts.State == nil {
 		return out
 	}
-	snapshot := r.opts.State.Snapshot()
+	snapshot := r.opts.State.Snapshot(r.stateUser())
 	out.Paths = append(out.Paths, snapshot.Favorites...)
 	out.LastStore = snapshot.LastStore
 
