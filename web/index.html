@@ -278,8 +278,35 @@ input.tool, select.tool { color: var(--ink); }
 .card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), 0 8px 22px -10px rgba(0,0,0,.6); }
 .card.dimmed { opacity: .18; }
 .card.link-target { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.card.done, .card.archived { border-left-color: var(--line); }
-.card.done .card-title, .card.archived .card-title { color: var(--ink); }
+/* Settled work recedes. Not hidden: the history is why a board is trustworthy,
+   and a board that forgets what was finished cannot be read backwards. It just
+   stops competing with work somebody could pick up. */
+.card.done, .card.archived {
+  border-left-color: var(--line);
+  opacity: .55;
+  filter: saturate(.45);
+}
+.card.done:hover, .card.archived:hover, .card.done.selected, .card.archived.selected {
+  opacity: 1; filter: none;
+}
+.card.done .card-title, .card.archived .card-title { color: var(--ink-dim); font-weight: 550; }
+/* Blocked is not actionable and should not look it. The count is the useful
+   part, because the question about a blocked card is what it waits on. */
+.card.blocked-card { opacity: .8; }
+.card.blocked-card .card-title { color: var(--ink-dim); }
+/* The loudest thing on the board, because it is what `git ticket ready`
+   answers and it was previously a word in body text. */
+.card.startable { border-left-width: 5px; }
+.card-alerts .startable-mark {
+  color: var(--s-ready); font-weight: 600;
+}
+/* Somebody else is working this. On a canvas serving several people that is a
+   different card from an unclaimed one, and nothing said so. */
+.card.claimed { border-top: 1px solid color-mix(in srgb, var(--s-in-progress) 55%, transparent); }
+.card-alerts .held {
+  font-family: var(--mono); font-size: 10px; color: var(--s-in-progress);
+  overflow-wrap: anywhere;
+}
 .card-head { display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--line-soft); padding-top: 10px; margin-top: 12px; }
 .card-id { font-family: var(--mono); font-size: 10px; color: var(--ink-dim); overflow-wrap: anywhere; }
 .card-type { font-size: 10px; color: var(--ink-dim); }
