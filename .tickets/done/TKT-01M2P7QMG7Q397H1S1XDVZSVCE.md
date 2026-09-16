@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2P7QMG7Q397H1S1XDVZSVCE
 title: Move to git-ticket v0.19.1
 type: task
-status: in-progress
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -26,7 +26,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T23:09:50Z
-updated_at: 2026-09-16T23:11:02Z
+updated_at: 2026-09-16T23:15:28Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -79,11 +79,11 @@ caught it on the v0.19.0 bump rather than me remembering.
 
 ## Acceptance criteria
 
-- [ ] go.mod is pinned to v0.19.1 and the tree builds and passes parity-check
-- [ ] The three workflow files that install the CLI move with go.mod
-- [ ] doctor's findings on this store are measured after the bump and the change from 0 hard / 32 soft is explained rather than just reported
-- [ ] Whether the upstream JSON path-join bug still reproduces is checked and recorded
-- [ ] The conclusion recorded in TKT-01M2NYWQJW, that label_order could not be driven to zero, is revisited against what the rule now does
+- [x] go.mod is pinned to v0.19.1 and the tree builds and passes parity-check
+- [x] The three workflow files that install the CLI move with go.mod
+- [x] doctor's findings on this store are measured after the bump and the change from 0 hard / 32 soft is explained rather than just reported
+- [x] Whether the upstream JSON path-join bug still reproduces is checked and recorded
+- [x] The conclusion recorded in TKT-01M2NYWQJW, that label_order could not be driven to zero, is revisited against what the rule now does
 
 ## Implementation plan
 
@@ -100,3 +100,41 @@ v0.19.0 installed to a scratch GOBIN rather than replacing the one on PATH.
 The JSON path-join bug gets checked in a throwaway store in `/tmp` rather than
 against any real one, because the check needs a store with a live finding and
 this one is clean.
+
+## Summary
+
+`go.mod` is on v0.19.1 and nothing in the canvas had to change to meet it. The
+entire library diff between the tags is in `ticket/doctorrules.go` and no
+exported identifier in that file moved, so there was nothing to adapt to. The
+three workflow files that install the CLI moved with the module.
+
+The real content of this bump is that doctor stopped talking. v0.19.0's
+`label_order` fired on any ticket carrying two or more labels; v0.19.1 infers
+the dimension the store leads with and reports only the tickets that disagree,
+and says nothing when there is no convention to infer. Measured against the
+identical working tree: v0.19.0 gives 32 soft findings, v0.19.1 gives 0.
+
+Both were measured on the same tree on purpose. Upstream's prediction for this
+store, 19 findings to 0, was taken against an older snapshot, and this store has
+gained tickets since. Comparing yesterday's 32 against today's 0 would have been
+comparing two different stores and crediting the tool with the difference. So
+v0.19.0 was installed to a scratch `GOBIN` and both were run over the same
+files. The zero is real, and it is the rule getting quieter rather than the
+store getting cleaner: nothing here was relabelled.
+
+The one hard finding seen during this work was this ticket itself, filed without
+a label. Labelling it `infrastructure`, as the v0.19.0 bump ticket is, cleared
+it. The store is at no findings at all.
+
+The JSON path-join bug still reproduces at v0.19.1, checked in a throwaway store
+rather than any real one. A finding's `file` is `.tickets/` joined onto an
+already-absolute path, giving `.tickets/tmp/doctorprobe/.tickets/draft/ID.md`
+for a store at `/tmp/doctorprobe`. Text output is unaffected, so it stays a
+JSON-only fault. It is already filed upstream as
+`TKT-01M2NZDPTQQV6T68B0N4S8BAE7`, so there is nothing to report from here; it is
+still a draft there, which is why it still reproduces.
+
+The conclusion this bump supersedes is recorded on TKT-01M2NYWQJW rather than
+only here. Its recommendation, that a gate should require no hard findings and
+treat soft ones as a prompt, was a workaround for a rule that fired on
+everything. Soft findings are now sparse enough to be worth reading.
