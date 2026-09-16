@@ -29,7 +29,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T21:01:01Z
-updated_at: 2026-09-16T21:21:00Z
+updated_at: 2026-09-16T21:24:57Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -144,6 +144,30 @@ That is the actual regression, checked directly rather than through something a
 renderer has to agree with. It caught two things the hand-written fix missed on
 first pass: comments swallowed into a selector, and `.card:hover .handle`, which
 sets opacity on something inside the card rather than on the card.
+
+**agent:claude/t3code** at 2026-09-16T21:24:57Z
+
+CI passed on b6571c3. That closes the branch but not the question.
+
+Two things changed between the rejected commit and the accepted one: the hover
+assertion stopped going through Playwright's actionability path, and a
+browser-free cascade test arrived. Only the first could have affected CI, so the
+actionability path is now the strong suspect — that check waits for the element
+to be stable and to receive events at its centre, which depends on where the
+board laid the card out, and CI lays it out differently because it renders with
+font-noto alone under Alpine Chromium. Measuring locally ruled out the popover
+overlapping, but local geometry was never the geometry in question.
+
+Suspect, not cause. The logs were never readable, nothing was bisected, and a
+green run after two changes does not identify which one mattered. If this spec
+ever goes red in CI again, that is the thread to pull, and the assertion added
+alongside the mouse move will say so directly: it fails with "the mouse did not
+land on the card" rather than with an opacity number.
+
+Worth noting for whoever hits the next one: a Forgejo build without the actions
+jobs API makes a CI-only failure nearly undiagnosable from a shell. Both `tea
+actions runs logs` and the REST endpoints 404. The workable options are asking
+somebody with browser access, or splitting a commit until pass/fail isolates it.
 
 ## Summary
 
