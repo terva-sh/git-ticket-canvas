@@ -128,3 +128,45 @@ it('lets the toolbar density control say automatic too', () => {
   act(() => { select.dispatchEvent(new Event('change', { bubbles: true })) })
   expect(chosen).toEqual(['full', null])
 })
+
+// The toolbar size is a different kind of setting from the three above: nothing
+// about a window suggests an answer, so it has a default rather than an
+// automatic choice, and the panel has to say so rather than offering an
+// `Automatic` that means `whatever we picked`.
+it('offers the toolbar its current size and two larger ones, with no automatic', () => {
+  sizeWindow(1440, 900)
+  show()
+  const sizes = [...root.querySelectorAll<HTMLButtonElement>('.display-scale button')]
+  expect(sizes.map(button => button.textContent)).toEqual(['Standard', 'Large', 'Larger'])
+  expect(sizes.map(button => button.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'false'])
+  expect(root.querySelector('.display-scale option')).toBeNull()
+  // Nothing written until somebody chooses, and the default leaves no record.
+  expect(recall().toolbar).toBeUndefined()
+})
+
+it('remembers a larger toolbar, and leaves nothing behind on the way back', () => {
+  sizeWindow(1440, 900)
+  show()
+  const size = (name: string) => root.querySelector<HTMLButtonElement>(`#display-toolbar-${name}`)!
+  act(() => size('larger').click())
+  expect(recall().toolbar).toBe('larger')
+  expect(size('larger').getAttribute('aria-pressed')).toBe('true')
+  act(() => size('standard').click())
+  expect(recall().toolbar).toBeUndefined()
+  expect(localStorage.getItem('git-ticket-canvas.display')).toBeNull()
+})
+
+// `Use automatic for all` is about the settings the window chose. A toolbar
+// size is not one of them, so there is nothing to hand back to it.
+it('does not count or clear the toolbar size with the automatic settings', () => {
+  sizeWindow(1440, 900)
+  show()
+  act(() => root.querySelector<HTMLButtonElement>('#display-toolbar-large')!.click())
+  const reset = () => root.querySelector<HTMLButtonElement>('#displayReset')!
+  expect(reset().disabled).toBe(true)
+  expect(reset().textContent).toBe('All automatic')
+  choose('density', 'compact')
+  expect(reset().textContent).toContain('1 set by hand')
+  act(() => reset().click())
+  expect(recall()).toEqual({ toolbar: 'large' })
+})

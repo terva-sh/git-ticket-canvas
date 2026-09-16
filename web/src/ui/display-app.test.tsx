@@ -23,6 +23,7 @@ afterEach(() => {
   act(() => render(null, root)); root.remove()
   delete document.documentElement.dataset.targets
   delete document.documentElement.dataset.inspector
+  delete document.documentElement.dataset.toolbar
   vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers()
 })
 
@@ -95,4 +96,21 @@ it('follows a window that changes shape', async () => {
   await act(async () => { window.dispatchEvent(new Event('resize')); await vi.advanceTimersByTimeAsync(1) })
   expect(document.documentElement.dataset.inspector).toBe('bottom')
   expect(card().classList.contains('compact')).toBe(true)
+})
+
+it('publishes the toolbar size for the stylesheet, and defaults to standard', async () => {
+  sizeWindow(1440, 900)
+  await mount()
+  expect(document.documentElement.dataset.toolbar).toBe('standard')
+})
+
+it('follows a stored toolbar size without touching anything else', async () => {
+  remember({ toolbar: 'larger' })
+  sizeWindow(1440, 900)
+  await mount()
+  expect(document.documentElement.dataset.toolbar).toBe('larger')
+  // The settings the window chose are untouched by it.
+  expect(document.documentElement.dataset.inspector).toBe('beside')
+  expect(document.documentElement.dataset.targets).toBe('fine')
+  expect(card().classList.contains('compact')).toBe(false)
 })

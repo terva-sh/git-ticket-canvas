@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks'
-import { applyOverrides, chooseDisplay, fitFloor } from '../platform/canvas/viewport'
-import type { DisplayChoices, DisplayOverrides, ViewportFacts } from '../platform/canvas/viewport'
+import { applyOverrides, chooseDisplay, DEFAULT_TOOLBAR_SCALE, fitFloor } from '../platform/canvas/viewport'
+import type { DisplayChoices, DisplayOverrides, ToolbarScale, ViewportFacts } from '../platform/canvas/viewport'
 import { recall, remember } from './displayPreferences'
+import type { StoredDisplay } from './displayPreferences'
 
 /** A viewport nothing has measured yet. Server rendering and a test that never
  * touches a window both land here, and both want the settings a desk monitor
@@ -24,14 +25,20 @@ export interface Display {
   /** What the viewport asked for, before anybody disagreed. Shown beside each
    * control so the choice is legible rather than mysterious. */
   automatic: DisplayChoices
+  /** Only the settings the window chose and somebody disagreed with. */
   overrides: DisplayOverrides
   /** What is actually in force. */
   settings: DisplayChoices
+  /** How big the header bar is. A preference with a default rather than one of
+   * the automatic choices, because nothing about a window suggests an answer. */
+  toolbar: ToolbarScale
   /** How far the opening fit may shrink the board. */
   floor: number
   /** Set one setting, or hand it back to the viewport with null. */
   choose<K extends keyof DisplayChoices>(key: K, value: DisplayChoices[K] | null): void
-  /** Hand every setting back to the viewport. */
+  chooseToolbar(scale: ToolbarScale): void
+  /** Hand every automatic setting back to the viewport. The toolbar size is
+   * not one of them and is left alone. */
   reset(): void
 }
 
@@ -45,7 +52,7 @@ export interface Display {
  */
 export function useDisplay(): Display {
   const [facts, setFacts] = useState<ViewportFacts>(measure)
-  const [overrides, setOverrides] = useState<DisplayOverrides>(recall)
+  const [stored, setStored] = useState<StoredDisplay>(recall)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -66,18 +73,30 @@ export function useDisplay(): Display {
     }
   }, [])
 
+  const { toolbar, ...overrides } = stored
   const automatic = chooseDisplay(facts)
   const settings = applyOverrides(automatic, overrides)
-  const write = (next: DisplayOverrides) => { remember(next); setOverrides(next) }
+  const write = (next: StoredDisplay) => { remember(next); setStored(next) }
   return {
     facts, automatic, overrides, settings,
+    toolbar: toolbar ?? DEFAULT_TOOLBAR_SCALE,
     floor: fitFloor(facts, settings),
     choose(key, value) {
-      const next = { ...overrides }
+      const next = { ...stored }
       if (value === null) delete next[key]
       else next[key] = value
       write(next)
     },
-    reset() { write({}) },
+    chooseToolbar(scale) {
+      const next = { ...stored }
+      // The default is the absence of a record, so somebody who tries a larger
+      // toolbar and goes back leaves nothing behind.
+      if (scale === DEFAULT_TOOLBAR_SCALE) delete next.toolbar
+      else next.toolbar = scale
+      write(next)
+    },
+    // Only the automatic three. A toolbar size is not something the window
+    // asked for, so there is nothing to hand back to it.
+    reset() { write(toolbar ? { toolbar } : {}) },
   }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'preact/hooks'
-import type { DisplayChoices } from '../platform/canvas/viewport'
+import type { DisplayChoices, ToolbarScale } from '../platform/canvas/viewport'
 import type { Display } from './useDisplay'
 
 export interface DisplayDialogProps {
@@ -35,6 +35,12 @@ const CHOICES: [Choice<'density'>, Choice<'inspector'>, Choice<'targets'>] = [
     hint: 'The drag handles and the card controls are sized for a mouse. A finger needs more.',
     options: [{ value: 'fine', label: 'Sized for a mouse' }, { value: 'coarse', label: 'Sized for a finger' }],
   },
+]
+
+const TOOLBAR_SIZES: { value: ToolbarScale; label: string }[] = [
+  { value: 'standard', label: 'Standard' },
+  { value: 'large', label: 'Large' },
+  { value: 'larger', label: 'Larger' },
 ]
 
 function labelOf<K extends keyof DisplayChoices>(choice: Choice<K>, value: DisplayChoices[K]): string {
@@ -86,6 +92,21 @@ export function DisplayDialog({ display, onClose }: DisplayDialogProps) {
           <p class="session-hint display-hint">{choice.hint}</p>
         </div>
       })}
+    </section>
+
+    {/* Its own section, not a fourth row above, because it is a different kind
+      * of setting: nothing about a window suggests an answer, so it has a
+      * default rather than an automatic choice and says so. */}
+    <section class="session-section">
+      <h2>Toolbar</h2>
+      <p class="session-hint">Nothing about a window says how big this row should be &mdash; a 27-inch
+        screen and a 24-inch one report the same width &mdash; so this is yours to set. It changes the
+        header bar only: the board, the cards and the ticket panel keep their own sizes.</p>
+      <div class="display-scale" role="group" aria-label="Toolbar size">
+        {TOOLBAR_SIZES.map(size => <button key={size.value} type="button" class="tool"
+          id={`display-toolbar-${size.value}`} aria-pressed={display.toolbar === size.value}
+          onClick={() => display.chooseToolbar(size.value)}>{size.label}</button>)}
+      </div>
     </section>
 
     <section class="session-section">

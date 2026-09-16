@@ -77,11 +77,34 @@ button { cursor: pointer; }
   padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line);
   z-index: 20; flex-wrap: wrap;
 }
+/* The header bar's own size, set by hand rather than chosen from the window:
+   nothing about a window says how big this row should be, because a 27-inch
+   screen and a 24-inch one report the same width. Scoped to `#toolbar` so the
+   board, the cards and the ticket panel keep their own sizes — the whole point
+   is changing one without the other, which zooming the browser cannot do.
+
+   Each size is at least as large as what a coarse pointer already gets, so
+   turning this up on a tablet never makes a target smaller. */
+html[data-toolbar="large"] #toolbar {
+  font-size: 15px; gap: 11px; padding: 10px 14px;
+  --tool-y: 11px; --tool-x: 15px; --chip-y: 8px; --chip-x: 13px;
+}
+html[data-toolbar="larger"] #toolbar {
+  font-size: 17px; gap: 13px; padding: 12px 16px;
+  --tool-y: 14px; --tool-x: 19px; --chip-y: 11px; --chip-x: 16px;
+}
+/* These carry fixed sizes so they sit quietly beside the controls. Relative
+   units under a scale keeps that relationship instead of freezing them. */
+html[data-toolbar="large"] #toolbar :is(.chip, .badge, .brand span),
+html[data-toolbar="larger"] #toolbar :is(.chip, .badge, .brand span) { font-size: .78em; }
 .brand { font-weight: 600; letter-spacing: .2px; margin-right: 4px; }
 .brand span { color: var(--ink-faint); font-weight: 400; font-family: var(--mono); font-size: 11px; }
 .tool {
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px;
-  padding: 5px 10px; color: var(--ink-dim);
+  /* Through variables so the coarse-pointer sizes and the toolbar size compose
+     rather than fight: whichever element sets them last for a given control
+     wins, and `#toolbar` is the inner one. */
+  padding: var(--tool-y, 5px) var(--tool-x, 10px); color: var(--ink-dim);
 }
 .tool:hover { color: var(--ink); border-color: var(--ink-faint); }
 .tool.primary { background: var(--accent-soft); border-color: transparent; color: var(--ink); }
@@ -92,7 +115,8 @@ input.tool, select.tool { color: var(--ink); }
 .chip-row { display: flex; gap: 4px; align-items: center; }
 .chip {
   border: 1px solid var(--line); background: transparent; border-radius: 999px;
-  padding: 3px 9px; font-size: 11px; color: var(--ink-faint); display: inline-flex; gap: 5px; align-items: center;
+  padding: var(--chip-y, 3px) var(--chip-x, 9px); font-size: 11px;
+  color: var(--ink-faint); display: inline-flex; gap: 5px; align-items: center;
 }
 .chip[aria-pressed="true"] { color: var(--ink); border-color: currentColor; }
 .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
@@ -215,6 +239,19 @@ input.tool, select.tool { color: var(--ink); }
 .session-actor #sessionActor { flex: 1; font-family: var(--mono); }
 .session-error { margin: 8px 0 0; font-size: 12px; color: var(--danger); }
 #sessionLogout { display: inline-block; text-decoration: none; }
+
+/* ---------- display panel ---------- */
+.display-choice { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 10px; margin-bottom: 10px; }
+.display-choice:last-child { margin-bottom: 0; }
+.display-choice > label { align-self: center; color: var(--ink-dim); }
+.display-hint { grid-column: 2; margin: 0; }
+.display-facts { font-family: var(--mono); }
+.display-scale { display: flex; gap: 6px; flex-wrap: wrap; }
+/* The size names are the sizes, so the buttons show what they do. The panel
+   sits outside `#toolbar` and does not inherit its scale, which is what makes
+   the three readable side by side. */
+#display-toolbar-large { font-size: 15px; }
+#display-toolbar-larger { font-size: 17px; }
 .store-browser {
   position: fixed; inset: 56px 12px 12px; z-index: 40; display: grid; grid-template-rows: auto 1fr;
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
@@ -387,8 +424,7 @@ html[data-targets="coarse"] .handle {
    for every pixel of height twice, so these land near it rather than on it:
    about 41px tall for a control, and the handle, which is the one thing that
    has to be hit exactly, gets the full size. */
-html[data-targets="coarse"] .tool { padding: 11px 15px; }
-html[data-targets="coarse"] .chip { padding: 8px 13px; }
+html[data-targets="coarse"] { --tool-y: 11px; --tool-x: 15px; --chip-y: 8px; --chip-x: 13px; }
 html[data-targets="coarse"] .label-more { padding: 7px 11px; }
 html[data-targets="coarse"] .card-placement { padding: 6px 0; }
 
@@ -474,7 +510,7 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
 #composer .muted { margin-top: 6px; display: block; }
 [hidden] { display: none !important; }
 </style>
-  <script type="module" crossorigin src="./assets/index-WvhU2RYQ.js"></script>
+  <script type="module" crossorigin src="./assets/index-B90R4Gx-.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-DcWPIGc4.css">
 </head>
 <body>

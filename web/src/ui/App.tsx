@@ -504,7 +504,8 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
     const root = document.documentElement
     root.dataset.targets = display.settings.targets
     root.dataset.inspector = display.settings.inspector
-  }, [display.settings.targets, display.settings.inspector])
+    root.dataset.toolbar = display.toolbar
+  }, [display.settings.targets, display.settings.inspector, display.toolbar])
 
   useEffect(() => {
     mounted.current = true

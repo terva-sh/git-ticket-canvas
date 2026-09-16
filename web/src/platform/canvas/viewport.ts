@@ -23,6 +23,21 @@ export type InspectorPlacement = 'beside' | 'bottom' | 'over'
 /** How big the things you have to hit are. */
 export type TargetSize = 'fine' | 'coarse'
 
+/**
+ * How big the header bar is.
+ *
+ * Not part of `DisplayChoices`, because nothing about a window suggests an
+ * answer. Physical screen size is not observable: CSS pixels already account
+ * for device pixel ratio, so a 27-inch 4K monitor and a 24-inch 1440p one
+ * report the same width. This is a preference with a default rather than an
+ * automatic choice, and it is presented that way rather than offering an
+ * `Automatic` that means `whatever we picked`.
+ */
+export type ToolbarScale = 'standard' | 'large' | 'larger'
+
+export const TOOLBAR_SCALES: readonly ToolbarScale[] = ['standard', 'large', 'larger']
+export const DEFAULT_TOOLBAR_SCALE: ToolbarScale = 'standard'
+
 export interface DisplayChoices {
   density: Density
   inspector: InspectorPlacement

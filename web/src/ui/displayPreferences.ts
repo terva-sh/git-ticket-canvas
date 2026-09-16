@@ -1,4 +1,5 @@
-import type { DisplayOverrides } from '../platform/canvas/viewport'
+import { TOOLBAR_SCALES } from '../platform/canvas/viewport'
+import type { DisplayOverrides, ToolbarScale } from '../platform/canvas/viewport'
 
 /**
  * What somebody has chosen to disagree with about the automatic display
@@ -19,6 +20,13 @@ import type { DisplayOverrides } from '../platform/canvas/viewport'
  */
 const KEY = 'git-ticket-canvas.display'
 
+/** The stored record. `toolbar` sits beside the overrides rather than among
+ * them: it is a preference with a default, not a disagreement with something
+ * the window asked for. */
+export interface StoredDisplay extends DisplayOverrides {
+  toolbar?: ToolbarScale
+}
+
 const DENSITIES = ['full', 'compact']
 const PLACEMENTS = ['beside', 'bottom', 'over']
 const TARGETS = ['fine', 'coarse']
@@ -38,7 +46,7 @@ function pick<T extends string>(value: unknown, allowed: readonly string[]): T |
 /** The overrides in force, with anything unrecognised dropped rather than
  * trusted: a value this version does not know would otherwise select a layout
  * that does not exist. */
-export function recall(): DisplayOverrides {
+export function recall(): StoredDisplay {
   const held = storage()
   if (!held) return {}
   try {
@@ -47,20 +55,22 @@ export function recall(): DisplayOverrides {
     const parsed: unknown = JSON.parse(raw)
     if (!parsed || typeof parsed !== 'object') return {}
     const record = parsed as Record<string, unknown>
-    const overrides: DisplayOverrides = {}
+    const overrides: StoredDisplay = {}
     const density = pick<'full' | 'compact'>(record.density, DENSITIES)
     if (density) overrides.density = density
     const inspector = pick<'beside' | 'bottom' | 'over'>(record.inspector, PLACEMENTS)
     if (inspector) overrides.inspector = inspector
     const targets = pick<'fine' | 'coarse'>(record.targets, TARGETS)
     if (targets) overrides.targets = targets
+    const toolbar = pick<ToolbarScale>(record.toolbar, TOOLBAR_SCALES)
+    if (toolbar) overrides.toolbar = toolbar
     return overrides
   } catch {
     return {}
   }
 }
 
-export function remember(overrides: DisplayOverrides): void {
+export function remember(overrides: StoredDisplay): void {
   const held = storage()
   if (!held) return
   try {
