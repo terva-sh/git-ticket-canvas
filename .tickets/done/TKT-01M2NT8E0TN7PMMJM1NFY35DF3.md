@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2NT8E0TN7PMMJM1NFY35DF3
 title: Drop the dead class the placement button carried
 type: bug
-status: in-progress
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -17,17 +17,10 @@ origin: null
 dependencies: []
 blocks_on: none
 references: []
-claim:
-  actor: agent:claude/t3code
-  branch: t3code/release-gate-fixes
-  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-acc5e2b7
-  commit: f80f6a24a1ec27f0692a2e151778451f835855e0
-  session: null
-  claimed_at: 2026-09-16T19:14:26Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-16T19:14:21Z
-updated_at: 2026-09-16T19:14:26Z
+updated_at: 2026-09-16T19:16:40Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -49,5 +42,13 @@ Worth recording separately: the unit tests did not see this, and neither did I. 
 
 ## Acceptance criteria
 
-- [ ] just parity-check passes
+- [x] just parity-check passes
 - [x] The placement button still styles, still works, and is still found by its tests
+
+## Summary
+
+The button renders `class="card-placement"`, as the span it replaced did. The `release` half was markup that existed only to be recorded by a test that then disagreed with it: the stylesheet selects `button.card-placement`, the unit tests select `button[data-release]` and the element's tag, and nothing selected `.release`.
+
+The dense-scene reference was right and the markup was wrong. A card's metadata rows did not change — a span became a button in the same row — and the reference records the class of each row, so recording the new class would have written the mistake down instead of removing it.
+
+`just parity-check` passes, including the browser suite that found this. Worth carrying forward: `just check` does not run that suite, so a change to the card or the toolbar can pass everything I normally run and still fail the release gate.
