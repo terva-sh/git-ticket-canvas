@@ -17,6 +17,7 @@ const signedIn: SessionResponse = {
   groups: ['Brokkr Ticket Ledger Admin', 'Everyone'],
   granted: ['Brokkr Ticket Ledger Admin'],
   wouldGrant: [],
+  admin: false,
   logout: '/auth/logout',
 }
 const suggested: ActorResponse = { actor: 'human:drew', chosen: false, declared: [], enforced: false }
@@ -126,4 +127,32 @@ it('the toolbar offers no account button without a session', () => {
 
   act(() => render(<Toolbar {...props} account={{ name: 'Drew Short', onOpen: () => {} }} />, root))
   expect(element('#btnAccount').textContent).toBe('Drew Short')
+})
+
+// grants.Admin has been in the vocabulary since the first version and gated
+// nothing. The browser offers the view from this and from nothing else.
+it('offers no administration to somebody who does not administer', () => {
+  show()
+  expect(root.querySelector('.session-people')).toBeNull()
+})
+
+it('lists who has signed in, with the groups they last carried', () => {
+  show({
+    session: { ...signedIn, admin: true },
+    people: [
+      { subject: 'sub-a', name: 'Drew Short', email: 'drew@example.com',
+        groups: ['Ledger Admin'], firstSeen: '2026-09-01T00:00:00Z', lastSeen: new Date().toISOString(),
+        actors: { ledger: 'human:sothr' } },
+      // Somebody who signed in carrying nothing: a provider problem rather
+      // than a grant problem, and the list has to make that visible.
+      { subject: 'sub-b', name: 'Robin', firstSeen: '2026-09-02T00:00:00Z', lastSeen: '2026-09-02T00:00:00Z' },
+    ],
+  })
+  const rows = [...root.querySelectorAll('.person')]
+  expect(rows).toHaveLength(2)
+  expect(rows[0].querySelector('.person-name')!.textContent).toBe('Drew Short')
+  expect(rows[0].querySelector('.person-groups')!.textContent).toBe('Ledger Admin')
+  expect(rows[0].querySelector('.person-actor')!.textContent).toContain('human:sothr')
+  expect(rows[1].querySelector('.person-groups')!.textContent).toBe('carried no groups')
+  expect(element('.session-people summary').textContent).toContain('(2)')
 })

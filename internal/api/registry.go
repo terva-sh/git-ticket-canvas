@@ -16,6 +16,7 @@ import (
 	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
 	"github.com/terva-sh/git-ticket-canvas/internal/config"
 	"github.com/terva-sh/git-ticket-canvas/internal/discover"
+	"github.com/terva-sh/git-ticket-canvas/internal/people"
 	"github.com/terva-sh/git-ticket-canvas/internal/state"
 	"github.com/terva-sh/git-ticket/ticket"
 )
@@ -171,6 +172,9 @@ type RegistryOptions struct {
 	// runs again. A zero value refuses the route, which is what a registry
 	// built by a test wants.
 	Rescan RescanSource
+	// People is every account that has signed in, or nil where nothing records
+	// them. Read by administrators and by nobody else.
+	People *people.Directory
 	// Logout is the path that ends a session, or empty where nothing can.
 	// It is passed through so that the registry keeps knowing nothing about how
 	// somebody logged in; the Access seam exists for the same reason.
@@ -218,6 +222,13 @@ type Access interface {
 	// be the store list wearing a different hat, and the store list is a
 	// permission boundary.
 	Granting(store string) []string
+	// IsAdmin reports whether this caller administers the canvas.
+	//
+	// It is deliberately not a role on a store. Administration here is about
+	// the canvas rather than about any repository, and CanRead does not consult
+	// it: an administrator who wants to read a store grants it to themselves,
+	// which leaves a record, where implicit access would leave none.
+	IsAdmin(c Caller) bool
 }
 
 // Caller is one authenticated person, as much of them as the registry carries.
@@ -941,6 +952,9 @@ func (r *Registry) Handler() http.Handler {
 	// answer to give here — that nobody is signed in — and the browser needs it
 	// to know whether to offer the control at all.
 	mux.HandleFunc("GET /api/session", r.handleSession)
+	if r.opts.Access != nil {
+		mux.HandleFunc("GET /api/people", r.handlePeople)
+	}
 	mux.HandleFunc("/api/stores/{store}/", r.handleStore)
 	mux.HandleFunc("GET /api/version", r.handleVersion)
 	mux.HandleFunc("/api/", r.handleFlat)

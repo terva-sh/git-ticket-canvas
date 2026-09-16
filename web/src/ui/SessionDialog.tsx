@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
-import type { ActorResponse, SessionResponse } from '../platform/tickets/types'
+import type { ActorResponse, PersonResponse, SessionResponse } from '../platform/tickets/types'
 
 export interface SessionDialogProps {
   session: SessionResponse
@@ -10,8 +10,23 @@ export interface SessionDialogProps {
   /** A refusal from the last attempt to set an actor, already made readable. */
   actorError?: string
   busy?: boolean
+  /** Everybody who has signed in. Undefined while in flight, null where this
+   * caller does not administer the canvas or the fetch failed. */
+  people?: PersonResponse[] | null
   onActor(actor: string): void
   onClose(): void
+}
+
+/** A timestamp as something a person reads, falling back to the raw value
+ * rather than inventing one. */
+function when(iso: string): string {
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return iso
+  const days = Math.floor((Date.now() - at.getTime()) / 86_400_000)
+  if (days <= 0) return 'today'
+  if (days === 1) return 'yesterday'
+  if (days < 30) return `${days} days ago`
+  return at.toLocaleDateString()
 }
 
 /** What to call somebody when the provider sent no display name. */
@@ -106,6 +121,34 @@ export function SessionDialog(p: SessionDialogProps) {
           onClick={() => p.onActor(draft.trim())}>Save</button>
       </div>
       {p.actorError && <p class="session-error" role="alert">{p.actorError}</p>}
+    </section>}
+
+    {p.session.admin && <section class="session-section">
+      <h2>Administration</h2>
+      <details class="session-people">
+        <summary>Who has signed in{p.people ? ` (${p.people.length})` : ''}</summary>
+        {p.people === undefined && <p class="session-hint">Loading.</p>}
+        {p.people === null && <p class="session-hint">That could not be read.</p>}
+        {p.people && p.people.length === 0 && <p class="session-hint">Nobody yet but you.</p>}
+        {p.people && p.people.length > 0 && <ul class="person-list">
+          {p.people.map(person => <li key={person.subject} class="person">
+            <div class="person-head">
+              <span class="person-name">{person.name || person.email || person.subject}</span>
+              <span class="person-seen" title={`First seen ${person.firstSeen}`}>{when(person.lastSeen)}</span>
+            </div>
+            {person.email && person.name && <div class="person-email">{person.email}</div>}
+            <div class="person-groups">
+              {person.groups?.length
+                ? person.groups.join(', ')
+                // The diagnosis this list exists for: somebody who signed in
+                // carrying nothing is a provider problem, not a grant problem.
+                : 'carried no groups'}
+            </div>
+            {person.actors && Object.entries(person.actors).map(([store, actor]) =>
+              <div key={store} class="person-actor">writes as <code>{actor}</code> on <code>{store}</code></div>)}
+          </li>)}
+        </ul>}
+      </details>
     </section>}
 
     {p.session.logout && <section class="session-section">

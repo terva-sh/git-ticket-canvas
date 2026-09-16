@@ -137,6 +137,9 @@ export interface SessionResponse {
   /** Groups the person is not in that would grant access on a store they can
    * already read. The half of a misspelling their own list cannot show. */
   wouldGrant: string[]
+  /** Whether this person administers the canvas, which is the only thing the
+   * browser uses to decide whether to offer an administrative view. */
+  admin: boolean
   logout?: string
 }
 
@@ -148,3 +151,18 @@ export interface ActorResponse {
   declared?: string[]
   enforced: boolean
 }
+
+/** One account an administrator can see. */
+export interface PersonResponse {
+  subject: string
+  name?: string
+  email?: string
+  /** What their token carried at their most recent login. */
+  groups?: string[]
+  firstSeen: string
+  lastSeen: string
+  /** The actor id they write as, per store. */
+  actors?: Record<string, string>
+}
+
+export interface PeopleResponse { people: PersonResponse[] }

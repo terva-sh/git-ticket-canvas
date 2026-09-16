@@ -17,6 +17,9 @@ import (
 // any of them, so that none of the three has to know what a canvas is.
 type access struct {
 	table grants.Grants
+	// admins are identity-provider groups, from configuration and from nowhere
+	// else. Nothing the canvas serves can change this set.
+	admins map[string]bool
 }
 
 // Caller identifies a request from the identity the guard put on its context.
@@ -62,3 +65,13 @@ func (a access) CanRead(c api.Caller, store string) bool {
 // Granting is the grant table's own answer, unfiltered. Deciding who may ask is
 // the handler's job: it asks only about a store the caller already reads.
 func (a access) Granting(store string) []string { return a.table.Granting(store) }
+
+// IsAdmin reports whether any of this person's groups administers the canvas.
+func (a access) IsAdmin(c api.Caller) bool {
+	for _, group := range c.Groups {
+		if a.admins[group] {
+			return true
+		}
+	}
+	return false
+}

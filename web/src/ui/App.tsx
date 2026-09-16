@@ -5,7 +5,7 @@ import type { CommittedSampling, SamplingPublication } from './canvas/committedS
 import { TicketClient, RegistryClient, ApiError, storeBase } from '../platform/tickets/client'
 import { TicketStore, LayoutWriter } from '../platform/tickets/store'
 import { LiveUpdates, type LiveStatus } from '../platform/tickets/live'
-import type { ActorResponse, CardChanges, Cards, Frame, Op, SessionResponse, StoreSummary, Ticket, VersionInfo } from '../platform/tickets/types'
+import type { ActorResponse, CardChanges, PersonResponse, Cards, Frame, Op, SessionResponse, StoreSummary, Ticket, VersionInfo } from '../platform/tickets/types'
 import { FrameHistory, applyFrameOperation, assertFrameOperation, createFrame, moveFrame, resizeFrame, updateFrame, deleteFrame, setMembership } from '../platform/canvas/frames'
 import type { FrameOperation, FrameState, Point } from '../platform/canvas/frames'
 import type { Density } from '../platform/canvas/geometry'
@@ -55,6 +55,7 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
   const [actor, setActor] = useState<ActorResponse | null | undefined>(undefined)
   const [actorError, setActorError] = useState<string | undefined>(undefined)
   const [actorBusy, setActorBusy] = useState(false)
+  const [peopleList, setPeopleList] = useState<PersonResponse[] | null | undefined>(undefined)
   // The stores looked at this session, most recent first. Session state, like
   // the relationship mode: the durable record of what matters is the favorites.
   const recent = useRef<string[]>([])
@@ -377,6 +378,16 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       .catch(() => { if (!cancelled) setActor(null) })
     return () => { cancelled = true }
   }, [account, storeId, registry, session?.authenticated])
+  // Only an administrator can read this, and only while the dialog is open.
+  useEffect(() => {
+    if (!account || !session?.admin) return
+    let cancelled = false
+    setPeopleList(undefined)
+    void registry.people()
+      .then(answer => { if (!cancelled) setPeopleList(answer.people) })
+      .catch(() => { if (!cancelled) setPeopleList(null) })
+    return () => { cancelled = true }
+  }, [account, registry, session?.admin])
   const chooseActor = async (wanted: string) => {
     if (!storeId) return
     setActorBusy(true); setActorError(undefined)
@@ -515,7 +526,7 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
         onOpen: () => setAccount(true) } : undefined}
       onNew={() => canvas.current?.composeCentre()} onFit={() => canvas.current?.fit()} onArrange={arrange} /></div>
     {account && session?.authenticated && <SessionDialog session={session} store={storeId || ''}
-      actor={actor} actorError={actorError} busy={actorBusy}
+      actor={actor} actorError={actorError} busy={actorBusy} people={peopleList}
       onActor={wanted => { void chooseActor(wanted) }} onClose={() => setAccount(false)} />}
     {browsing && <StoreBrowser stores={stores} current={storeId} busy={rescanning}
       onOpen={openStore} onFavorite={(name, favorite) => { void toggleFavorite(name, favorite) }}

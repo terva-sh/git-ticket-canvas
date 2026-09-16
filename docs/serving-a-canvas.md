@@ -16,12 +16,15 @@ changes and never commits them, so several people writing into one working tree
 produce a state where the next `git commit` sweeps up several people's edits
 under one name.
 
-There is no administration interface. Grants are what the configuration file
-says, and changing them is editing the file and restarting. `POST
-/api/stores/rescan` is refused for the same reason.
+Grants are what the configuration file says, and changing them is editing the
+file and restarting. `POST /api/stores/rescan` is refused for the same reason.
+The only administrative surface is reading the list of people who have signed
+in; nothing about a grant can be changed through the canvas.
 
-There is no user directory. The canvas learns that somebody exists when they
-log in, and grants are to identity-provider groups rather than to people.
+Grants are to identity-provider groups rather than to people. The canvas does
+keep a directory, in the sense that it records everybody who has signed in, but
+nothing is granted to an entry in it and nothing reads it except an
+administrator. See *Who has signed in* below.
 
 ## A minimum configuration
 
@@ -154,8 +157,9 @@ where the people involved already have accounts on the same canvas.
 
 ### Reading the record
 
-`${XDG_STATE_HOME:-~/.local/state}/git-ticket-canvas/actors.json`, beside the
-favorites file and deliberately not in it: a bug in the favorites path must not
+`${XDG_STATE_HOME:-~/.local/state}/git-ticket-canvas/actors.json` on Linux,
+`~/Library/Application Support/git-ticket-canvas` on macOS and `%LOCALAPPDATA%`
+on Windows, beside the favorites file and deliberately not in it: a bug in the favorites path must not
 be able to rewrite who wrote what. `--state` moves both.
 
 It holds every current binding and an append-only list of every claim and every
@@ -177,6 +181,42 @@ Unchanged. `git-ticket-canvas` resolves one actor when a store opens, from
 `--actor` or the store's own `config.yml`, and accepts an id the store does not
 list so that `--actor me@example.com` keeps working in a store that never
 declared one. It has no actor route at all.
+
+## Who has signed in
+
+Name a group in the configuration and its members administer this canvas:
+
+```yaml
+admins:
+  - "Brokkr Ticket Ledger Admin"
+```
+
+This is the one grant nothing served can change, which is what disposes of the
+last-administrator problem: no sequence of requests can leave the canvas with
+nobody able to administer it, because no request can change who can.
+
+**An administrator reads no store they were not granted.** Seeing who uses the
+canvas is not seeing what they read. An administrator who wants a store grants
+it to themselves, in the file, which leaves a record where implicit access
+would leave none.
+
+What they can see is the account panel's *Administration* section, or
+`GET /api/people`: everybody who has signed in, when they were first and last
+seen, the name and email their provider sent, the groups their token carried at
+their most recent login, and the actor id they write as on each store.
+
+The groups are the field worth having. A store that nobody can see because
+every grant on it is misspelled cannot be diagnosed from any one person's own
+account panel, because a store nobody can read is invisible to everybody. "They
+signed in yesterday carrying these three groups and none of them granted
+anything" is the evidence, and it only exists here.
+
+`${XDG_STATE_HOME:-~/.local/state}/git-ticket-canvas/people.json` holds it, 0600
+beside the actor record. It carries names and email addresses, which is more
+than the rest of that directory does, and like the actor record a file that will
+not parse stops the canvas rather than starting empty.
+
+A canvas with no `admins:` says so at startup and has no administrator at all.
 
 ## Sessions
 

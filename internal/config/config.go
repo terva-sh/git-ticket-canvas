@@ -112,6 +112,15 @@ type Config struct {
 	// have to repeat it. It grants nothing at all on its own: a store honours a
 	// group by name or does not have it.
 	Roles map[string]string `yaml:"roles,omitempty"`
+	// Admins names identity-provider groups whose members administer this
+	// canvas. It is the only grant that cannot be changed through anything the
+	// canvas serves, which is what disposes of the last-administrator problem:
+	// no sequence of requests can leave nobody able to administer it, because
+	// no request can change who can.
+	//
+	// An administrator reads no store they were not granted. Seeing who uses
+	// the canvas is not seeing what they read.
+	Admins []string `yaml:"admins,omitempty"`
 	// ExcludeDefaults turns the built-in list off when set to false, which is
 	// how Exclude is replaced rather than extended. A nil pointer means unset,
 	// and unset means the defaults apply.
@@ -172,7 +181,7 @@ func Load(file, env string, flags []string, base string) (Config, error) {
 			return Config{}, err
 		}
 		cfg.Roots, cfg.Exclude = parsed.Roots, parsed.Exclude
-		cfg.Identity, cfg.Roles = parsed.Identity, parsed.Roles
+		cfg.Identity, cfg.Roles, cfg.Admins = parsed.Identity, parsed.Roles, parsed.Admins
 		for _, s := range parsed.Stores {
 			entries = append(entries, entry{s, fromFile})
 		}

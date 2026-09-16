@@ -130,3 +130,37 @@ func TestAMisspelledGrantKeyIsRefused(t *testing.T) {
 		t.Error("a misspelled grant key was accepted, so the store would have been silently private")
 	}
 }
+
+// Load copies fields across one at a time, so a field added to Config and not
+// to Load parses correctly and then silently does not arrive. That happened to
+// admins once; this is so it cannot happen again unnoticed.
+func TestLoadCarriesTheAdministrators(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "canvas.yml")
+	if err := os.WriteFile(path, []byte(`
+identity:
+  issuer: https://id.example.com/
+  clientId: canvas
+  baseUrl: https://canvas.example.com
+admins:
+  - "Canvas Admin"
+roles:
+  "Readers": reader
+stores:
+  - name: one
+    path: `+dir+`
+    honourGroups: ["Readers"]
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path, "", nil, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Admins) != 1 || cfg.Admins[0] != "Canvas Admin" {
+		t.Errorf("admins = %v, want the group the file named", cfg.Admins)
+	}
+	if len(cfg.Roles) != 1 {
+		t.Errorf("roles = %v", cfg.Roles)
+	}
+}

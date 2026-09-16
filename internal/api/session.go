@@ -38,6 +38,9 @@ type sessionResponse struct {
 	// configuration mentions would disclose the group names this canvas knows,
 	// and a group name implies the store it grants on.
 	WouldGrant []string `json:"wouldGrant"`
+	// Admin is whether this person administers the canvas, which is what the
+	// browser uses to decide whether to offer an administrative view at all.
+	Admin bool `json:"admin"`
 	// Logout is the path that ends this session, passed through rather than
 	// built here so that the registry keeps knowing nothing about how somebody
 	// logged in.
@@ -69,6 +72,7 @@ func (r *Registry) handleSession(w http.ResponseWriter, req *http.Request) {
 		Groups:        append([]string{}, caller.Groups...),
 		Granted:       r.grantingGroups(caller),
 		WouldGrant:    r.unmatchedGroups(caller),
+		Admin:         r.opts.Access.IsAdmin(caller),
 		Logout:        r.opts.Logout,
 	})
 }

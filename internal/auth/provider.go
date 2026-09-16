@@ -67,6 +67,14 @@ type Config struct {
 	// Scopes are requested beyond openid, profile and email. A provider that
 	// puts group membership behind its own scope is named here.
 	Scopes []string
+	// OnLogin is called once with each successful login, before the browser is
+	// sent back into the canvas.
+	//
+	// It is a hook so that this package keeps knowing only how to authenticate
+	// somebody. Whatever is recorded about people is somebody else's concern,
+	// and a failure to record is not a reason to refuse a login: the hook
+	// returns nothing and is expected to deal with its own problems.
+	OnLogin func(Identity)
 	// GroupsClaim is the ID token claim holding group names. Empty takes
 	// DefaultGroupsClaim.
 	GroupsClaim string
@@ -291,6 +299,9 @@ func (p *Provider) Callback(w http.ResponseWriter, req *http.Request) {
 	// it existed the identity provider's own event log was the whole audit
 	// trail, which put it in a different system from the thing being read.
 	log.Printf("login  %s", identity.Describe())
+	if p.cfg.OnLogin != nil {
+		p.cfg.OnLogin(identity)
+	}
 	p.clearCookie(w, attemptCookie)
 	p.setCookie(w, SessionCookie, id, 0)
 	http.Redirect(w, req, returnTo, http.StatusFound)

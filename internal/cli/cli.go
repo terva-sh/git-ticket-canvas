@@ -33,6 +33,7 @@ import (
 	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
 	"github.com/terva-sh/git-ticket-canvas/internal/config"
 	"github.com/terva-sh/git-ticket-canvas/internal/discover"
+	"github.com/terva-sh/git-ticket-canvas/internal/people"
 	"github.com/terva-sh/git-ticket-canvas/internal/state"
 	"github.com/terva-sh/git-ticket-canvas/web"
 )
@@ -302,7 +303,7 @@ func Run(kind Kind, args []string) error {
 
 	// Who may see what, and who is asking. A desk canvas builds neither, and
 	// the registry's nil Access is that canvas: one person, every store.
-	guard, gate, bound, err := signOn(kind, cfg, beside(stateHome, actors.FileName))
+	guard, gate, bound, seen, err := signOn(kind, cfg, beside(stateHome, actors.FileName), beside(stateHome, people.FileName))
 	if err != nil {
 		return err
 	}
@@ -324,6 +325,7 @@ func Run(kind Kind, args []string) error {
 		State:       remembered,
 		Access:      gate,
 		Actors:      bound,
+		People:      seen,
 		// Empty on a desk canvas, where there is no session to end.
 		Logout: logout,
 	})

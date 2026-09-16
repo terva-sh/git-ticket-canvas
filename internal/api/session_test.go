@@ -16,6 +16,7 @@ type groupAccess struct {
 	caller Caller
 	// byGroup is the stores each group can read.
 	byGroup map[string][]string
+	admin   bool
 }
 
 func (g *groupAccess) Caller(*http.Request) (Caller, bool) { return g.caller, true }
@@ -40,6 +41,8 @@ func (g *groupAccess) Granting(store string) []string {
 	slices.Sort(groups)
 	return groups
 }
+
+func (g *groupAccess) IsAdmin(Caller) bool { return g.admin }
 
 func sessionServer(t *testing.T, access Access, stores int) *httptest.Server {
 	t.Helper()

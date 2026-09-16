@@ -24,6 +24,7 @@ type fakeAccess struct {
 	anonymous bool
 	holds     map[string]bool
 	granting  map[string][]string
+	admin     bool
 }
 
 func (a *fakeAccess) Caller(*http.Request) (Caller, bool) {
@@ -38,6 +39,8 @@ func (a *fakeAccess) CanRead(_ Caller, store string) bool { return a.holds[store
 // granting is what the configuration names on a store, whether or not this
 // caller is in any of it.
 func (a *fakeAccess) Granting(store string) []string { return a.granting[store] }
+
+func (a *fakeAccess) IsAdmin(Caller) bool { return a.admin }
 
 // same reports whether two refusals are the same refusal, with the name each
 // one echoes back taken out.

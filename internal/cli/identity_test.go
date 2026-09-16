@@ -119,7 +119,7 @@ func TestTheDeskCanvasIgnoresAConfiguredProvider(t *testing.T) {
 
 	// The desk canvas builds no sign-on from it and no grant table, so its
 	// registry sees the nil Access that means one person and every store.
-	wrap, gate, bound, err := signOn(Desk, cfg, filepath.Join(t.TempDir(), "actors.json"))
+	wrap, gate, bound, _, err := signOn(Desk, cfg, filepath.Join(dir, "actors.json"), filepath.Join(dir, "people.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,8 @@ func TestAServedCanvasBuildsSignOnWithoutContactingTheIssuer(t *testing.T) {
 			Roles: map[string]string{"Brokkr Staff": "reader"},
 		}},
 	}
-	wrap, gate, bound, err := signOn(Served, cfg, filepath.Join(t.TempDir(), "actors.json"))
+	dir := t.TempDir()
+	wrap, gate, bound, _, err := signOn(Served, cfg, filepath.Join(dir, "actors.json"), filepath.Join(dir, "people.json"))
 	if err != nil {
 		t.Fatalf("the sign-on could not be built against an unreachable issuer: %v", err)
 	}

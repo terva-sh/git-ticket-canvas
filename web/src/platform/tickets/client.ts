@@ -1,5 +1,5 @@
 import { syncHeaders, type SyncMetadata } from './sync'
-import type { ActorResponse, Board, BoardResponse, CreateRequest, DeleteResponse, ErrorBody, FavoritesResponse, LayoutRequest, PatchRequest, RescanResponse, Schema, SessionResponse, StoresResponse, TicketResponse, VersionInfo } from './types'
+import type { ActorResponse, Board, PeopleResponse, BoardResponse, CreateRequest, DeleteResponse, ErrorBody, FavoritesResponse, LayoutRequest, PatchRequest, RescanResponse, Schema, SessionResponse, StoresResponse, TicketResponse, VersionInfo } from './types'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, public readonly body: ErrorBody) {
@@ -110,6 +110,7 @@ export class RegistryClient {
   }
   rescan() { return this.read<RescanResponse>('/api/stores/rescan', { method: 'POST' }) }
   session() { return this.read<SessionResponse>('/api/session') }
+  people() { return this.read<PeopleResponse>('/api/people') }
   actor(store: string) {
     return this.read<ActorResponse>(`/api/stores/${encodeURIComponent(store)}/actor`)
   }
