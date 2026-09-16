@@ -398,3 +398,48 @@ func TestDirFollowsXDG(t *testing.T) {
 		t.Errorf("Dir() = %q, want the default under the home directory", got)
 	}
 }
+
+// Every branch, on one machine. Three of these are unreachable on any given
+// platform if the resolver reads runtime.GOOS directly, which for a path is how
+// a release ships writing somewhere nobody looks.
+func TestTheStateDirectoryFollowsThePlatform(t *testing.T) {
+	const home = "/home/person"
+	for _, c := range []struct {
+		name, goos, xdg, localAppData, home, want string
+	}{
+		{"macOS ignores XDG", "darwin", "/xdg", "", home,
+			"/home/person/Library/Application Support/git-ticket-canvas"},
+		{"Windows takes LOCALAPPDATA", "windows", "", `C:\Users\p\AppData\Local`, home,
+			filepath.Join(`C:\Users\p\AppData\Local`, "git-ticket-canvas")},
+		{"Windows without it falls back", "windows", "", "", home,
+			filepath.Join(home, ".local", "state", "git-ticket-canvas")},
+		{"Linux takes an absolute XDG", "linux", "/xdg", "", home, "/xdg/git-ticket-canvas"},
+		// The specification says relative values are ignored, and a relative
+		// state directory would put the actor record wherever the canvas
+		// happened to be started from.
+		{"Linux ignores a relative XDG", "linux", "relative/path", "", home,
+			filepath.Join(home, ".local", "state", "git-ticket-canvas")},
+		{"Linux without XDG", "linux", "", "", home,
+			filepath.Join(home, ".local", "state", "git-ticket-canvas")},
+		{"nothing to go on", "linux", "", "", "", ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if got := dirFor(c.goos, c.xdg, c.localAppData, c.home); got != c.want {
+				t.Errorf("dirFor(%q, %q, %q, %q) = %q, want %q",
+					c.goos, c.xdg, c.localAppData, c.home, got, c.want)
+			}
+		})
+	}
+}
+
+// macOS and Windows resolve somewhere new, so a canvas that ran before must not
+// look as though it has never run. Nothing is moved; the old place is found.
+func TestTheLegacyDirectoryIsStillFindable(t *testing.T) {
+	legacy, err := LegacyDir()
+	if err != nil {
+		t.Skip("no home directory here")
+	}
+	if !strings.HasSuffix(filepath.ToSlash(legacy), ".local/state/"+Product) {
+		t.Errorf("LegacyDir() = %q", legacy)
+	}
+}

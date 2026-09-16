@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -89,21 +90,70 @@ type stored struct {
 	LastStore string   `json:"lastStore,omitempty"`
 }
 
-// Dir is where the state file lives.
+// Dir is where the canvas keeps what it remembers between runs: the favorites
+// and last-store state, the actor bindings, and the people record.
 //
-// XDG_STATE_HOME when it is set to an absolute path, and ~/.local/state
-// otherwise, which is what the specification says and what every other tool on
-// the machine does.
+// The resolution is terva's, in packages/envcompat/envcompat.go, because these
+// are the same kind of thing on the same machines and two tools inventing two
+// conventions is how a person ends up looking in the wrong place.
 func Dir() (string, error) {
-	if dir := os.Getenv("XDG_STATE_HOME"); filepath.IsAbs(dir) {
-		return filepath.Join(dir, "git-ticket-canvas"), nil
-	}
 	home, err := os.UserHomeDir()
+	if err != nil {
+		// Only fatal where nothing else answers. Windows and XDG both have a
+		// variable that does not need a home directory at all.
+		home = ""
+	}
+	if dir := dirFor(runtime.GOOS, os.Getenv("XDG_STATE_HOME"), os.Getenv("LOCALAPPDATA"), home); dir != "" {
+		return dir, nil
+	}
 	if err != nil {
 		return "", fmt.Errorf("finding the state directory: %w", err)
 	}
-	return filepath.Join(home, ".local", "state", "git-ticket-canvas"), nil
+	return "", errors.New("finding the state directory: no home directory and no state variable is set")
 }
+
+// dirFor is the resolution itself, with the platform passed in.
+//
+// It is an argument rather than runtime.GOOS so that all four branches are
+// testable on one machine. The alternative is three of them being untested
+// everywhere, which for a path is how a release ships writing to somewhere
+// nobody looks.
+func dirFor(goos, xdgState, localAppData, home string) string {
+	switch goos {
+	case "darwin":
+		if home != "" {
+			return filepath.Join(home, "Library", "Application Support", Product)
+		}
+	case "windows":
+		if localAppData != "" {
+			return filepath.Join(localAppData, Product)
+		}
+	}
+	if filepath.IsAbs(xdgState) {
+		return filepath.Join(xdgState, Product)
+	}
+	if home != "" {
+		return filepath.Join(home, ".local", "state", Product)
+	}
+	return ""
+}
+
+// LegacyDir is where every platform used to look, and where a canvas that ran
+// before this resolution existed left its files.
+//
+// Nothing here moves them. actors.json is the one file in this directory that
+// cannot be reconstructed, and relocating somebody's record of who wrote what
+// without being asked is how a record is lost.
+func LegacyDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".local", "state", Product), nil
+}
+
+// Product names this tool's directory on every platform.
+const Product = "git-ticket-canvas"
 
 // Store reads and writes one state file.
 //
@@ -296,4 +346,33 @@ func (s *Store) saveLocked() error {
 		return err
 	}
 	return os.Rename(name, s.path)
+}
+
+// InUse is the directory this canvas will actually keep things in, and a note
+// where that is not the conventional one for the platform.
+//
+// A canvas that ran before the per-platform resolution existed left files in
+// ~/.local/state on macOS and Windows too. Those are found and kept using
+// rather than moved: actors.json is the one file here that cannot be
+// reconstructed, and relocating somebody's record of who wrote what without
+// being asked is how a record is lost. The note is so that the choice is
+// visible rather than mysterious.
+func InUse() (dir, note string, err error) {
+	conventional, err := Dir()
+	if err != nil {
+		return "", "", err
+	}
+	if _, statErr := os.Stat(conventional); statErr == nil {
+		return conventional, "", nil
+	}
+	legacy, legacyErr := LegacyDir()
+	if legacyErr != nil || legacy == conventional {
+		return conventional, "", nil
+	}
+	if _, statErr := os.Stat(legacy); statErr != nil {
+		return conventional, "", nil
+	}
+	return legacy, fmt.Sprintf(
+		"keeping state in %s, where an earlier canvas left it; %s is the conventional place on this platform, "+
+			"and nothing moves files between them on its own", legacy, conventional), nil
 }

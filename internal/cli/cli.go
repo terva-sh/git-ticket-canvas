@@ -279,7 +279,13 @@ func Run(kind Kind, args []string) error {
 	}
 	// Favorites and the store last used live outside every repository, and are
 	// what the registry opens at startup so the common case is already warm.
-	remembered, warning := openState(*statePath)
+	// Resolved once, so a legacy directory is mentioned once rather than by
+	// every helper that needs the path.
+	stateHome, stateNote := stateDir(*statePath)
+	if stateNote != "" {
+		log.Printf("note   %s", stateNote)
+	}
+	remembered, warning := openState(*statePath, stateHome)
 	if warning != "" {
 		log.Printf("warn   %s", warning)
 	}
@@ -296,7 +302,7 @@ func Run(kind Kind, args []string) error {
 
 	// Who may see what, and who is asking. A desk canvas builds neither, and
 	// the registry's nil Access is that canvas: one person, every store.
-	guard, gate, bound, err := signOn(kind, cfg, beside(*statePath, actors.FileName))
+	guard, gate, bound, err := signOn(kind, cfg, beside(stateHome, actors.FileName))
 	if err != nil {
 		return err
 	}
@@ -434,15 +440,24 @@ func reportStores(registry *api.Registry) error {
 // already created 0700 and is already outside every repository. Keeping the two
 // apart means a bug in the favorites path cannot rewrite who wrote what; keeping
 // them together means one --state moves both.
-func beside(statePath, name string) string {
-	if statePath != "" {
-		return filepath.Join(filepath.Dir(statePath), name)
-	}
-	dir, err := state.Dir()
-	if err != nil {
+func beside(stateHome, name string) string {
+	if stateHome == "" {
 		return ""
 	}
-	return filepath.Join(dir, name)
+	return filepath.Join(stateHome, name)
+}
+
+// stateDir is the directory every remembered thing lives in, and a note where
+// that is not the conventional one for this platform.
+func stateDir(statePath string) (string, string) {
+	if statePath != "" {
+		return filepath.Dir(statePath), ""
+	}
+	dir, note, err := state.InUse()
+	if err != nil {
+		return "", ""
+	}
+	return dir, note
 }
 
 // openState opens the file the canvas remembers favorites in.
@@ -450,13 +465,12 @@ func beside(statePath, name string) string {
 // A canvas that cannot find a state directory still runs, keeping nothing. That
 // is a degraded canvas rather than a broken one, and refusing to start over a
 // missing home directory would be the wrong trade.
-func openState(path string) (*state.Store, string) {
+func openState(path, stateHome string) (*state.Store, string) {
 	if path == "" {
-		dir, err := state.Dir()
-		if err != nil {
-			return nil, fmt.Sprintf("favorites are not being kept: %v", err)
+		if stateHome == "" {
+			return nil, "favorites are not being kept: no state directory could be resolved"
 		}
-		path = filepath.Join(dir, state.FileName)
+		path = filepath.Join(stateHome, state.FileName)
 	}
 	return state.Open(path)
 }
