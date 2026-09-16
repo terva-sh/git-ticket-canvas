@@ -128,8 +128,18 @@ arrive. Failed uploads leave a draft for inspection; reruns do not overwrite a
 release silently. Decide whether to delete the failed draft before rerunning.
 Never move an already-published tag to repair a release. Fix forward instead.
 
-The public image is Linux amd64, matching git-ticket's image target. It uses the
-verified archive bytes, not a second Go build. Before image upload, the workflow
+Every archive carries both commands, `git-ticket-canvas` and
+`git-ticket-canvas-server`, and `scripts/verify-release.py` runs each one's own
+refusal against the built artifact before an upload: the desk canvas must refuse
+a non-loopback address, and the served canvas must refuse to start with no
+identity provider. That is what catches a build that shipped the same binary
+twice, which no Go test can see.
+
+The public image is Linux amd64, matching git-ticket's image target. It ships
+both commands and defaults to the desk one, which needs
+`-unsafe-publish-without-authentication` because a process in a container has to
+bind 0.0.0.0 and cannot see whether the host mapped that port to a loopback
+address. It uses the verified archive bytes, not a second Go build. Before image upload, the workflow
 compares a downloaded public archive with those input bytes. Exact stable tags
 also move the minor and latest aliases; prereleases move only their exact alias.
 Image checks precede upload and a registry pull checks version metadata afterward.

@@ -27,12 +27,16 @@ def main():
         for name in ("node", "npm", "npx"):
             if shutil.which(name, path=env["PATH"]):
                 raise RuntimeError(f"{name} must not be on the build PATH")
-        for args in (["build", "-o", str(binaries / "built"), "."], ["install", "."]):
+        server = "./cmd/git-ticket-canvas-server"
+        for args in (["build", "-o", str(binaries / "built"), "."],
+                     ["build", "-o", str(binaries / "built-server"), server],
+                     ["install", "."], ["install", server]):
             subprocess.run([str(tools / "go"), *args], cwd=source, env=env, check=True, timeout=120)
-        for name in ("built", "git-ticket-canvas"):
+        for name in ("built", "built-server", "git-ticket-canvas", "git-ticket-canvas-server"):
             if not (binaries / name).is_file():
                 raise RuntimeError(f"missing binary: {name}")
-        print(f"Go-only build and install passed for clean HEAD {revision}; Node/npm absent from PATH.")
+        print(f"Go-only build and install passed for both commands at clean HEAD {revision}; "
+              f"Node/npm absent from PATH.")
 
 
 if __name__ == "__main__":

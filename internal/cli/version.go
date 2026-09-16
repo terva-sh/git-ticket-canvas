@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"encoding/json"
@@ -18,11 +18,14 @@ func parseBuildVersion(info *debug.BuildInfo) versionInfo {
 	return buildinfo.Parse(info)
 }
 
-func writeVersion(w io.Writer, asJSON bool) error {
-	return writeVersionInfo(w, buildinfo.Read(), asJSON)
+func writeVersion(w io.Writer, kind Kind, asJSON bool) error {
+	return writeVersionInfo(w, kind, buildinfo.Read(), asJSON)
 }
 
-func writeVersionInfo(w io.Writer, v versionInfo, asJSON bool) error {
+// writeVersionInfo names the command that printed it. The JSON is the same
+// value from either binary, because it is the build's identity rather than the
+// executable's, and GET /api/version answers with it too.
+func writeVersionInfo(w io.Writer, kind Kind, v versionInfo, asJSON bool) error {
 	if asJSON {
 		return json.NewEncoder(w).Encode(v)
 	}
@@ -34,6 +37,6 @@ func writeVersionInfo(w io.Writer, v versionInfo, asJSON bool) error {
 	if v.Modified {
 		suffix = ", modified"
 	}
-	_, err := fmt.Fprintf(w, "git-ticket-canvas %s (%s, %s%s)\n", v.Version, commit, v.Go, suffix)
+	_, err := fmt.Fprintf(w, "%s %s (%s, %s%s)\n", kind, v.Version, commit, v.Go, suffix)
 	return err
 }

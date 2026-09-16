@@ -1,4 +1,4 @@
-package main
+package web
 
 import (
 	"io/fs"
@@ -8,11 +8,11 @@ import (
 )
 
 func TestEmbeddedFrontendContainsOnlyBuiltAssets(t *testing.T) {
-	err := fs.WalkDir(webFS, ".", func(path string, entry fs.DirEntry, err error) error {
+	err := fs.WalkDir(files, ".", func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if !entry.IsDir() && (!strings.HasPrefix(path, "web/dist/") ||
+		if !entry.IsDir() && (!strings.HasPrefix(path, "dist/") ||
 			strings.HasSuffix(path, ".ts") || strings.HasSuffix(path, ".tsx") ||
 			strings.HasSuffix(path, ".map") || strings.Contains(path, "node_modules")) {
 			t.Errorf("unexpected embedded source: %s", path)
@@ -22,7 +22,7 @@ func TestEmbeddedFrontendContainsOnlyBuiltAssets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assets, err := fs.Sub(webFS, "web/dist")
+	assets, err := FS()
 	if err != nil {
 		t.Fatal(err)
 	}

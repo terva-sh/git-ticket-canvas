@@ -25,7 +25,7 @@ references:
   - ref: source:embed
     path: main.go
   - ref: test:embed
-    path: assets_test.go
+    path: web/assets_test.go
   - ref: docs:vite-development
     path: docs/development-vite.md
   - ref: tooling:just
@@ -33,13 +33,13 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-09T16:56:57Z
-updated_at: 2026-09-09T17:30:55Z
+updated_at: 2026-09-16T13:52:13Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
 updated_by:
-  id: agent:terva/mieli
-  name: Mieli
+  id: agent:claude/t3code
+  name: ""
 extensions: {}
 ---
 

@@ -60,10 +60,11 @@ func Merge(cfg config.Config, found discover.Result, opts MergeOptions) ([]Store
 			Name: name,
 			// A name somebody wrote is also what they want to read. A derived
 			// one is replaced by the directory, as a discovered store's is.
-			Display:  displayFor(s),
-			Path:     s.Path,
-			Actor:    actor,
-			ReadOnly: opts.ReadOnly || s.ReadOnly,
+			Display:       displayFor(s),
+			Path:          s.Path,
+			Actor:         actor,
+			ReadOnly:      opts.ReadOnly || s.ReadOnly,
+			EnforceActors: s.EnforceActors,
 		})
 	}
 

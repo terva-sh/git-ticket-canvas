@@ -23,10 +23,17 @@ else
         exit 1
     fi
 fi
-if [ -d "$dest/git-ticket-canvas" ]; then
-    printf 'install: %s/git-ticket-canvas is a directory\n' "$dest" >&2
-    exit 1
-fi
+# Both commands are installed. A local install that gives you half the product
+# is a trap: the desk canvas refuses a non-loopback address and names the served
+# one, and being told to run something that is not on the machine is worse than
+# the error it replaced.
+commands=(git-ticket-canvas git-ticket-canvas-server)
+for name in "${commands[@]}"; do
+    if [ -d "$dest/$name" ]; then
+        printf 'install: %s/%s is a directory\n' "$dest" "$name" >&2
+        exit 1
+    fi
+done
 
 work="$(mktemp -d)" || exit 1
 pending=""
@@ -43,14 +50,19 @@ if [ "$(git rev-parse --git-dir 2>/dev/null)" != "$(git rev-parse --git-common-d
     buildflags+=(-buildvcs=false)
 fi
 go build "${buildflags[@]}" -o "$work/git-ticket-canvas" . || exit 1
+go build "${buildflags[@]}" -o "$work/git-ticket-canvas-server" ./cmd/git-ticket-canvas-server || exit 1
 
-# Unique destination-local staging avoids ETXTBSY and concurrent staging collisions.
-pending="$(mktemp "$dest/.git-ticket-canvas.new.XXXXXX")" || exit 1
-cp "$work/git-ticket-canvas" "$pending" || exit 1
-chmod 0755 "$pending" || exit 1
-mv -f -- "$pending" "$dest/git-ticket-canvas" || exit 1
-pending=""
-printf 'installed %s/git-ticket-canvas\n' "$dest"
+# Both are built before either is installed, so a compile error in the second
+# does not leave the destination holding one new binary and one old one.
+for name in "${commands[@]}"; do
+    # Unique destination-local staging avoids ETXTBSY and concurrent staging collisions.
+    pending="$(mktemp "$dest/.$name.new.XXXXXX")" || exit 1
+    cp "$work/$name" "$pending" || exit 1
+    chmod 0755 "$pending" || exit 1
+    mv -f -- "$pending" "$dest/$name" || exit 1
+    pending=""
+    printf 'installed %s/%s\n' "$dest" "$name"
+done
 
 case ":$PATH:" in
     *":$dest:"*) ;;

@@ -60,6 +60,22 @@ var DefaultExclude = []string{"node_modules", "vendor", "target", "dist", "build
 // store resolves its own from its config.yml.
 type Store struct {
 	Name string `yaml:"name"`
+	// Roles maps an identity-provider group to what it may do with this store,
+	// and is read only by the served canvas. A store that names none is
+	// private: not readable, not listed, and not acknowledged to exist. That is
+	// the rule the whole grant model exists to protect, so it is the absence of
+	// configuration rather than something an operator has to write.
+	Roles map[string]string `yaml:"roles,omitempty"`
+	// EnforceActors turns this store's declared actors into an allowlist for the
+	// people using a served canvas, narrowing what they may claim to ids the
+	// store already names. Off by default, and read only by the served canvas.
+	EnforceActors bool `yaml:"enforceActors,omitempty"`
+	// HonourGroups names groups from the top-level Roles map whose role applies
+	// to this store. The top-level map grants nothing by itself: with a global
+	// role map, adding a repository to look at it yourself grants it to
+	// everyone whose group is in that map, and this is what keeps the
+	// convenience without the failure.
+	HonourGroups []string `yaml:"honourGroups,omitempty"`
 	// Derived is true when nobody wrote this name and the canvas took it from
 	// the path. A written name is kept as the store's id; a derived one is
 	// replaced by a hash, because a name taken from a path is not unique and
@@ -88,6 +104,23 @@ type Config struct {
 	Roots   []Root   `yaml:"roots,omitempty"`
 	Stores  []Store  `yaml:"stores,omitempty"`
 	Exclude []string `yaml:"exclude,omitempty"`
+	// Identity is who the served canvas trusts to log in. It belongs to this
+	// file, which an operator writes, and never to a store's own config.yml.
+	// The desk canvas reads it, says it is ignoring it, and ignores it.
+	Identity Identity `yaml:"identity,omitempty"`
+	// Roles names what a group may do, in one place, so that a store does not
+	// have to repeat it. It grants nothing at all on its own: a store honours a
+	// group by name or does not have it.
+	Roles map[string]string `yaml:"roles,omitempty"`
+	// Admins names identity-provider groups whose members administer this
+	// canvas. It is the only grant that cannot be changed through anything the
+	// canvas serves, which is what disposes of the last-administrator problem:
+	// no sequence of requests can leave nobody able to administer it, because
+	// no request can change who can.
+	//
+	// An administrator reads no store they were not granted. Seeing who uses
+	// the canvas is not seeing what they read.
+	Admins []string `yaml:"admins,omitempty"`
 	// ExcludeDefaults turns the built-in list off when set to false, which is
 	// how Exclude is replaced rather than extended. A nil pointer means unset,
 	// and unset means the defaults apply.
@@ -148,6 +181,7 @@ func Load(file, env string, flags []string, base string) (Config, error) {
 			return Config{}, err
 		}
 		cfg.Roots, cfg.Exclude = parsed.Roots, parsed.Exclude
+		cfg.Identity, cfg.Roles, cfg.Admins = parsed.Identity, parsed.Roles, parsed.Admins
 		for _, s := range parsed.Stores {
 			entries = append(entries, entry{s, fromFile})
 		}

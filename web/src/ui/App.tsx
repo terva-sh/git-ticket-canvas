@@ -5,16 +5,21 @@ import type { CommittedSampling, SamplingPublication } from './canvas/committedS
 import { TicketClient, RegistryClient, ApiError, storeBase } from '../platform/tickets/client'
 import { TicketStore, LayoutWriter } from '../platform/tickets/store'
 import { LiveUpdates, type LiveStatus } from '../platform/tickets/live'
-import type { CardChanges, Cards, Frame, Op, StoreSummary, Ticket, VersionInfo } from '../platform/tickets/types'
+import type { ActorResponse, CardChanges, PersonResponse, Cards, Frame, Op, SessionResponse, StoreSummary, Ticket, VersionInfo } from '../platform/tickets/types'
 import { FrameHistory, applyFrameOperation, assertFrameOperation, createFrame, moveFrame, resizeFrame, updateFrame, deleteFrame, setMembership } from '../platform/canvas/frames'
 import type { FrameOperation, FrameState, Point } from '../platform/canvas/frames'
-import type { Density } from '../platform/canvas/geometry'
+import type { View } from '../platform/canvas/geometry'
+import { OPENING_ZOOM } from './canvas/viewMemory'
+import { recall, remember } from './canvas/viewMemory'
 import { sameJSON } from '../platform/tickets/reconcile'
 import { cycleLabel, labelUniverse, matchesTicket, type LabelFilters } from '../platform/tickets/filters'
 import { FramePanel, FrameMembership } from './FramesPanel'
 import { Canvas, type CanvasHandle } from './Canvas'
 import { Toolbar } from './Toolbar'
 import { StoreBrowser } from './StoreBrowser'
+import { SessionDialog } from './SessionDialog'
+import { DisplayDialog } from './DisplayDialog'
+import { useDisplay } from './useDisplay'
 import type { RelationshipMode } from './canvas/Edges'
 import { Inspector } from './Inspector'
 import { Composer, type ComposerPosition } from './Composer'
@@ -47,6 +52,14 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
   const [stores, setStores] = useState<StoreSummary[]>([])
   const [browsing, setBrowsing] = useState(false)
   const [rescanning, setRescanning] = useState(false)
+  // Who is signed in. Every canvas answers, and a desk one answers that nobody
+  // is, which is how the control knows to stay hidden.
+  const [session, setSession] = useState<SessionResponse | null>(null)
+  const [account, setAccount] = useState(false)
+  const [actor, setActor] = useState<ActorResponse | null | undefined>(undefined)
+  const [actorError, setActorError] = useState<string | undefined>(undefined)
+  const [actorBusy, setActorBusy] = useState(false)
+  const [peopleList, setPeopleList] = useState<PersonResponse[] | null | undefined>(undefined)
   // The stores looked at this session, most recent first. Session state, like
   // the relationship mode: the durable record of what matters is the favorites.
   const recent = useRef<string[]>([])
@@ -69,15 +82,24 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
   const [framePreview, setFramePreview] = useState<{ board: string; generation: number; state: FrameState } | null>(null)
   const [, setHistoryVersion] = useState(0)
   const [relationships, setRelationships] = useState<RelationshipMode>('selected')
-  // Session state, like `relationships`. Nothing persists it, so a reload
-  // returns to the full presentation.
-  const [density, setDensity] = useState<Density>('full')
+  // Chosen from the size and shape of this window, and overridable per person
+  // in this browser. Nothing about it reaches the layout file: two people on one
+  // board must not be able to change each other's toolbar.
+  const display = useDisplay()
+  const density = display.settings.density
+  const [displayOpen, setDisplayOpen] = useState(false)
+  // The magnification, mirrored here only so the toolbar can show it. The
+  // canvas owns the view; this follows it.
+  const [zoom, setZoom] = useState(OPENING_ZOOM)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [sync, setSync] = useState<LiveStatus>({ connection: 'connecting', stale: false, degraded: false, readFailed: false })
   const live = useRef<LiveUpdates>()
   const latest = useRef(ui); latest.current = ui
   const generation = useRef(0), feedbackId = useRef(0), busy = useRef(false), mounted = useRef(true)
   const deferredRead = useRef(false), canvas = useRef<CanvasHandle>(null), fitFrame = useRef(0)
+  /** Debounces the view write, because a pan reports every motion frame. */
+  const viewWrite = useRef<ReturnType<typeof setTimeout>>()
+  const pendingView = useRef<(() => void) | null>(null)
   const publish = () => {
     if (!mounted.current || published.current === store.state) return
     if (store.state.layoutSchema !== null) historyFor(store.state.board).observe({ cards: store.state.cards, frames: store.state.frames, tickets: store.state.tickets })
@@ -112,7 +134,7 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
         cancelAnimationFrame(fitFrame.current)
         fitFrame.current = requestAnimationFrame(() => {
           fitFrame.current = 0
-          if (mounted.current && !busy.current) canvas.current?.fit()
+          if (mounted.current && !busy.current) restoreOrFit()
         })
       }
     }
@@ -347,6 +369,82 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
   }
   const actions = useRef({ refresh, closeComposer, closeInspector, closeFrames, remove })
   actions.current = { refresh, closeComposer, closeInspector, closeFrames, remove }
+  // Asked once. A session changes when somebody logs in or out, and both of
+  // those are a page load.
+  useEffect(() => {
+    let cancelled = false
+    void registry.session()
+      .then(answer => { if (!cancelled) setSession(answer) })
+      // A canvas that cannot answer is one with nothing to show here, and a
+      // failure to fetch it must not be a visible error on a working board.
+      .catch(() => { if (!cancelled) setSession(null) })
+    return () => { cancelled = true }
+  }, [registry])
+  // The actor is per store, so it follows the store being looked at, and is
+  // fetched when the dialog opens rather than on every board change.
+  useEffect(() => {
+    if (!account || !storeId || !session?.authenticated) return
+    let cancelled = false
+    setActor(undefined); setActorError(undefined)
+    void registry.actor(storeId)
+      .then(answer => { if (!cancelled) setActor(answer) })
+      .catch(() => { if (!cancelled) setActor(null) })
+    return () => { cancelled = true }
+  }, [account, storeId, registry, session?.authenticated])
+  // Only an administrator can read this, and only while the dialog is open.
+  useEffect(() => {
+    if (!account || !session?.admin) return
+    let cancelled = false
+    setPeopleList(undefined)
+    void registry.people()
+      .then(answer => { if (!cancelled) setPeopleList(answer.people) })
+      .catch(() => { if (!cancelled) setPeopleList(null) })
+    return () => { cancelled = true }
+  }, [account, registry, session?.admin])
+  // Where a board opens. Somebody who left a board at a magnification and a
+  // corner is put back there; somebody arriving for the first time gets the fit
+  // that frames every card. The two are one decision rather than two, because
+  // the opening fit and a restore both want the view and only one can have it.
+  //
+  // This runs on the first read of a board rather than from an effect on
+  // storeId: the canvas remounts while a store opens, and an effect that pushes
+  // a view races that remount.
+  function restoreOrFit() {
+    const board = store.state.board
+    const held = storeId && board ? recall(storeId, board) : null
+    if (held) { setZoom(held.k); canvas.current?.setView(held) }
+    else canvas.current?.fit()
+  }
+  // Called per motion frame during a pan, so the write waits for the gesture to
+  // settle and the magnifier is told only when the number it shows changed.
+  const viewChanged = (view: View) => {
+    setZoom(current => (Math.abs(current - view.k) > 0.0001 ? view.k : current))
+    if (!storeId || !snapshot.board) return
+    const board = snapshot.board, at = { ...view }
+    pendingView.current = () => remember(storeId, board, at)
+    clearTimeout(viewWrite.current)
+    viewWrite.current = setTimeout(flushView, 300)
+  }
+  // Reloading within the debounce is exactly how somebody finds out the canvas
+  // forgot where they were, so leaving the page writes what is owed.
+  function flushView() {
+    clearTimeout(viewWrite.current)
+    const write = pendingView.current
+    pendingView.current = null
+    write?.()
+  }
+  const chooseActor = async (wanted: string) => {
+    if (!storeId) return
+    setActorBusy(true); setActorError(undefined)
+    try {
+      setActor(await registry.setActor(storeId, wanted))
+      toast(`Your writes to ${storeId} are stamped ${wanted}.`)
+    } catch (error) {
+      // Shown in the dialog rather than as a toast: it is an answer to what was
+      // just typed, and it belongs beside the field.
+      setActorError(error instanceof Error ? error.message : String(error))
+    } finally { setActorBusy(false) }
+  }
   // Which stores this canvas serves, and which one to open. A canvas over one
   // store answers with that one; a canvas over a tree answers with all of them
   // and the browser picks the store last looked at.
@@ -398,6 +496,17 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
     }
   }, [store, booted, storeId])
 
+  // The stylesheet needs these and `#app` is outside this tree, so they go on
+  // the document element. Attributes rather than classes so a value that this
+  // version does not know replaces the old one instead of joining it.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    root.dataset.targets = display.settings.targets
+    root.dataset.inspector = display.settings.inspector
+    root.dataset.toolbar = display.toolbar
+  }, [display.settings.targets, display.settings.inspector, display.toolbar])
+
   useEffect(() => {
     mounted.current = true
     publication.current = bridge?.publish(published.current, generation.current) ?? null
@@ -423,6 +532,12 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       if (event.key === '/') { event.preventDefault(); document.getElementById('search')?.focus() }
       if (event.key === 'n') { event.preventDefault(); canvas.current?.composeCentre() }
       if (event.key === 'f') { event.preventDefault(); canvas.current?.fit() }
+      // Compact density hides the card head, which carries the only control for
+      // this, and a large board is where both compact and an accidental drag
+      // are most likely.
+      // Canvas.save refuses on a read-only board and says so, so this does not
+      // check first: a silent key is worse than one that explains itself.
+      if (event.key === 'u') { event.preventDefault(); canvas.current?.releaseSelected() }
       if ((event.key === 'Delete' || event.key === 'Backspace') && latest.current.selected && !frameLatest.current.selected && !frameLatest.current.draft && !frameRequest.current) {
         event.preventDefault()
         const ticket = store.state.tickets.get(latest.current.selected)
@@ -430,11 +545,15 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       }
     }
     document.addEventListener('keydown', keyboard)
+    const leaving = () => flushView()
+    window.addEventListener('pagehide', leaving)
     return () => {
       mounted.current = false
       bridge?.dispose(); probe?.hold()
       cancelAnimationFrame(fitFrame.current)
       document.removeEventListener('keydown', keyboard)
+      window.removeEventListener('pagehide', leaving)
+      flushView()
     }
   }, [store, registry])
   const matches = (ticket: Ticket) =>
@@ -456,7 +575,13 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       boards={snapshot.boards} board={snapshot.board} config={snapshot.config} query={ui.query} filters={ui.filters}
       counts={`${[...snapshot.tickets.values()].filter(matches).length} of ${snapshot.tickets.size}`}
       relationships={relationships} onRelationships={setRelationships}
-      density={density} onDensity={setDensity}
+      density={density} densityAutomatic={display.automatic.density}
+      densityChosen={display.overrides.density !== undefined}
+      onDensity={value => display.choose('density', value)}
+      onDisplay={() => setDisplayOpen(true)}
+      zoom={zoom} onZoomIn={() => canvas.current?.zoomBy(1.25)}
+      onZoomOut={() => canvas.current?.zoomBy(1 / 1.25)}
+      onZoomReset={() => canvas.current?.resetZoom()}
       onNewFrame={() => canvas.current?.newFrame()} onUndoFrame={() => { void frameHistoryAction(false) }} onRedoFrame={() => { void frameHistoryAction(true) }}
       framePending={!!framePreview} undoFrame={history.undoEntry} redoFrame={history.redoEntry}
       labels={labelUniverse(snapshot.config?.labels, snapshot.tickets.values())} labelFilters={ui.labelFilters}
@@ -469,7 +594,13 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       })} onBoard={name => { void changeBoard(name) }} onNewBoard={() => { void newBoard() }}
       stores={stores.length ? { stores, current: storeId, recent: recent.current,
         onOpen: openStore, onBrowse: () => setBrowsing(true) } : undefined}
+      account={session?.authenticated ? { name: session.name || session.email || session.subject || 'Account',
+        onOpen: () => setAccount(true) } : undefined}
       onNew={() => canvas.current?.composeCentre()} onFit={() => canvas.current?.fit()} onArrange={arrange} /></div>
+    {account && session?.authenticated && <SessionDialog session={session} store={storeId || ''}
+      actor={actor} actorError={actorError} busy={actorBusy} people={peopleList}
+      onActor={wanted => { void chooseActor(wanted) }} onClose={() => setAccount(false)} />}
+    {displayOpen && <DisplayDialog display={display} onClose={() => setDisplayOpen(false)} />}
     {browsing && <StoreBrowser stores={stores} current={storeId} busy={rescanning}
       onOpen={openStore} onFavorite={(name, favorite) => { void toggleFavorite(name, favorite) }}
       onRescan={() => { void rescan() }} onClose={() => setBrowsing(false)} />}
@@ -483,7 +614,8 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       frames={displayed.frames} selectedFrame={frameUI.selected} frameCreating={!!frameUI.draft} layoutBusy={!!framePreview}
       onSelectFrame={selectFrame} onNewFrame={newFrameDraft} onFrameMove={frameMove} onFrameResize={frameResize}
       statuses={snapshot.config?.statuses || []} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters}
-      relationships={relationships} density={density} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
+      onView={viewChanged}
+      relationships={relationships} density={density} fitFloor={display.floor} inspector={display.settings.inspector} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>
       <div id="formsRoot">
         <div id="frameHistory" role="status" hidden={!framePreview && !history.undoEntry?.blockedReason && !history.redoEntry?.blockedReason}>

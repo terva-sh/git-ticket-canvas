@@ -20,6 +20,19 @@ def main(image, engine):
     config = json.loads(run("image", "inspect", image))[0]["Config"]
     if config["User"] in ("", "root", "0", "0:0") or "-read-only" not in config["Cmd"]:
         raise RuntimeError("image must default to non-root and read-only")
+    # A container has to bind 0.0.0.0 to be reachable, and cannot see whether the
+    # host mapped that port to a loopback address. The desk canvas refuses the
+    # address unless the override says out loud what is being taken on, so an
+    # image whose command lost it does not start at all.
+    if "-unsafe-publish-without-authentication" not in config["Cmd"]:
+        raise RuntimeError("image command must name the unauthenticated-bind override")
+    # The served canvas ships in the image too, and refuses to start with no
+    # identity provider. That refusal is the image's evidence that the binary is
+    # the server rather than a second copy of the desk canvas.
+    refused = subprocess.run([engine, "run", "--rm", "--entrypoint", "git-ticket-canvas-server", image,
+                              "-store", "/repo"], capture_output=True, text=True, timeout=120)
+    if refused.returncode == 0 or "identity provider" not in refused.stderr:
+        raise RuntimeError(f"image server command started with no identity provider: {refused.stderr}")
     with tempfile.TemporaryDirectory(prefix="canvas-image-test-") as temp:
         root = Path(temp)
         helper, store = root / "init-store", root / "repo"
@@ -35,7 +48,8 @@ def main(image, engine):
             mount = f"type=bind,src={store},dst=/repo" + ("" if writable else ",readonly")
             args += ["-p", "127.0.0.1::7777", "--mount", mount, image]
             if writable:
-                args += ["-store", "/repo", "-addr", "0.0.0.0:7777", "-actor", "agent:release/image-test"]
+                args += ["-store", "/repo", "-addr", "0.0.0.0:7777", "-actor", "agent:release/image-test",
+                         "-unsafe-publish-without-authentication"]
             ident = run(*args)
             try:
                 binding = run("port", ident, "7777/tcp").splitlines()[0]
@@ -66,7 +80,8 @@ def main(image, engine):
                     raise RuntimeError("writable container did not persist to mounted store")
             finally:
                 subprocess.run([engine, "rm", "-f", ident], check=False, stdout=subprocess.DEVNULL, timeout=30)
-    print("Image verified: non-root/read-only defaults, local repository serving, 403 refusal and explicit write persistence.")
+    print("Image verified: both commands, non-root/read-only defaults, the unauthenticated-bind override, "
+          "local repository serving, 403 refusal and explicit write persistence.")
 
 
 if __name__ == "__main__":

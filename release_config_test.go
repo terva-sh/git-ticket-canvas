@@ -266,23 +266,59 @@ func TestReleaseConfigAndNotices(t *testing.T) {
 	var config struct {
 		Release struct{ Disable bool } `yaml:"release"`
 		Builds  []struct {
+			ID           string `yaml:"id"`
+			Main         string `yaml:"main"`
+			Binary       string `yaml:"binary"`
 			Goos, Goarch []string
 			Ldflags      []string
 			Ignore       []struct{ Goos, Goarch string }
 		}
+		Archives []struct {
+			IDs []string `yaml:"ids"`
+		} `yaml:"archives"`
 	}
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		t.Fatal(err)
 	}
-	if !config.Release.Disable || len(config.Builds) != 1 {
-		t.Fatal("expected one build and publishing disabled")
+	if !config.Release.Disable {
+		t.Fatal("expected publishing disabled")
 	}
-	build := config.Builds[0]
-	if len(build.Goos)*len(build.Goarch)-len(build.Ignore) != 5 {
-		t.Error("expected five platform archives")
+	// Two commands, and the release ships both. A release with only the desk
+	// canvas in it leaves anybody who wants to publish one with nothing to run,
+	// and the split is what makes "does this canvas authenticate" answerable
+	// from the name of the binary.
+	wanted := map[string]string{
+		"git-ticket-canvas":        ".",
+		"git-ticket-canvas-server": "./cmd/git-ticket-canvas-server",
 	}
-	if strings.Contains(strings.Join(build.Ldflags, " "), "-X") {
-		t.Error("version must come from build metadata, not linker variables")
+	if len(config.Builds) != len(wanted) {
+		t.Fatalf("builds = %d, want one for each of %v", len(config.Builds), wanted)
+	}
+	for _, build := range config.Builds {
+		main, known := wanted[build.ID]
+		if !known {
+			t.Errorf("unexpected build %q", build.ID)
+			continue
+		}
+		if build.Main != main || build.Binary != build.ID {
+			t.Errorf("build %q builds %q as %q, want %q as %q", build.ID, build.Main, build.Binary, main, build.ID)
+		}
+		if len(build.Goos)*len(build.Goarch)-len(build.Ignore) != 5 {
+			t.Errorf("build %q: expected five platform targets", build.ID)
+		}
+		if strings.Contains(strings.Join(build.Ldflags, " "), "-X") {
+			t.Errorf("build %q: version must come from build metadata, not linker variables", build.ID)
+		}
+	}
+	// One archive per platform holding both commands, rather than one archive
+	// per command. Somebody who downloaded the canvas has the server too, and
+	// finds it when they need it rather than after looking for it.
+	if len(config.Archives) != 1 {
+		t.Fatalf("archives = %d, want one carrying both commands", len(config.Archives))
+	}
+	shipped := strings.Join(config.Archives[0].IDs, ",")
+	if shipped != "git-ticket-canvas,git-ticket-canvas-server" {
+		t.Errorf("the archive ships %q, want both commands", shipped)
 	}
 	for _, path := range []string{"LICENSE", "THIRD_PARTY_LICENSES", "README-release.md"} {
 		if data, err := os.ReadFile(path); err != nil || len(data) < 100 {

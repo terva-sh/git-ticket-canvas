@@ -12,9 +12,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/terva-sh/git-ticket-canvas/internal/actors"
 	"github.com/terva-sh/git-ticket-canvas/internal/buildinfo"
 	"github.com/terva-sh/git-ticket-canvas/internal/config"
 	"github.com/terva-sh/git-ticket-canvas/internal/discover"
+	"github.com/terva-sh/git-ticket-canvas/internal/people"
 	"github.com/terva-sh/git-ticket-canvas/internal/state"
 	"github.com/terva-sh/git-ticket/ticket"
 )
@@ -102,6 +104,12 @@ type StoreSpec struct {
 	// Parent is the id of the store that declared this one as a child, empty
 	// for everything else. The browser renders a child under its parent.
 	Parent string
+	// EnforceActors turns the store's own declared actors into an allowlist for
+	// the people using a served canvas. It is off by default: the cost of it
+	// being on is that every new person is blocked until an operator edits a
+	// file, and the case it defends against is one where the people involved
+	// already have accounts on the same canvas.
+	EnforceActors bool
 }
 
 // StoreStatus is what the registry knows about one store.
@@ -164,10 +172,88 @@ type RegistryOptions struct {
 	// runs again. A zero value refuses the route, which is what a registry
 	// built by a test wants.
 	Rescan RescanSource
+	// People is every account that has signed in, or nil where nothing records
+	// them. Read by administrators and by nobody else.
+	People *people.Directory
+	// Logout is the path that ends a session, or empty where nothing can.
+	// It is passed through so that the registry keeps knowing nothing about how
+	// somebody logged in; the Access seam exists for the same reason.
+	Logout string
 	// State is what the canvas remembers between runs: which stores are
-	// favorites and which one was open last. A nil value keeps nothing, which
-	// is what a test wants and what a canvas over one store does not need.
+	// favorites and which one was open last, keyed by the person it belongs
+	// to. A nil value keeps nothing, which is what a test wants and what a
+	// canvas over one store does not need.
+	//
+	// Grants are deliberately not in it. A bug in the favorites path must not
+	// be able to corrupt a permission table.
 	State *state.Store
+	// Access is who is asking and what they hold. A nil value is the canvas on
+	// somebody's desk: one person, every store, and nothing to check.
+	Access Access
+	// Actors records which authenticated subject writes under which actor id
+	// on which store. A nil value means nobody chooses an actor, which is the
+	// desk canvas: it resolves one when a store opens, as it always has.
+	Actors *actors.Bindings
+}
+
+// Access is how a registry learns who is asking and what they may see.
+//
+// It is an interface rather than a grant table because the registry has no
+// business knowing what a group is, what an identity provider is, or how a
+// role was decided. It asks two questions and acts on the answers.
+type Access interface {
+	// Caller identifies a request. The second return is false when nothing
+	// authenticated it, which on a served canvas is every request that did not
+	// come through a login.
+	Caller(req *http.Request) (Caller, bool)
+	// CanRead reports whether this caller may read the store registered under
+	// this name.
+	//
+	// A false answer is complete rather than partial. The store is not read,
+	// not listed, and not acknowledged to exist, because the list of stores
+	// discloses the name and on-disk location of every repository this host
+	// serves, and that is worth having even to somebody who cannot read a
+	// single ticket.
+	CanRead(c Caller, store string) bool
+	// Granting names the groups that hold a role on this store.
+	//
+	// It is asked only for a store the caller can already read. A group name
+	// implies the store it grants on, so answering for any other store would
+	// be the store list wearing a different hat, and the store list is a
+	// permission boundary.
+	Granting(store string) []string
+	// IsAdmin reports whether this caller administers the canvas.
+	//
+	// It is deliberately not a role on a store. Administration here is about
+	// the canvas rather than about any repository, and CanRead does not consult
+	// it: an administrator who wants to read a store grants it to themselves,
+	// which leaves a record, where implicit access would leave none.
+	IsAdmin(c Caller) bool
+}
+
+// Caller is one authenticated person, as much of them as the registry carries.
+//
+// Groups is passed back to CanRead untouched. Nothing here interprets it: it is
+// held so that identifying a request and deciding what it may see are one
+// lookup rather than two.
+type Caller struct {
+	// Subject is the identity provider's stable id. Everything keys on it,
+	// never on an email or a username, because both are mutable in every
+	// provider.
+	Subject string
+	// StateKey is what this person's favorites and last store are filed under.
+	StateKey string
+	Groups   []string
+	// Name and Email are carried for display only. Nothing keys on either, for
+	// the reason Subject exists: both are mutable in every provider. They are
+	// here because a person cannot otherwise see what the provider sent, which
+	// is the first thing anybody checks when a login behaves oddly.
+	Name  string
+	Email string
+	// Actor is the id to offer this person on a store they have not chosen one
+	// for, built from the identity provider's claims. It is a suggestion:
+	// nothing is bound until they accept or replace it.
+	Actor string
 }
 
 // RescanSource is what a rescan searches again.
@@ -312,13 +398,13 @@ func (r *Registry) activateLocked(e *entry) {
 //
 // The fast path is a read lock and nothing else, because every request to an
 // already-open store takes it.
-func (r *Registry) acquire(name string) (*Server, string, bool) {
+func (r *Registry) acquire(req *http.Request, name string) (*Server, string, bool) {
 	r.mu.RLock()
 	e, configured := r.entries[name]
 	if configured && e.server != nil {
 		server := e.server
 		r.mu.RUnlock()
-		r.touch(name)
+		r.touch(req, name)
 		return server, "", true
 	}
 	r.mu.RUnlock()
@@ -349,13 +435,13 @@ func (r *Registry) acquire(name string) (*Server, string, bool) {
 	e.lastUsed = r.now()
 	// Recorded while the lock is held, which is safe because the state keeps
 	// its own and never calls back into the registry.
-	r.rememberLast(e)
+	r.rememberLast(req, e)
 	return e.server, "", true
 }
 
 // touch records that a store was used, so that eviction picks the store nobody
 // has looked at rather than the one somebody is reading.
-func (r *Registry) touch(name string) {
+func (r *Registry) touch(req *http.Request, name string) {
 	r.mu.Lock()
 	e, ok := r.entries[name]
 	if ok {
@@ -363,28 +449,63 @@ func (r *Registry) touch(name string) {
 	}
 	r.mu.Unlock()
 	if ok {
-		r.rememberLast(e)
+		r.rememberLast(req, e)
 	}
 }
 
-// favorite reports whether a store is marked. It is called with the registry
-// lock held, and the state has its own.
-func (r *Registry) favorite(e *entry) bool {
-	if r.opts.State == nil {
+// stateUser is whose favorites and last store a request reads and writes.
+//
+// A canvas with no Access has one person at it and one key. A served canvas
+// files everything under the signed-in subject, and answers with an empty key
+// for a request nobody authenticated, which every caller here treats as "keep
+// nothing" rather than as a key of its own.
+func (r *Registry) stateUser(req *http.Request) string {
+	if r.opts.Access == nil {
+		return state.LocalUser
+	}
+	if c, ok := r.opts.Access.Caller(req); ok {
+		return c.StateKey
+	}
+	return ""
+}
+
+// visible reports whether a request may see a store at all.
+//
+// It is the one place the rule lives, so that listing a store, opening one, and
+// marking one a favorite cannot disagree about whether it exists.
+func (r *Registry) visible(req *http.Request, name string) bool {
+	if r.opts.Access == nil {
+		return true
+	}
+	c, ok := r.opts.Access.Caller(req)
+	if !ok {
 		return false
 	}
-	return r.opts.State.Favorite(discover.Key(e.spec.Path))
+	return r.opts.Access.CanRead(c, name)
+}
+
+// favorite reports whether a store is marked for one person. It is called with
+// the registry lock held, and the state has its own.
+func (r *Registry) favorite(user string, e *entry) bool {
+	if r.opts.State == nil || user == "" {
+		return false
+	}
+	return r.opts.State.Favorite(user, discover.Key(e.spec.Path))
 }
 
 // rememberLast records the store somebody is looking at.
 //
 // The state saves only when the value changed, so this is one write per switch
 // rather than one per request.
-func (r *Registry) rememberLast(e *entry) {
+func (r *Registry) rememberLast(req *http.Request, e *entry) {
 	if r.opts.State == nil {
 		return
 	}
-	if err := r.opts.State.SetLastStore(discover.Key(e.spec.Path)); err != nil {
+	user := r.stateUser(req)
+	if user == "" {
+		return
+	}
+	if err := r.opts.State.SetLastStore(user, discover.Key(e.spec.Path)); err != nil {
 		log.Printf("warn   the store last used could not be saved: %v", err)
 	}
 }
@@ -510,17 +631,47 @@ func (r *Registry) Names() []string {
 	return names
 }
 
-// Statuses reports every store in configured order.
+// Statuses reports every store in configured order, with nobody asking.
+//
+// It is the startup report and the one a test reads. A request never takes this
+// path: what a caller may see is a question about that caller, and a status
+// list built without one would be the whole list.
 func (r *Registry) Statuses() []StoreStatus {
+	return r.statuses(state.LocalUser, nil)
+}
+
+// statusesFor is the list one request may see, marked with that person's
+// favorites.
+func (r *Registry) statusesFor(req *http.Request) []StoreStatus {
+	if r.opts.Access == nil {
+		return r.statuses(r.stateUser(req), nil)
+	}
+	c, ok := r.opts.Access.Caller(req)
+	if !ok {
+		return []StoreStatus{}
+	}
+	return r.statuses(c.StateKey, func(name string) bool { return r.opts.Access.CanRead(c, name) })
+}
+
+// statuses builds the list, keeping only what visible admits.
+//
+// The filter runs here, in the handler's own process, and not in the browser. A
+// front-end filter is a rendering decision made after the data has already left
+// the building, and the data in question is the name and resolved filesystem
+// path of every repository this host serves.
+func (r *Registry) statuses(user string, visible func(name string) bool) []StoreStatus {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	list := make([]StoreStatus, 0, len(r.order))
 	for _, name := range r.order {
+		if visible != nil && !visible(name) {
+			continue
+		}
 		e := r.entries[name]
 		list = append(list, StoreStatus{
 			Name: e.name, Display: e.display, Path: e.path,
 			Available: e.reason == "" || e.server != nil,
-			Active:    e.server != nil, Favorite: r.favorite(e),
+			Active:    e.server != nil, Favorite: r.favorite(user, e),
 			Root: e.spec.Root, Parent: e.spec.Parent, ReadOnly: e.readOnly,
 			Actor: e.actor.Name, ActorID: e.actor.ID,
 			Reason: e.reason, Note: e.note,
@@ -737,15 +888,26 @@ type storesResponse struct {
 	Stores []StoreStatus `json:"stores"`
 }
 
-func (r *Registry) handleStores(w http.ResponseWriter, _ *http.Request) {
+func (r *Registry) handleStores(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Cache-Control", "private, no-cache")
-	writeJSON(w, http.StatusOK, storesResponse{Stores: r.Statuses()})
+	writeJSON(w, http.StatusOK, storesResponse{Stores: r.statusesFor(req)})
 }
 
 // handleStore routes one request to the store named in its path.
 func (r *Registry) handleStore(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("store")
-	server, reason, configured := r.acquire(name)
+	// Asked before the store is opened, so that a store nobody granted costs
+	// nothing to refuse and leaves no trace of having been asked for: no
+	// watcher, no snapshot, and no difference in timing between a store that
+	// is private and one that does not exist.
+	if !r.visible(req, name) {
+		writeJSON(w, http.StatusNotFound, errBody{
+			Code:    "unknown_store",
+			Message: fmt.Sprintf("no store named %q is configured", name),
+		})
+		return
+	}
+	server, reason, configured := r.acquire(req, name)
 
 	switch {
 	case !configured:
@@ -777,6 +939,22 @@ func (r *Registry) Handler() http.Handler {
 	mux.HandleFunc("GET /api/favorites", r.handleFavorites)
 	mux.HandleFunc("PUT /api/favorites", r.handleSetFavorite)
 	mux.HandleFunc("POST /api/stores/rescan", r.handleRescan)
+	// Registered only where there is somebody to have an actor. The desk canvas
+	// resolves one when a store opens, exactly as it always has, so adding a
+	// route it would always refuse would be adding surface for nothing.
+	if r.opts.Access != nil {
+		mux.HandleFunc("GET /api/stores/{store}/actor", r.handleActor)
+		mux.HandleFunc("PUT /api/stores/{store}/actor", r.handleSetActor)
+		mux.HandleFunc("GET /api/actor", r.handleFlatActor)
+		mux.HandleFunc("PUT /api/actor", r.handleFlatActor)
+	}
+	// Registered on every canvas, unlike the actor routes. A desk canvas has an
+	// answer to give here — that nobody is signed in — and the browser needs it
+	// to know whether to offer the control at all.
+	mux.HandleFunc("GET /api/session", r.handleSession)
+	if r.opts.Access != nil {
+		mux.HandleFunc("GET /api/people", r.handlePeople)
+	}
 	mux.HandleFunc("/api/stores/{store}/", r.handleStore)
 	mux.HandleFunc("GET /api/version", r.handleVersion)
 	mux.HandleFunc("/api/", r.handleFlat)
@@ -810,7 +988,17 @@ func (r *Registry) handleFlat(w http.ResponseWriter, req *http.Request) {
 		})
 		return
 	}
-	server, reason, _ := r.acquire(only)
+	if !r.visible(req, only) {
+		// One store, and this caller does not hold it. The answer is the one a
+		// canvas serving nothing gives, because saying "you may not read the
+		// only store here" names it.
+		writeJSON(w, http.StatusNotFound, errBody{
+			Code:    "store_required",
+			Message: "this canvas serves 0 stores, so a request has to name one at /api/stores/{store}/",
+		})
+		return
+	}
+	server, reason, _ := r.acquire(req, only)
 	if server == nil {
 		w.Header().Set("Retry-After", "5")
 		writeJSON(w, http.StatusServiceUnavailable, errBody{
@@ -828,13 +1016,26 @@ type rescanResponse struct {
 	Stores  []StoreStatus `json:"stores"`
 }
 
-func (r *Registry) handleRescan(w http.ResponseWriter, _ *http.Request) {
+func (r *Registry) handleRescan(w http.ResponseWriter, req *http.Request) {
+	if r.opts.Access != nil {
+		// A rescan changes which stores this process serves, which is
+		// administration rather than reading, and administration is
+		// TKT-01M2MEC1's to build with an audit log behind it. Until then a
+		// served canvas serves what it was started with, and the refusal is
+		// here rather than in a route table so that it cannot be lost by
+		// somebody rearranging the mux.
+		writeJSON(w, http.StatusForbidden, errBody{
+			Code:    "rescan_unavailable",
+			Message: "a canvas serving several people rescans only when it is restarted",
+		})
+		return
+	}
 	added, removed, err := r.Rescan()
 	if err != nil {
 		writeJSON(w, http.StatusConflict, errBody{Code: "rescan_unavailable", Message: err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, rescanResponse{Added: added, Removed: removed, Stores: r.Statuses()})
+	writeJSON(w, http.StatusOK, rescanResponse{Added: added, Removed: removed, Stores: r.statusesFor(req)})
 }
 
 type favoritesResponse struct {
@@ -857,9 +1058,9 @@ type favoriteRequest struct {
 	Favorite bool   `json:"favorite"`
 }
 
-func (r *Registry) handleFavorites(w http.ResponseWriter, _ *http.Request) {
+func (r *Registry) handleFavorites(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Cache-Control", "private, no-cache")
-	writeJSON(w, http.StatusOK, r.favorites())
+	writeJSON(w, http.StatusOK, r.favorites(req))
 }
 
 func (r *Registry) handleSetFavorite(w http.ResponseWriter, req *http.Request) {
@@ -883,29 +1084,42 @@ func (r *Registry) handleSetFavorite(w http.ResponseWriter, req *http.Request) {
 		path = discover.Key(e.spec.Path)
 	}
 	r.mu.RUnlock()
-	if !known {
+	// A store this caller cannot see answers exactly as one that is not
+	// configured. Otherwise marking a favorite would be a way to ask whether a
+	// repository is on this host, which is the question the store list is
+	// filtered to avoid answering.
+	if !known || !r.visible(req, body.Store) {
 		writeJSON(w, http.StatusNotFound, errBody{
 			Code:    "unknown_store",
 			Message: fmt.Sprintf("no store named %q is configured", body.Store),
 		})
 		return
 	}
-	if err := r.opts.State.SetFavorite(path, body.Favorite); err != nil {
+	user := r.stateUser(req)
+	if user == "" {
+		writeJSON(w, http.StatusConflict, errBody{
+			Code:    "state_unavailable",
+			Message: "this canvas is not keeping favorites",
+		})
+		return
+	}
+	if err := r.opts.State.SetFavorite(user, path, body.Favorite); err != nil {
 		writeJSON(w, http.StatusInternalServerError, errBody{Code: "state_write_failed", Message: err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, r.favorites())
+	writeJSON(w, http.StatusOK, r.favorites(req))
 }
 
 // favorites answers with ids for the stores this canvas serves and paths for
 // everything remembered, so a canvas started on a different root shows what it
 // can reach without looking as though the rest were forgotten.
-func (r *Registry) favorites() favoritesResponse {
+func (r *Registry) favorites(req *http.Request) favoritesResponse {
 	out := favoritesResponse{Stores: []string{}, Paths: []string{}}
-	if r.opts.State == nil {
+	user := r.stateUser(req)
+	if r.opts.State == nil || user == "" {
 		return out
 	}
-	snapshot := r.opts.State.Snapshot()
+	snapshot := r.opts.State.Snapshot(user)
 	out.Paths = append(out.Paths, snapshot.Favorites...)
 	out.LastStore = snapshot.LastStore
 
@@ -916,6 +1130,9 @@ func (r *Registry) favorites() favoritesResponse {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, name := range r.order {
+		if !r.visible(req, name) {
+			continue
+		}
 		key := discover.Key(r.entries[name].spec.Path)
 		if marked[key] {
 			out.Stores = append(out.Stores, name)

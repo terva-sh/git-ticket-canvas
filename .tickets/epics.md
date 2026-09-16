@@ -8,3 +8,4 @@ tickets, and the next fix pass overwrites it.
 |---|---|---|
 | [TKT-01M2K38J5NGC6MNZKKEX285B61](draft/TKT-01M2K38J5NGC6MNZKKEX285B61.md) | Move a ticket between stores from the canvas | draft |
 | [TKT-01M2MEAP8ED8NZYGJKN2002G6J](draft/TKT-01M2MEAP8ED8NZYGJKN2002G6J.md) | Serve the canvas to more than one person | draft |
+| [TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3](draft/TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3.md) | Let an agent organize a board | draft |

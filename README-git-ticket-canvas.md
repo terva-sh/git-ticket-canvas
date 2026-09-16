@@ -14,9 +14,11 @@ without Node or npm:
 
 ```sh
 go build -o git-ticket-canvas .
+go build -o git-ticket-canvas-server ./cmd/git-ticket-canvas-server
 ./git-ticket-canvas -store /path/to/repo -read-only
 
 go install .
+go install ./cmd/git-ticket-canvas-server
 # Ensure GOBIN, or the default GOPATH/bin, is on PATH.
 git-ticket-canvas -h
 git ticket-canvas -h
@@ -36,8 +38,9 @@ the store from the current directory when `-store` is absent. A Git repository
 is not required for Git's external-command discovery; the application still
 requires a discoverable ticket store.
 
-Keep the server on loopback. It has no authentication. To permit writes,
-remove `-read-only` and pass `-actor human:your-id` explicitly. Ticket and layout
+`git-ticket-canvas` has no authentication and refuses a non-loopback `-addr`,
+naming `git-ticket-canvas-server` in the error. To permit writes, remove
+`-read-only` and pass `-actor human:your-id` explicitly. Ticket and layout
 formats, API routes, actor rules, and frontend interactions are unchanged.
 
 `go install .` installs `git-ticket-canvas` into GOBIN or GOPATH/bin. It does not
@@ -53,9 +56,10 @@ Use Node 22.12 or newer, npm, Go, just, and a POSIX shell:
 
 ```sh
 just web-setup
-just build                # frontend build, then ./git-ticket-canvas
-just run -read-only
-just install              # frontend build, then go install .
+just build                # frontend build, then both commands
+just run -read-only       # the desk canvas
+just serve --issuer ...   # the served canvas
+just install              # frontend build, then both commands into ~/.local/bin
 ```
 
 For live frontend changes, run `just api-dev -read-only` in one terminal and

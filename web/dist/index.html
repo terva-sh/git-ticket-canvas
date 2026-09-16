@@ -72,27 +72,66 @@ button { cursor: pointer; }
 #toolbar .brand { overflow-wrap: anywhere; min-width: 0; }
 #stage { min-width: 0; min-height: 0; }
 
+/* Two rows, each with a left and a right group. The rows are declared rather
+   than discovered: one wrapping row let the browser decide which control fell
+   off the end, and that answer moved with the length of the store path. Each
+   group still wraps inside itself, so a narrow window loses nothing. */
 #toolbar {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line);
-  z-index: 20; flex-wrap: wrap;
+  --row-gap: 10px;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 6px 12px; background: var(--panel); border-bottom: 1px solid var(--line);
+  z-index: 20;
 }
+.toolbar-row { display: flex; align-items: center; gap: var(--row-gap); min-width: 0; flex-wrap: wrap; }
+/* A hairline so the second row reads as the other half of a layout rather than
+   as the overflow of the first. */
+.toolbar-row + .toolbar-row { padding-top: 6px; border-top: 1px solid var(--line-soft); }
+.toolbar-side { display: flex; align-items: center; gap: var(--row-gap); min-width: 0; flex-wrap: wrap; }
+/* Pushed to the right edge and packed from it, so the group grows leftwards
+   and its last control stays where the eye expects to find it. */
+.toolbar-side.right { margin-left: auto; justify-content: flex-end; }
+/* The header bar's own size, set by hand rather than chosen from the window:
+   nothing about a window says how big this row should be, because a 27-inch
+   screen and a 24-inch one report the same width. Scoped to `#toolbar` so the
+   board, the cards and the ticket panel keep their own sizes — the whole point
+   is changing one without the other, which zooming the browser cannot do.
+
+   Each size is at least as large as what a coarse pointer already gets, so
+   turning this up on a tablet never makes a target smaller. */
+html[data-toolbar="large"] #toolbar {
+  font-size: 15px; --row-gap: 11px; gap: 8px; padding: 8px 14px;
+  --tool-y: 11px; --tool-x: 15px; --chip-y: 8px; --chip-x: 13px;
+}
+html[data-toolbar="larger"] #toolbar {
+  font-size: 17px; --row-gap: 13px; gap: 10px; padding: 10px 16px;
+  --tool-y: 14px; --tool-x: 19px; --chip-y: 11px; --chip-x: 16px;
+}
+/* These carry fixed sizes so they sit quietly beside the controls. Relative
+   units under a scale keeps that relationship instead of freezing them. */
+html[data-toolbar="large"] #toolbar :is(.chip, .badge, .brand span),
+html[data-toolbar="larger"] #toolbar :is(.chip, .badge, .brand span) { font-size: .78em; }
 .brand { font-weight: 600; letter-spacing: .2px; margin-right: 4px; }
 .brand span { color: var(--ink-faint); font-weight: 400; font-family: var(--mono); font-size: 11px; }
 .tool {
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px;
-  padding: 5px 10px; color: var(--ink-dim);
+  /* Through variables so the coarse-pointer sizes and the toolbar size compose
+     rather than fight: whichever element sets them last for a given control
+     wins, and `#toolbar` is the inner one. */
+  padding: var(--tool-y, 5px) var(--tool-x, 10px); color: var(--ink-dim);
 }
 .tool:hover { color: var(--ink); border-color: var(--ink-faint); }
 .tool.primary { background: var(--accent-soft); border-color: transparent; color: var(--ink); }
 .tool[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink); border-color: transparent; }
 #search { min-width: 190px; }
 input.tool, select.tool { color: var(--ink); }
+/* The inspector still pushes with one of these. The toolbar used to, and now
+   sets its right-hand groups with `margin-left: auto` instead. */
 .spacer { flex: 1; }
 .chip-row { display: flex; gap: 4px; align-items: center; }
 .chip {
   border: 1px solid var(--line); background: transparent; border-radius: 999px;
-  padding: 3px 9px; font-size: 11px; color: var(--ink-faint); display: inline-flex; gap: 5px; align-items: center;
+  padding: var(--chip-y, 3px) var(--chip-x, 9px); font-size: 11px;
+  color: var(--ink-faint); display: inline-flex; gap: 5px; align-items: center;
 }
 .chip[aria-pressed="true"] { color: var(--ink); border-color: currentColor; }
 .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
@@ -153,6 +192,81 @@ input.tool, select.tool { color: var(--ink); }
 .store-quick-item[aria-current="true"] { color: var(--ink); background: var(--accent-soft); }
 .store-quick-item:disabled { color: var(--ink-faint); cursor: default; }
 
+/* Your account: who you are, which groups did the work, what your writes are
+   stamped with, and the way out. Anchored to the right because the control
+   that opens it is there. */
+.zoom { display: inline-flex; gap: 0; }
+.zoom > .tool { border-radius: 0; }
+.zoom > .tool:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.zoom > .tool:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+/* Wide enough that 100% and 40% do not shuffle the buttons beside them. */
+.zoom-level { min-width: 52px; font-variant-numeric: tabular-nums; }
+
+.session-dialog {
+  position: fixed; top: 56px; right: 12px; z-index: 40; width: min(420px, calc(100vw - 24px));
+  max-height: calc(100vh - 68px); overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.28);
+}
+.session-head { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between;
+  padding: 12px; border-bottom: 1px solid var(--line); }
+.session-who { display: block; font-size: 14px; }
+.session-email { display: block; font-size: 12px; color: var(--ink-dim); }
+.session-section { padding: 12px; border-bottom: 1px solid var(--line); }
+.session-section:last-child { border-bottom: 0; }
+.session-section h2 { margin: 0 0 8px; font-size: 11px; font-weight: 500; color: var(--ink-faint);
+  font-family: var(--mono); text-transform: lowercase; }
+.session-hint, .session-empty { margin: 0 0 8px; font-size: 12px; color: var(--ink-dim); }
+.session-groups { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.session-groups li { display: flex; gap: 8px; align-items: baseline; justify-content: space-between;
+  font-size: 12px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--line);
+  /* A group that grants nothing is not an error, so it recedes rather than
+     alarming. The pair of them side by side is the diagnosis. */
+  color: var(--ink-dim); }
+.session-groups li.granted { color: var(--ink); border-color: color-mix(in srgb, var(--s-done) 45%, transparent); }
+/* Not an error and not a grant: a name worth comparing against your own. */
+.session-groups li.would-grant { color: var(--ink); border-style: dashed;
+  border-color: color-mix(in srgb, var(--s-in-progress) 45%, transparent); }
+.session-groups li.would-grant .session-group-state { color: var(--s-in-progress); }
+.session-none { display: block; color: var(--ink-dim); }
+/* Kept rather than dropped: comparing the unmatched-and-unexpected against the
+   unmatched-and-expected is how a misspelling is found. */
+.session-others { margin-top: 8px; }
+.session-others > summary { cursor: pointer; font-size: 12px; color: var(--ink-faint); padding: 4px 0; }
+.session-others > summary:hover { color: var(--ink-dim); }
+.session-others .session-groups { margin-top: 6px; }
+.session-group-name { font-family: var(--mono); overflow-wrap: anywhere; }
+.session-group-state { font-size: 11px; white-space: nowrap; color: var(--ink-faint); }
+.session-groups li.granted .session-group-state { color: var(--s-done); }
+/* Administration: who has been here. Not a store list and not a grant list —
+   an administrator reads no store they were not granted. */
+.session-people > summary { cursor: pointer; font-size: 12px; color: var(--ink-faint); padding: 4px 0; }
+.session-people > summary:hover { color: var(--ink-dim); }
+.person-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.person { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; font-size: 12px; }
+.person-head { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; }
+.person-name { font-weight: 500; overflow-wrap: anywhere; }
+.person-seen { font-size: 11px; color: var(--ink-faint); white-space: nowrap; }
+.person-email, .person-groups, .person-actor { font-size: 11px; color: var(--ink-dim); overflow-wrap: anywhere; }
+.person-groups { margin-top: 2px; font-family: var(--mono); }
+.person-actor code { font-family: var(--mono); }
+.session-actor { display: flex; gap: 8px; }
+.session-actor #sessionActor { flex: 1; font-family: var(--mono); }
+.session-error { margin: 8px 0 0; font-size: 12px; color: var(--danger); }
+#sessionLogout { display: inline-block; text-decoration: none; }
+
+/* ---------- display panel ---------- */
+.display-choice { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 10px; margin-bottom: 10px; }
+.display-choice:last-child { margin-bottom: 0; }
+.display-choice > label { align-self: center; color: var(--ink-dim); }
+.display-hint { grid-column: 2; margin: 0; }
+.display-facts { font-family: var(--mono); }
+.display-scale { display: flex; gap: 6px; flex-wrap: wrap; }
+/* The size names are the sizes, so the buttons show what they do. The panel
+   sits outside `#toolbar` and does not inherit its scale, which is what makes
+   the three readable side by side. */
+#display-toolbar-large { font-size: 15px; }
+#display-toolbar-larger { font-size: 17px; }
 .store-browser {
   position: fixed; inset: 56px 12px 12px; z-index: 40; display: grid; grid-template-rows: auto 1fr;
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
@@ -223,12 +337,44 @@ input.tool, select.tool { color: var(--ink); }
 .card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), 0 8px 22px -10px rgba(0,0,0,.6); }
 .card.dimmed { opacity: .18; }
 .card.link-target { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.card.done, .card.archived { border-left-color: var(--line); }
-.card.done .card-title, .card.archived .card-title { color: var(--ink); }
+/* Settled work recedes. Not hidden: the history is why a board is trustworthy,
+   and a board that forgets what was finished cannot be read backwards. It just
+   stops competing with work somebody could pick up. */
+.card.done, .card.archived {
+  border-left-color: var(--line);
+  opacity: .55;
+  filter: saturate(.45);
+}
+.card.done:hover, .card.archived:hover, .card.done.selected, .card.archived.selected {
+  opacity: 1; filter: none;
+}
+.card.done .card-title, .card.archived .card-title { color: var(--ink-dim); font-weight: 550; }
+/* Blocked is not actionable and should not look it. The count is the useful
+   part, because the question about a blocked card is what it waits on. */
+.card.blocked-card { opacity: .8; }
+.card.blocked-card .card-title { color: var(--ink-dim); }
+/* The loudest thing on the board, because it is what `git ticket ready`
+   answers and it was previously a word in body text. */
+.card.startable { border-left-width: 5px; }
+.card-alerts .startable-mark {
+  color: var(--s-ready); font-weight: 600;
+}
+/* Somebody else is working this. On a canvas serving several people that is a
+   different card from an unclaimed one, and nothing said so. */
+.card.claimed { border-top: 1px solid color-mix(in srgb, var(--s-in-progress) 55%, transparent); }
+.card-alerts .held {
+  font-family: var(--mono); font-size: 10px; color: var(--s-in-progress);
+  overflow-wrap: anywhere;
+}
 .card-head { display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--line-soft); padding-top: 10px; margin-top: 12px; }
 .card-id { font-family: var(--mono); font-size: 10px; color: var(--ink-dim); overflow-wrap: anywhere; }
 .card-type { font-size: 10px; color: var(--ink-dim); }
 .card-placement { font-size: 10px; color: var(--ink-dim); margin-left: auto; }
+/* The label that reports the placement is also how you change it, so it reads
+   as the same word until you are near it. A dotted underline is the only
+   standing difference; colour and a solid underline arrive on hover. */
+button.card-placement { background: none; border: 0; padding: 0; text-decoration: underline dotted; text-underline-offset: 2px; }
+button.card-placement:hover, button.card-placement:focus-visible { color: var(--accent); text-decoration-style: solid; }
 .card-title { font-size: 16px; font-weight: 650; line-height: 1.4; word-break: break-word; margin-bottom: 12px; }
 .card-state { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .card-priority { color: var(--ink-dim); font-size: 11px; }
@@ -281,6 +427,22 @@ button:focus-visible, summary:focus-visible, select:focus-visible, input:focus-v
 .card:hover .handle, .card.selected .handle { opacity: 1; }
 .handle:hover { border-color: var(--accent); background: var(--accent); }
 
+/* ---------- targets ----------
+   Everything here is sized for a mouse by default. A coarse pointer cannot
+   hover, so the handle is always visible rather than revealed, and every target
+   grows to something a fingertip can land on. Chosen from the pointer and
+   overridable in the display panel. */
+html[data-targets="coarse"] .handle {
+  width: 30px; height: 30px; right: -15px; opacity: 1;
+}
+/* The usual guidance is a 44px target. A toolbar row that already wraps pays
+   for every pixel of height twice, so these land near it rather than on it:
+   about 41px tall for a control, and the handle, which is the one thing that
+   has to be hit exactly, gets the full size. */
+html[data-targets="coarse"] { --tool-y: 11px; --tool-x: 15px; --chip-y: 8px; --chip-x: 13px; }
+html[data-targets="coarse"] .label-more { padding: 7px 11px; }
+html[data-targets="coarse"] .card-placement { padding: 6px 0; }
+
 /* ---------- inspector ---------- */
 #inspector {
   position: absolute; top: 0; right: 0; bottom: 0; width: 360px;
@@ -289,6 +451,16 @@ button:focus-visible, summary:focus-visible, select:focus-visible, input:focus-v
   transform: translateX(100%); transition: transform .16s ease;
 }
 #inspector.open { transform: none; }
+/* Where the inspector sits, chosen from the width and the aspect ratio. A
+   360px panel beside the board needs a board left over to sit beside; on a
+   taller-than-wide window it would leave a sliver, so it becomes a sheet along
+   the bottom instead, and on a narrow landscape window it covers the board. */
+html[data-inspector="over"] #inspector { width: 100%; border-left: 0; }
+html[data-inspector="bottom"] #inspector {
+  width: 100%; top: auto; height: 55%; border-left: 0; border-top: 1px solid var(--line);
+  transform: translateY(100%);
+}
+html[data-inspector="bottom"] #inspector.open { transform: none; }
 .insp-head { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: flex-start; }
 .insp-body { overflow-y: auto; padding: 4px 14px 40px; flex: 1; }
 .insp-title {
@@ -353,8 +525,8 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
 #composer .muted { margin-top: 6px; display: block; }
 [hidden] { display: none !important; }
 </style>
-  <script type="module" crossorigin src="./assets/index-DoytkD5k.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-3zWs_XiM.css">
+  <script type="module" crossorigin src="./assets/index-BUKMWXuI.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DcWPIGc4.css">
 </head>
 <body>
 <div id="app"></div>

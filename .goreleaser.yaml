@@ -2,6 +2,12 @@ version: 2
 project_name: git-ticket-canvas
 
 # Build committed embedded assets. Never rebuild or tidy after the clean-tree check.
+#
+# Two commands, one archive per platform. The desk canvas and the served canvas
+# are separate binaries so that "does this canvas authenticate anybody" is
+# answerable from the name of the thing you started, and they ship together so
+# that a person who downloads the canvas has both rather than discovering the
+# second one exists when they need it.
 builds:
   - id: git-ticket-canvas
     main: .
@@ -14,10 +20,21 @@ builds:
         goarch: arm64
     flags: [-trimpath]
     ldflags: [-s -w]
+  - id: git-ticket-canvas-server
+    main: ./cmd/git-ticket-canvas-server
+    binary: git-ticket-canvas-server
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+    flags: [-trimpath]
+    ldflags: [-s -w]
 
 archives:
   - id: git-ticket-canvas
-    ids: [git-ticket-canvas]
+    ids: [git-ticket-canvas, git-ticket-canvas-server]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE

@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import { forwardRef } from 'preact/compat'
 import { useCallback, useImperativeHandle, useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { autoPlace, cardWidthFor, fitView, posOf, toScene, zoomAt } from '../platform/canvas/geometry'
+import { autoPlace, cardWidthFor, DEFAULT_ZOOM, fitView, posOf, toScene, zoomAt, zoomTo } from '../platform/canvas/geometry'
 import { captureMembers } from '../platform/canvas/frames'
 import type { Density, Point, View } from '../platform/canvas/geometry'
 import type { Card, CardChanges, Cards, Frame, Frames, Ticket } from '../platform/tickets/types'
@@ -19,6 +19,10 @@ import { SampledFrame } from './canvas/SampledFrame'
 const empty: LabelFilters = new Map()
 
 export interface CanvasProps {
+  /** Told whenever the view moves, because it is a ref and nothing outside this
+   * component can see it change. Called per motion frame during a drag, so a
+   * listener that does more than compare must debounce. */
+  onView?(view: View): void
   samplingProbe?: import('./canvas/committedSampling').CommittedSampling
   samplingPublication?: import('./canvas/committedSampling').SamplingPublication | null
   samplingReady?: () => boolean
@@ -41,6 +45,13 @@ export interface CanvasProps {
   relationships?: import('./canvas/Edges').RelationshipMode
   /** How much of a card to show. Defaults to the full presentation. */
   density?: Density
+  /** How far a fit may shrink the board. A small screen would otherwise frame
+   * a large board at a magnification nobody can read. */
+  fitFloor?: number
+  /** Where the inspector sits. A fit reserves room for it only where it sits
+   * beside the board; a sheet that covers the board is transient and reserving
+   * for it would frame every board into a corner. */
+  inspector?: import('../platform/canvas/viewport').InspectorPlacement
   query: string
   filters: ReadonlySet<string>
   labelFilters?: LabelFilters
@@ -57,6 +68,16 @@ export interface CanvasProps {
 
 export interface CanvasHandle {
   fit(): void
+  /** Hand every selected card back to automatic placement. */
+  releaseSelected(): void
+  /** Put the board back at an exact view. */
+  setView(view: View): void
+  /** Multiply the magnification, about the centre of the viewport. */
+  zoomBy(factor: number): void
+  /** Set an exact magnification, about the centre of the viewport. */
+  zoomTo(k: number): void
+  /** Back to 1:1. Distinct from fit, which frames every card instead. */
+  resetZoom(): void
   focus(id: string): void
   arrange(): void
   composeCentre(): void
@@ -86,7 +107,8 @@ type Gesture = GestureBase & (
 )
 interface LocalState {
   view: View
-  previews: Map<string, Card>
+  /** A null is a removal in flight: the card is going back to the rules. */
+  previews: Map<string, Card | null>
   gesture: Gesture | null
   motion: Point | null
   frame: number | null
@@ -105,11 +127,20 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
    * gesture starting and the callback running. */
   const activeWidth = () => cardWidthFor(latest.current.density ?? 'full')
   const local = useRef<LocalState>({
-    view: { x: 120, y: 90, k: 1 }, previews: new Map(), gesture: null,
+    view: { x: 120, y: 90, k: 1 }, previews: new Map<string, Card | null>(), gesture: null,
     motion: null, frame: null, frameCount: 0, mounted: false,
   }).current
   const [, setRevision] = useState(0)
   const redraw = () => setRevision(n => n + 1)
+  // The view is a ref so that a wheel gesture can keep every delta and render
+  // once a frame. That means nothing outside here sees it change, so a control
+  // that displays the level has to be told.
+  const reportView = () => latest.current.onView?.(local.view)
+  const commitView = (view: View) => {
+    local.view = view
+    reportView()
+    redraw()
+  }
   const measurements = useMeasurements(stage)
   const [controls] = useState(() => new ControlMeasurements())
   const controlsChanged = useCallback(() => { if (local.mounted) setRevision(n => n + 1) }, [local])
@@ -145,7 +176,14 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   function positions(): Map<string, Placement> {
     placementCalculations.current++
     const p = latest.current
-    const pinned = { ...p.cards, ...Object.fromEntries(local.previews) }
+    // Spreading the previews would leave a null under the id. `isPinned` and
+    // `posOf` both test truthiness so it would behave, but a card on its way
+    // back to the rules has no saved position and the set should say so.
+    const pinned: Cards = { ...p.cards }
+    for (const [id, card] of local.previews) {
+      if (card) pinned[id] = card
+      else delete pinned[id]
+    }
     const automatic = autoPlace(p.tickets.values(), pinned, p.statuses)
     const result = new Map<string, Placement>()
     for (const id of p.tickets.keys()) {
@@ -195,12 +233,21 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     const bounds = element.getBoundingClientRect()
     if (inspector) {
       const panel = inspector.getBoundingClientRect()
+      const beside = Math.round(panel.left - bounds.left)
+      const above = Math.round(panel.top - bounds.top)
+      // A panel that covers the stage in both directions leaves nothing to fit
+      // into. It is an overlay somebody is about to close rather than a split,
+      // so the fit works from the whole stage and ignores it.
+      if (panel.width >= bounds.width - 1 && above <= 0) return { width: element.clientWidth, height: element.clientHeight }
       return panel.width >= bounds.width - 1
-        ? { width: element.clientWidth, height: Math.max(1, panel.top - bounds.top) }
-        : { width: Math.max(1, panel.left - bounds.left), height: element.clientHeight }
+        ? { width: element.clientWidth, height: Math.max(1, above) }
+        : { width: Math.max(1, beside), height: element.clientHeight }
     }
-    // Leave room for opening the inspector on desktop, not on narrow screens.
-    return { width: element.clientWidth > 700 ? Math.max(320, element.clientWidth - 400) : element.clientWidth,
+    // Room held back for an inspector that is not open yet, so opening one does
+    // not push the board somebody just framed. Only where it will sit beside
+    // the board: a sheet covers it and holding room back for that would frame
+    // every board into a corner it never needed.
+    return { width: latest.current.inspector === 'beside' ? Math.max(320, element.clientWidth - 400) : element.clientWidth,
       height: element.clientHeight }
   }
 
@@ -216,8 +263,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
         height: measurements.elements.get(id)?.offsetHeight ?? measurements.heights.get(id) })),
       ...Object.values(latest.current.frames || {}).map(frame => ({ x: frame.x, y: frame.y - 24,
         width: frame.w, height: frame.h + 24 })),
-    ], viewport(), 0)
-    if (view) { local.view = view; redraw() }
+    ], viewport(), 0, latest.current.fitFloor)
+    if (view) commitView(view)
   }
 
   function compose(client: Point) {
@@ -230,7 +277,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     p.onCompose({ x: client.x - bounds.left, y: client.y - bounds.top, sceneX: scene.x, sceneY: scene.y })
   }
 
-  function save(changes: Cards) {
+  function save(changes: CardChanges) {
     if (!Object.keys(changes).length) return
     const p = latest.current
     if (p.readOnly) { p.onError('read-only'); return }
@@ -254,6 +301,28 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     catch (error) { failed(error); complete() }
   }
 
+  /** Hand cards back to the rules. A saved position is the only thing that
+   * makes a card manual, so removing it is the whole operation.
+   *
+   * Dragging moves every selected card, so this releases every selected card
+   * when the pressed one is in the selection, and just that card when it is
+   * not. Anything already automatic is dropped rather than written as a
+   * redundant removal that would still cost a round trip.
+   */
+  function releaseCards(ids: readonly string[]) {
+    const p = latest.current
+    const changes: CardChanges = {}
+    for (const id of ids) if (p.cards[id]) changes[id] = null
+    save(changes)
+  }
+  // Stable, because CardView is memoized and a fresh callback per render would
+  // re-render every card on every pan frame. It reads the selection through
+  // `latest` for the same reason every other callback here does.
+  const releaseCard = useCallback((id: string) => {
+    const p = latest.current
+    releaseCards(p.selection.has(id) ? [...p.selection] : [id])
+  }, [])
+
   function captureFrame(frame: Frame) {
     return captureMembers(latest.current.frames || {}, frame, [...positions()].map(([id, point]) => ({
       id, x: point.x, y: point.y, w: activeWidth(),
@@ -263,6 +332,34 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
 
   useImperativeHandle(ref, () => ({
     fit,
+    // Compact density hides the card head, and with it the only control this
+    // has. A board read at compact is exactly the large one somebody most
+    // needs to undo a drag on, so the keyboard reaches it too.
+    releaseSelected() { releaseCards([...latest.current.selection]) },
+    // Used to put somebody back where they left a board they are already
+    // looking at. Coming back to a board this component was not mounted for
+    // goes through initialView instead, which nothing can race.
+    setView(view: View) { cancel(); commitView({ ...view }) },
+    // A control has no pointer on the board, so these hold the middle of the
+    // viewport still rather than zooming about a corner.
+    zoomBy(factor: number) {
+      if (!stage.current) return
+      const bounds = stage.current.getBoundingClientRect()
+      commitView(zoomTo(local.view, local.view.k * factor, bounds))
+    },
+    zoomTo(k: number) {
+      if (!stage.current) return
+      const bounds = stage.current.getBoundingClientRect()
+      commitView(zoomTo(local.view, k, bounds))
+    },
+    // Distinct from fit: fit frames everything, which is what you want when you
+    // have lost the board. This is 1:1, which is what you want when you have
+    // chosen a magnification and drifted off it.
+    resetZoom() {
+      if (!stage.current) return
+      const bounds = stage.current.getBoundingClientRect()
+      commitView(zoomTo(local.view, DEFAULT_ZOOM, bounds))
+    },
     captureFrame,
     framePositions: positions,
     layoutReady: () => !local.gesture && !local.previews.size,
@@ -284,6 +381,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
         y: viewport().height / 2 - (point.y + (measurements.heights.get(id) ?? 120) / 2) * k,
         k,
       }
+      reportView()
       redraw()
     },
     arrange() {
@@ -368,6 +466,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     if (gesture.kind === 'pan') {
       local.view = { ...gesture.view, x: gesture.view.x + point.x - gesture.pointer.x,
         y: gesture.view.y + point.y - gesture.pointer.y }
+      reportView()
     } else if (gesture.kind === 'card') {
       const dx = (point.x - gesture.pointer.x) / gesture.view.k
       const dy = (point.y - gesture.pointer.y) / gesture.view.k
@@ -452,6 +551,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     if (local.gesture || !stage.current) return
     // Updating the ref preserves every wheel delta while only rendering once per frame.
     local.view = zoomAt(local.view, { x: event.clientX, y: event.clientY }, stage.current.getBoundingClientRect(), event.deltaY)
+    reportView()
     if (local.frame !== null) return
     local.frame = requestAnimationFrame(() => {
       local.frame = null
@@ -547,12 +647,13 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
           frameTitle={Object.values(props.frames || {}).find(frame => frame.members.includes(ticket.id))?.title}
           frameMember={!!props.selectedFrame && !!props.frames?.[props.selectedFrame]?.members.includes(ticket.id)}
           target={gesture?.kind === 'link' && gesture.to === ticket.id} register={measurements.register}
-          density={props.density}
+          density={props.density} onRelease={props.readOnly ? undefined : releaseCard}
           incarnation={props.samplingPublication?.tickets.find(item => item.id === ticket.id)?.incarnation} />
       })}</div>
     </div>
     {props.frameCreating && <div id="frameDrawHint" role="status">Draw on empty canvas to capture card centers, or enter bounds in the frame panel. Escape cancels.</div>}
     <div id="hint">drag canvas to pan · scroll to zoom · double-click to file a ticket · drag the right handle to link
+      {!props.readOnly && ' · u hands the selection back to automatic placement'}
       {props.relationships !== 'none' && <div>Solid arrow: ticket → dependency · Dashed warm arrow: parent → child · hover or select to name one edge</div>}
     </div>
     {props.children}

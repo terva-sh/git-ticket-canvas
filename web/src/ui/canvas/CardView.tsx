@@ -17,11 +17,15 @@ interface CardViewProps {
   /** How much of the ticket to show. Defaults to the full presentation. */
   density?: Density
   incarnation?: symbol
+  /** Hands this card back to automatic placement. Absent on a read-only
+   * canvas, which is why an absent prop renders a plain label rather than a
+   * disabled button. */
+  onRelease?: (id: string) => void
   register: (id: string, element: HTMLDivElement, incarnation?: symbol) => (() => void)
 }
 
 // Memoization keeps metadata out of the per-frame pan and link updates.
-export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, selected, dimmed, target, frameTitle, frameMember, density = 'full', incarnation, register }: CardViewProps) {
+export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, selected, dimmed, target, frameTitle, frameMember, density = 'full', incarnation, onRelease, register }: CardViewProps) {
   const compact = density === 'compact'
   const element = useRef<HTMLDivElement>(null)
   // Refresh regression diagnostic; unlike DOM mutation counts this sees renders.
@@ -44,18 +48,30 @@ export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, sel
   // priority, ownership and the id line are gone, so compact shows three chips
   // where full shows two, with the rest behind the same disclosure.
   const shownLabels = compact ? 3 : 2
+  // Weight follows actionability rather than lifecycle. A done ticket from
+  // March and a startable one blocking three others carried the same weight,
+  // and .card.done made that literal by restoring the title colour a neutral
+  // border had just taken away.
+  const settled = t.status === 'done' || t.status === 'archived'
+  const blocked = !!t.readiness?.blocked && !settled
+  // What `git ticket ready` answers, which is the most useful fact on a board.
+  const startable = !settled && !blocked && !!t.readiness?.ready
+  // A claim is advisory and reserves nothing, so an expired one is not a claim.
+  const heldBy = !settled && t.claim && !t.claim.expired ? t.claim.actor : ''
   const classes = ['card', compact && 'compact', !pinned && 'unpinned', selected && 'selected', dimmed && 'dimmed',
-    frameMember && 'frame-member', target && 'link-target', t.status === 'done' && 'done', t.status === 'archived' && 'archived'].filter(Boolean).join(' ')
+    frameMember && 'frame-member', target && 'link-target', t.status === 'done' && 'done', t.status === 'archived' && 'archived',
+    blocked && 'blocked-card', startable && 'startable', heldBy && 'claimed'].filter(Boolean).join(' ')
   return <div ref={element} class={classes} data-id={t.id} data-render-count={renders.current}
     style={{ transform: `translate(${x}px, ${y}px)`, zIndex: z, '--status': `var(--s-${t.status})` }}>
     <div class="card-title">{t.title}</div>
     <div class="card-state"><span class="pill status">{t.status}</span>
       {!compact && <span class={`card-priority prio-${t.priority || 'normal'}`}>{t.priority || 'normal'} priority</span>}</div>
     <div class="card-alerts">
-      <span class={t.readiness?.blocked ? 'blocked' : ''}>{t.readiness?.blocked
+      <span class={t.readiness?.blocked ? 'blocked' : startable ? 'startable-mark' : ''}>{t.readiness?.blocked
         ? blockers ? `Blocked by ${blockers}` : 'Blocked'
         : t.readiness?.ready && t.status !== 'ready' ? 'Startable' : 'No blockers'}</span>
       {t.dueOn && <span class={late ? 'late' : ''}>{late ? 'Overdue' : 'Due'} {t.dueOn}</span>}
+      {heldBy && <span class="held" title={`Claimed by ${heldBy}`}>{heldBy}</span>}
     </div>
     {!!labels.length && <div class="card-labels" onKeyDown={event => {
       if (event.key === 'Escape' && labelsOpen) { event.stopPropagation(); setLabelsOpen(false) }
@@ -77,7 +93,17 @@ export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, sel
     </div>}
     {!compact && frameTitle && <div class="card-frame-membership">Frame: {frameTitle}</div>}
     {!compact && <div class="card-head"><span class="card-id">{t.short || t.id}</span><span class="card-type">{t.type}</span>
-      <span class="card-placement">{pinned ? 'Manual' : 'Automatic'}</span></div>}
+      {/* Dragging a card is otherwise a one-way door: it takes a saved
+        * position and nothing but editing the layout file gives it back. The
+        * label that reports the state is where somebody looks to change it, so
+        * the word stays `Manual` and the accessible name says what pressing
+        * does. An automatic card has nothing to hand back. */}
+      {pinned && onRelease
+        ? <button type="button" class="card-placement release" data-release={t.id}
+          title="Placed by hand. Press to hand it back to automatic placement."
+          aria-label={`Hand ${t.short || t.id} back to automatic placement`}
+          onClick={() => onRelease(t.id)}>Manual</button>
+        : <span class="card-placement">{pinned ? 'Manual' : 'Automatic'}</span>}</div>}
     <div class="handle" title="Drag to another card to make that ticket depend on this one" />
   </div>
 })
