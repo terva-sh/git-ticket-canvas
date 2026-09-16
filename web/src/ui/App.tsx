@@ -8,7 +8,7 @@ import { LiveUpdates, type LiveStatus } from '../platform/tickets/live'
 import type { ActorResponse, CardChanges, PersonResponse, Cards, Frame, Op, SessionResponse, StoreSummary, Ticket, VersionInfo } from '../platform/tickets/types'
 import { FrameHistory, applyFrameOperation, assertFrameOperation, createFrame, moveFrame, resizeFrame, updateFrame, deleteFrame, setMembership } from '../platform/canvas/frames'
 import type { FrameOperation, FrameState, Point } from '../platform/canvas/frames'
-import type { Density, View } from '../platform/canvas/geometry'
+import type { View } from '../platform/canvas/geometry'
 import { OPENING_ZOOM } from './canvas/viewMemory'
 import { recall, remember } from './canvas/viewMemory'
 import { sameJSON } from '../platform/tickets/reconcile'
@@ -18,6 +18,8 @@ import { Canvas, type CanvasHandle } from './Canvas'
 import { Toolbar } from './Toolbar'
 import { StoreBrowser } from './StoreBrowser'
 import { SessionDialog } from './SessionDialog'
+import { DisplayDialog } from './DisplayDialog'
+import { useDisplay } from './useDisplay'
 import type { RelationshipMode } from './canvas/Edges'
 import { Inspector } from './Inspector'
 import { Composer, type ComposerPosition } from './Composer'
@@ -80,9 +82,12 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
   const [framePreview, setFramePreview] = useState<{ board: string; generation: number; state: FrameState } | null>(null)
   const [, setHistoryVersion] = useState(0)
   const [relationships, setRelationships] = useState<RelationshipMode>('selected')
-  // Session state, like `relationships`. Nothing persists it, so a reload
-  // returns to the full presentation.
-  const [density, setDensity] = useState<Density>('full')
+  // Chosen from the size and shape of this window, and overridable per person
+  // in this browser. Nothing about it reaches the layout file: two people on one
+  // board must not be able to change each other's toolbar.
+  const display = useDisplay()
+  const density = display.settings.density
+  const [displayOpen, setDisplayOpen] = useState(false)
   // The magnification, mirrored here only so the toolbar can show it. The
   // canvas owns the view; this follows it.
   const [zoom, setZoom] = useState(OPENING_ZOOM)
@@ -491,6 +496,16 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
     }
   }, [store, booted, storeId])
 
+  // The stylesheet needs these and `#app` is outside this tree, so they go on
+  // the document element. Attributes rather than classes so a value that this
+  // version does not know replaces the old one instead of joining it.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    root.dataset.targets = display.settings.targets
+    root.dataset.inspector = display.settings.inspector
+  }, [display.settings.targets, display.settings.inspector])
+
   useEffect(() => {
     mounted.current = true
     publication.current = bridge?.publish(published.current, generation.current) ?? null
@@ -559,7 +574,10 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       boards={snapshot.boards} board={snapshot.board} config={snapshot.config} query={ui.query} filters={ui.filters}
       counts={`${[...snapshot.tickets.values()].filter(matches).length} of ${snapshot.tickets.size}`}
       relationships={relationships} onRelationships={setRelationships}
-      density={density} onDensity={setDensity}
+      density={density} densityAutomatic={display.automatic.density}
+      densityChosen={display.overrides.density !== undefined}
+      onDensity={value => display.choose('density', value)}
+      onDisplay={() => setDisplayOpen(true)}
       zoom={zoom} onZoomIn={() => canvas.current?.zoomBy(1.25)}
       onZoomOut={() => canvas.current?.zoomBy(1 / 1.25)}
       onZoomReset={() => canvas.current?.resetZoom()}
@@ -581,6 +599,7 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
     {account && session?.authenticated && <SessionDialog session={session} store={storeId || ''}
       actor={actor} actorError={actorError} busy={actorBusy} people={peopleList}
       onActor={wanted => { void chooseActor(wanted) }} onClose={() => setAccount(false)} />}
+    {displayOpen && <DisplayDialog display={display} onClose={() => setDisplayOpen(false)} />}
     {browsing && <StoreBrowser stores={stores} current={storeId} busy={rescanning}
       onOpen={openStore} onFavorite={(name, favorite) => { void toggleFavorite(name, favorite) }}
       onRescan={() => { void rescan() }} onClose={() => setBrowsing(false)} />}
@@ -595,7 +614,7 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       onSelectFrame={selectFrame} onNewFrame={newFrameDraft} onFrameMove={frameMove} onFrameResize={frameResize}
       statuses={snapshot.config?.statuses || []} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters}
       onView={viewChanged}
-      relationships={relationships} density={density} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
+      relationships={relationships} density={density} fitFloor={display.floor} inspector={display.settings.inspector} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>
       <div id="formsRoot">
         <div id="frameHistory" role="status" hidden={!framePreview && !history.undoEntry?.blockedReason && !history.redoEntry?.blockedReason}>

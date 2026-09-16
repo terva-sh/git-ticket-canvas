@@ -45,6 +45,13 @@ export interface CanvasProps {
   relationships?: import('./canvas/Edges').RelationshipMode
   /** How much of a card to show. Defaults to the full presentation. */
   density?: Density
+  /** How far a fit may shrink the board. A small screen would otherwise frame
+   * a large board at a magnification nobody can read. */
+  fitFloor?: number
+  /** Where the inspector sits. A fit reserves room for it only where it sits
+   * beside the board; a sheet that covers the board is transient and reserving
+   * for it would frame every board into a corner. */
+  inspector?: import('../platform/canvas/viewport').InspectorPlacement
   query: string
   filters: ReadonlySet<string>
   labelFilters?: LabelFilters
@@ -226,12 +233,21 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     const bounds = element.getBoundingClientRect()
     if (inspector) {
       const panel = inspector.getBoundingClientRect()
+      const beside = Math.round(panel.left - bounds.left)
+      const above = Math.round(panel.top - bounds.top)
+      // A panel that covers the stage in both directions leaves nothing to fit
+      // into. It is an overlay somebody is about to close rather than a split,
+      // so the fit works from the whole stage and ignores it.
+      if (panel.width >= bounds.width - 1 && above <= 0) return { width: element.clientWidth, height: element.clientHeight }
       return panel.width >= bounds.width - 1
-        ? { width: element.clientWidth, height: Math.max(1, panel.top - bounds.top) }
-        : { width: Math.max(1, panel.left - bounds.left), height: element.clientHeight }
+        ? { width: element.clientWidth, height: Math.max(1, above) }
+        : { width: Math.max(1, beside), height: element.clientHeight }
     }
-    // Leave room for opening the inspector on desktop, not on narrow screens.
-    return { width: element.clientWidth > 700 ? Math.max(320, element.clientWidth - 400) : element.clientWidth,
+    // Room held back for an inspector that is not open yet, so opening one does
+    // not push the board somebody just framed. Only where it will sit beside
+    // the board: a sheet covers it and holding room back for that would frame
+    // every board into a corner it never needed.
+    return { width: latest.current.inspector === 'beside' ? Math.max(320, element.clientWidth - 400) : element.clientWidth,
       height: element.clientHeight }
   }
 
@@ -247,7 +263,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
         height: measurements.elements.get(id)?.offsetHeight ?? measurements.heights.get(id) })),
       ...Object.values(latest.current.frames || {}).map(frame => ({ x: frame.x, y: frame.y - 24,
         width: frame.w, height: frame.h + 24 })),
-    ], viewport(), 0)
+    ], viewport(), 0, latest.current.fitFloor)
     if (view) commitView(view)
   }
 

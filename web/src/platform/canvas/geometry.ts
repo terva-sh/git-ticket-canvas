@@ -214,6 +214,10 @@ export function toClient(scene: Point, view: View, origin: StageOrigin): Point {
  * scale the wheel cannot is a control that can strand somebody somewhere they
  * cannot scroll out of. */
 export const MIN_ZOOM = 0.1;
+/** How far a fit shrinks the board before it gives up on framing everything.
+ * Higher than MIN_ZOOM because the wheel is somebody choosing to go that small
+ * and a fit is the canvas choosing for them. */
+export const FIT_FLOOR = 0.15;
 export const MAX_ZOOM = 2.5;
 export const DEFAULT_ZOOM = 1;
 
@@ -248,7 +252,15 @@ export function zoomAt(
  * Fit fixed-width cards with an optional inspector allowance and padding.
  * Returns null for an empty board so the caller can leave its view unchanged.
  */
-export function fitView(cards: Iterable<FitCard>, stage: Size, inspectorWidth = 380): View | null {
+/**
+ * Frame every card.
+ *
+ * `floor` is how far this may shrink the board. It defaults to the smallest
+ * magnification the wheel can reach, which on a large board and a small screen
+ * renders a card too small to read. A caller that would rather show a legible
+ * corner than an illegible whole passes a higher one; see `fitFloor`.
+ */
+export function fitView(cards: Iterable<FitCard>, stage: Size, inspectorWidth = 380, floor = FIT_FLOOR): View | null {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   let count = 0;
   for (const card of cards) {
@@ -261,7 +273,7 @@ export function fitView(cards: Iterable<FitCard>, stage: Size, inspectorWidth = 
   if (!count) return null;
   const pad = 60;
   const w = stage.width - inspectorWidth, h = stage.height - 40;
-  const k = Math.min(2, Math.max(0.15, Math.min(
+  const k = Math.min(2, Math.max(floor, Math.min(
     w / (x1 - x0 + pad * 2),
     h / (y1 - y0 + pad * 2),
   )));

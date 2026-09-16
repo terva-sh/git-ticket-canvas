@@ -1,0 +1,86 @@
+import { cardWidthFor, FIT_FLOOR } from './geometry'
+import type { Density } from './geometry'
+
+/**
+ * What the canvas chooses from the shape of the window, and how.
+ *
+ * Pure, and in platform, so the rules can be read and tested as a table
+ * rather than through a browser. `matchMedia`, `innerWidth` and the resize
+ * listener live in the UI layer, which is the only part that needs a DOM.
+ */
+
+/** Everything the choices are made from. Nothing else is consulted. */
+export interface ViewportFacts {
+  width: number
+  height: number
+  /** A finger or a stylus rather than a mouse. */
+  coarse: boolean
+}
+
+/** Where the inspector sits relative to the board. */
+export type InspectorPlacement = 'beside' | 'bottom' | 'over'
+
+/** How big the things you have to hit are. */
+export type TargetSize = 'fine' | 'coarse'
+
+export interface DisplayChoices {
+  density: Density
+  inspector: InspectorPlacement
+  targets: TargetSize
+}
+
+/** An override is per setting, so somebody who disagrees about one keeps the
+ * automatic answer for the others, and a later change to these rules still
+ * reaches them. */
+export type DisplayOverrides = Partial<DisplayChoices>
+
+/** Below this the card head and the identity rows cost more than they tell. */
+const COMPACT_BELOW = 900
+
+/** A 360px panel beside the board needs a board left over to sit beside. */
+const INSPECTOR_BESIDE_FROM = 1120
+
+/** The narrowest a card can render and still be read rather than recognised. */
+const LEGIBLE_CARD = 150
+
+/**
+ * The settings this viewport asks for.
+ *
+ * Aspect ratio earns its place on the inspector alone. A wide short window and
+ * a tall narrow one of the same area want different answers there and the same
+ * answer everywhere else: a side panel on a portrait screen leaves a sliver of
+ * board, while the same panel on a landscape screen leaves a board.
+ */
+export function chooseDisplay(facts: ViewportFacts): DisplayChoices {
+  return {
+    density: facts.width < COMPACT_BELOW ? 'compact' : 'full',
+    inspector: facts.width >= INSPECTOR_BESIDE_FROM ? 'beside'
+      : facts.height > facts.width ? 'bottom'
+      : 'over',
+    targets: facts.coarse ? 'coarse' : 'fine',
+  }
+}
+
+/** The automatic choices with anybody's overrides laid over them. */
+export function applyOverrides(chosen: DisplayChoices, overrides: DisplayOverrides): DisplayChoices {
+  return { ...chosen, ...overrides }
+}
+
+/**
+ * How far the opening fit may shrink the board.
+ *
+ * `fitView` otherwise bottoms out at `FIT_FLOOR`, which on a small screen
+ * renders a card forty pixels wide: a picture of a board rather than a board.
+ * Below this the fit stops shrinking and shows a corner instead, which is the
+ * better half of a bad choice when there is no room for the whole thing.
+ *
+ * Derived from the two settings that are already overridable rather than being
+ * a fourth setting of its own. It applies only where the viewport is small or
+ * the pointer is coarse: on a wide mouse-driven screen you can hover to read a
+ * card and scroll to reach one, so the whole board is worth more than a legible
+ * corner of it.
+ */
+export function fitFloor(facts: ViewportFacts, choices: DisplayChoices): number {
+  if (!facts.coarse && facts.width >= COMPACT_BELOW) return FIT_FLOOR
+  return Math.max(FIT_FLOOR, LEGIBLE_CARD / cardWidthFor(choices.density))
+}

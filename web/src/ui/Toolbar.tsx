@@ -15,7 +15,13 @@ export interface ToolbarProps {
   onNewFrame?(): void; onUndoFrame?(): void; onRedoFrame?(): void
   framePending?: boolean; undoFrame?: { label: string; blockedReason?: string }; redoFrame?: { label: string; blockedReason?: string }
   relationships?: RelationshipMode; onRelationships?(mode: RelationshipMode): void
-  density?: Density; onDensity?(density: Density): void
+  /** The density in force. `densityAutomatic` is what the viewport asked for,
+   * and `densityChosen` says whether somebody overrode it, so the select can
+   * offer `Automatic` as a value rather than only as a starting state. */
+  density?: Density; densityAutomatic?: Density; densityChosen?: boolean
+  onDensity?(density: Density | null): void
+  /** Opens the panel that explains every automatic display choice. */
+  onDisplay?(): void
   /** Every label the store offers, configured or carried by a ticket. */
   labels?: readonly string[]; labelFilters?: LabelFilters
   onLabelFilter?(label: string): void; onClearLabelFilters?(): void
@@ -115,9 +121,15 @@ export function Toolbar(p: ToolbarProps) {
       onChange={event => p.onRelationships?.(event.currentTarget.value as RelationshipMode)}>
       <option value="all">All</option><option value="selected">Selected</option><option value="none">None</option>
     </select></label>
+    {/* Density has a control here as well as in the display panel, deliberately:
+        it is the one display setting somebody changes while reading a board,
+        and the panel is where you go to understand the choice rather than to
+        make it. Both write the same preference, so they cannot disagree. */}
     {p.onDensity && <label class="relationship-control">Cards <select id="cardDensity" class="tool"
-      title="Compact narrows cards to fit more of the board on screen" value={p.density || 'full'}
-      onChange={event => p.onDensity?.(event.currentTarget.value as Density)}>
+      title="Compact narrows cards to fit more of the board on screen"
+      value={p.densityChosen ? p.density || 'full' : ''}
+      onChange={event => p.onDensity?.((event.currentTarget.value || null) as Density | null)}>
+      <option value="">Automatic{p.densityAutomatic ? ` — ${p.densityAutomatic === 'compact' ? 'Compact' : 'Full'}` : ''}</option>
       <option value="full">Full</option><option value="compact">Compact</option>
     </select></label>}
     {p.onNewFrame && <>
@@ -140,6 +152,9 @@ export function Toolbar(p: ToolbarProps) {
         disabled={p.zoom >= MAX_ZOOM - 0.001} onClick={p.onZoomIn}>+</button>
     </div>}
     <button id="btnFit" class="tool" title="Fit all cards in view" onClick={p.onFit}>Fit</button>
+    {p.onDisplay && <button id="btnDisplay" class="tool"
+      title="What this canvas chose from the size and shape of this window"
+      onClick={p.onDisplay}>Display</button>}
     {p.account && <button id="btnAccount" class="tool" title="Your account, groups and actor"
       onClick={p.account.onOpen}>{p.account.name}</button>}
     <button id="btnNew" class="tool primary" title="New ticket (double-click the canvas)" disabled={p.readOnly} onClick={p.onNew}>New ticket</button>
