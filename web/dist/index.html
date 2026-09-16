@@ -167,6 +167,13 @@ input.tool, select.tool { color: var(--ink); }
   box-shadow: 0 6px 20px rgba(0,0,0,.18);
 }
 .label-filter-head { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+/* How the required labels combine. It lives in the popover rather than on the
+   toolbar row because the row already overflowed once and this body is
+   absolutely positioned, so it costs the row no width at any window size. */
+.label-filter-mode { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.label-filter-mode .chip { cursor: pointer; }
+.label-filter-mode .chip[aria-pressed="true"] { color: var(--ink); border-color: currentColor; }
+#labelMatchHint { color: var(--ink-faint); }
 .label-filter-body .chip-row { flex-wrap: wrap; max-height: 320px; overflow-y: auto; }
 .label-filter-empty { margin: 0; font-size: 11px; color: var(--ink-faint); }
 
@@ -514,6 +521,20 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
   padding: 8px 12px; background: var(--panel); color: var(--ink); border: 1px solid var(--danger);
   border-radius: var(--radius); pointer-events: none;
 }
+/* Shown only when the filters left nothing on the board, which is the one time
+   there is room in the middle of the canvas and the one time the user is
+   looking at it. Unlike the sync status it takes pointer events, because its
+   whole point is the way out. */
+.filter-notice {
+  position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 20;
+  max-width: min(52ch, calc(100% - 24px)); display: grid; gap: 10px; justify-items: center;
+  padding: 14px 18px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: 0 8px 30px -12px rgba(0,0,0,.7); text-align: center;
+}
+.filter-notice-reason { margin: 0; color: var(--ink); font-size: 13px; }
+.filter-notice-offers { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.filter-notice-offers .tool { cursor: pointer; }
+.filter-notice-offers .badge { color: var(--ink-faint); }
 #toast {
   position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px);
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
@@ -536,7 +557,7 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
 #composer .muted { margin-top: 6px; display: block; }
 [hidden] { display: none !important; }
 </style>
-  <script type="module" crossorigin src="./assets/index-CClXkVd2.js"></script>
+  <script type="module" crossorigin src="./assets/index-BiayqI2Y.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-DcWPIGc4.css">
 </head>
 <body>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cycleLabel, labelUniverse, matchesTicket, type LabelFilters } from './filters'
+import { cycleLabel, emptyBoardHelp, labelUniverse, matchesTicket, type LabelFilters } from './filters'
 import type { Ticket } from './types'
 
 const ticket = (id: string, labels: string[], status = 'ready', description = ''): Ticket => ({
@@ -92,5 +92,99 @@ describe('Combining label, status, and search filters', () => {
     expect(matchesTicket(bare, { statuses: all, labels: none, query: '' })).toBe(true)
     expect(matchesTicket(bare, { statuses: all, labels: labels({ ui: 'exclude' }), query: '' })).toBe(true)
     expect(matchesTicket(bare, { statuses: all, labels: labels({ ui: 'include' }), query: '' })).toBe(false)
+  })
+})
+
+describe('How the required labels combine', () => {
+  const card = ticket('a', ['ui', 'canvas'])
+  const both = labels({ ui: 'include', canvas: 'include' })
+  const one = labels({ ui: 'include', absent: 'include' })
+
+  it('defaults to requiring every label, which is what the board always did', () => {
+    expect(matchesTicket(card, { statuses: all, labels: one, query: '' })).toBe(false)
+    expect(matchesTicket(card, { statuses: all, labels: one, labelMatch: 'all', query: '' })).toBe(false)
+  })
+  it('accepts a card carrying only one of them under any', () => {
+    expect(matchesTicket(card, { statuses: all, labels: one, labelMatch: 'any', query: '' })).toBe(true)
+    expect(matchesTicket(card, { statuses: all, labels: both, labelMatch: 'any', query: '' })).toBe(true)
+  })
+  it('still rejects a card carrying none of them under any', () => {
+    const other = ticket('b', ['idea'])
+    expect(matchesTicket(other, { statuses: all, labels: one, labelMatch: 'any', query: '' })).toBe(false)
+  })
+  // The mode says how the required labels join. It is not an invitation to show
+  // a ticket the user struck out, so excluding stays an AND on both settings.
+  it('keeps an exclude winning under any', () => {
+    expect(matchesTicket(card, { statuses: all, labels: labels({ ui: 'include', canvas: 'exclude' }), labelMatch: 'any', query: '' })).toBe(false)
+  })
+  // The trap: asking whether any of an empty set is present answers no, which
+  // would empty a board whose filter only ever excluded.
+  it('does not empty the board when any is set and nothing is required', () => {
+    expect(matchesTicket(card, { statuses: all, labels: labels({ idea: 'exclude' }), labelMatch: 'any', query: '' })).toBe(true)
+    expect(matchesTicket(card, { statuses: all, labels: none, labelMatch: 'any', query: '' })).toBe(true)
+  })
+  it('makes no difference at one required label, which is why the summary stays quiet there', () => {
+    for (const labelMatch of ['all', 'any'] as const) {
+      expect(matchesTicket(card, { statuses: all, labels: labels({ ui: 'include' }), labelMatch, query: '' })).toBe(true)
+      expect(matchesTicket(card, { statuses: all, labels: labels({ absent: 'include' }), labelMatch, query: '' })).toBe(false)
+    }
+  })
+})
+
+describe('Explaining a board the filters emptied', () => {
+  const store = [ticket('a', ['ui', 'canvas']), ticket('b', ['ui']), ticket('c', ['multiuser'], 'done')]
+  const filters = (over: Partial<Parameters<typeof matchesTicket>[1]> = {}) =>
+    ({ statuses: all, labels: none, query: '', ...over })
+
+  it('says nothing while the board still has something on it', () => {
+    expect(emptyBoardHelp(store, filters())).toBeUndefined()
+    expect(emptyBoardHelp(store, filters({ labels: labels({ ui: 'include' }) }))).toBeUndefined()
+  })
+  // An empty store is not a filtering outcome, and there is no clause to drop.
+  it('says nothing about an empty store', () => {
+    expect(emptyBoardHelp([], filters({ labels: labels({ ui: 'include' }) }))).toBeUndefined()
+  })
+  it('names the labels when they are the whole reason', () => {
+    const help = emptyBoardHelp(store, filters({ labels: labels({ ui: 'include', multiuser: 'include' }) }))
+    expect(help?.reason).toBe('No ticket carries all 2 of ui and multiuser.')
+  })
+  it('reads the conjunction off the mode, so any says or', () => {
+    const help = emptyBoardHelp(store, filters({ labels: labels({ x: 'include', y: 'include' }), labelMatch: 'any' }))
+    expect(help?.reason).toBe('No ticket carries x or y.')
+  })
+  // With a status or a search also in force, any of them could be doing the
+  // work, and guessing which would be worse than the offers already say.
+  it('stays general when the labels are not the only clause', () => {
+    const help = emptyBoardHelp(store, filters({ labels: labels({ ui: 'include' }), statuses: new Set(['done']) }))
+    expect(help?.reason).toBe('No ticket matches every filter in force.')
+  })
+  it('offers to reinterpret the labels before dropping them, and counts both', () => {
+    const help = emptyBoardHelp(store, filters({ labels: labels({ ui: 'include', multiuser: 'include' }) }))
+    expect(help?.offers.map(offer => [offer.kind, offer.count])).toEqual([['labelMatch', 3], ['labels', 3]])
+  })
+  // Ranking by count would lead with whichever returns most, which here is the
+  // one that throws the selection away. Smallest change first instead.
+  it('offers the reinterpretation ahead of the discard even when it returns fewer', () => {
+    // `e` carries neither required label, so clearing returns it and matching
+    // any does not. That gap is the whole point of the fixture.
+    const narrow = [...store, ticket('d', ['ui', 'idea']), ticket('e', ['idea'])]
+    const help = emptyBoardHelp(narrow, filters({ labels: labels({ ui: 'include', multiuser: 'include' }) }))
+    const [first, second] = help?.offers || []
+    expect([first.kind, second.kind]).toEqual(['labelMatch', 'labels'])
+    expect(first.count).toBeLessThan(second.count)
+  })
+  it('drops an offer that would still leave the board empty', () => {
+    const help = emptyBoardHelp(store, filters({ labels: labels({ absent: 'include' }), query: 'nothing here' }))
+    expect(help?.offers.map(offer => offer.kind)).toEqual([])
+  })
+  it('offers each clause in force separately', () => {
+    const help = emptyBoardHelp(store, filters({ labels: labels({ ui: 'include' }), statuses: new Set(['done']), query: 'Ticket' }))
+    expect(help?.offers.map(offer => offer.kind).sort()).toEqual(['labels', 'statuses'])
+  })
+  // The mode offer is only meaningful above one required label; at one it would
+  // promise a change that selects exactly the same tickets.
+  it('does not offer any when only one label is required', () => {
+    const help = emptyBoardHelp(store, filters({ labels: labels({ absent: 'include' }) }))
+    expect(help?.offers.some(offer => offer.kind === 'labelMatch')).toBe(false)
   })
 })

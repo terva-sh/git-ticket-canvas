@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2P0C6GTKTW19Q2QZXK77X9Z
 title: Say what the label chips and the status chips each do to a filter
 type: task
-status: draft
+status: in-progress
 status_reason: null
 priority: normal
 due_on: null
@@ -17,10 +17,17 @@ origin: null
 dependencies: []
 blocks_on: none
 references: []
-claim: null
+claim:
+  actor: agent:claude/t3code
+  branch: t3code/label-filter-semantics
+  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-acc5e2b7
+  commit: f5f996c85e13fd041d6c3de8f7de77de7d19811b
+  session: null
+  claimed_at: 2026-09-16T23:49:27Z
+  expires_at: null
 archive: null
 created_at: 2026-09-16T21:01:16Z
-updated_at: 2026-09-16T23:16:37Z
+updated_at: 2026-09-16T23:51:05Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -61,6 +68,40 @@ Worth deciding rather than assuming. Options, none obviously right:
 
 Whatever is chosen, the count reaching zero should probably say why: `0 of 80`
 is true but unhelpful when a board has gone blank.
+
+## Implementation plan
+
+The measurement in the notes settles the operator question: neither `all` nor
+`any` is right, so the toggle is the only option that serves both widths. It
+defaults to `all`, which is what the board does today, so no existing selection
+changes meaning under the upgrade.
+
+Four pieces, smallest first.
+
+`matchesLabels` takes a `LabelMatch`. Excludes stay an AND under both modes,
+because a forbidden label removing a ticket is not a claim about how the
+required ones combine. The case to get right is `any` with no includes at all:
+there is nothing for the mode to change there, and a naive `some()` would reject
+every ticket instead of passing them.
+
+The toggle lives inside the label popover rather than on the toolbar. The
+toolbar already overflowed once on TKT-01M2NHFKX and a third row of controls
+would put it back; the popover is absolutely positioned and adds no width to the
+row that has to fit.
+
+`labelSummary` names the mode, but only from two required labels up. With one,
+`all` and `any` select the same tickets, so `all 1` would be a distinction the
+board cannot demonstrate and the summary stays `1 in`.
+
+The empty-board notice is the part that answers the original report. `0 of 80`
+was already true; what it could not say was which clause emptied the board. So
+each candidate relaxation drops exactly one clause, counts what comes back from
+the store actually loaded, and is offered only if it is above zero. The numbers
+shown are measured rather than predicted, which also means an offer never lies
+about what it will do.
+
+It belongs in `filters.ts` beside the predicate it inverts, so it is unit
+testable without a browser, for the same reason the cascade guard was.
 
 ## Notes
 
