@@ -1,48 +1,67 @@
 {
-  "schema": 1,
-  "$comment": "Every deliberate difference between git-ticket-canvas (desk) and git-ticket-canvas-server (served). Asserted by web/src/ui/canvas-parity.test.tsx and internal/api/parity_test.go: a difference not named here fails, and a name here that is no longer a difference fails too. Run both with `just drift-check`.",
+  "schema": 2,
+  "$comment": "Every deliberate difference between the two canvases, on each axis that can produce one. Asserted by web/src/ui/canvas-parity.test.tsx and internal/api/parity_test.go: a difference not named here fails, and a name here that is no longer a difference fails too. Run both with `just drift-check`.",
+  "axes": {
+    "sign-on": {
+      "sides": ["desk", "served"],
+      "inherent": true,
+      "what": "Whether anybody is signed in. git-ticket-canvas has no sign-on at all: internal/cli/signon.go returns a pass-through and four nils for the desk kind, so GET /api/session answers that nobody is signed in and the registry gets a nil Access, which it reads as one person who may see everything. Neither command can be run as the other, which is what makes this axis inherent."
+    },
+    "read-only": {
+      "sides": ["writable", "read-only"],
+      "inherent": false,
+      "what": "Whether writes are refused. -read-only defaults true on the served canvas and false on the desk one, but it is a flag on both: pointing a desk canvas at a store you do not intend to modify is a real reason to run the single-person mode read-only. A difference in default rather than in capability, which is why it is its own axis instead of being folded into sign-on. Folding it in was the first shape of this manifest, and it made #roBadge read as though a desk canvas could not show the badge."
+    }
+  },
   "chrome": [
     {
       "control": "#btnAccount",
+      "axis": "sign-on",
       "present": "served",
-      "reason": "It opens the session dialog, and a desk canvas has no session to describe or to end. App offers it on session.authenticated, which GET /api/session answers false for on a desk canvas because signOn builds no provider for it. A desk canvas showing an account button would be offering to log out of nothing."
+      "reason": "It opens the session dialog, and a canvas with no sign-on has no session to describe or to end. App offers it on session.authenticated, which is false wherever signOn built no provider. Showing it there would be offering to log out of nothing."
     },
     {
       "control": "#roBadge",
-      "present": "served",
-      "reason": "It reports that writes are refused, and follows the board's readOnly rather than the command. This is a difference in default, not in capability: -read-only defaults true on served and false on desk, and either canvas shows the badge when it is set. Declared at the shape the commands actually ship in, because that is the pair a person compares."
+      "axis": "read-only",
+      "present": "read-only",
+      "reason": "It reports that writes are refused, so it follows the board's readOnly and nothing else. Either canvas shows it when the flag is set, which is exactly why it is declared here rather than against a command."
     }
   ],
   "routes": [
     {
       "route": "GET /api/stores/{store}/actor",
+      "axis": "sign-on",
       "present": "served",
-      "reason": "Which actor a person writes under. A desk canvas resolves one when a store opens, so there is nobody to ask and nothing to choose; registering a route it would always refuse would be adding surface for nothing."
+      "reason": "Which actor a person writes under. A canvas with no sign-on resolves one when a store opens, so there is nobody to ask and nothing to choose; registering a route it would always refuse would be adding surface for nothing."
     },
     {
       "route": "PUT /api/stores/{store}/actor",
+      "axis": "sign-on",
       "present": "served",
-      "reason": "Binds a signed-in subject to an actor id. Meaningless without a subject, and a desk canvas has none."
+      "reason": "Binds a signed-in subject to an actor id. Meaningless without a subject."
     },
     {
       "route": "GET /api/actor",
+      "axis": "sign-on",
       "present": "served",
       "reason": "The unprefixed form of the same thing, for a canvas serving exactly one store."
     },
     {
       "route": "PUT /api/actor",
+      "axis": "sign-on",
       "present": "served",
       "reason": "The unprefixed form of the same thing, for a canvas serving exactly one store."
     },
     {
       "route": "GET /api/people",
+      "axis": "sign-on",
       "present": "served",
-      "reason": "Every account that has signed in, read by administrators. A desk canvas records no logins, so it has nothing to answer and no administrator to answer to."
+      "reason": "Every account that has signed in, read by administrators. A canvas with no sign-on records no logins, so it has nothing to answer and no administrator to answer to."
     }
   ],
   "notLookedAt": [
     "A control with no id. Giving one is how this codebase marks something addressable, so the chrome test treats an id as the definition of an identified control; a difference in unidentified markup is not caught.",
-    "The store picker, which is not a difference between the commands. It appears whenever GET /api/stores returns anything, so a desk canvas over several repositories shows it too. The chrome test holds the store count equal across both shapes so that this does not get reported as a difference between the commands when it is a difference in how many stores are configured.",
-    "Refusals. A route that exists and answers 401 or 403 is reachable for this purpose; who may use it is an access question, covered by internal/api/access_test.go."
+    "The store count, which is not an axis of the commands and is held constant across every shape. The store picker looks like a served-canvas control and is not: it appears whenever GET /api/stores returns anything, so a desk canvas over several repositories shows it too. Adding it as a third axis is now a matter of extending the grid rather than reworking it.",
+    "Refusals. A route that exists and answers 401 or 403 is reachable for this purpose; who may use it is an access question, covered by internal/api/access_test.go. That is also why read-only produces no route differences: it refuses at the handler with 403 and never changes what is registered, which the Go test asserts rather than assumes."
   ]
 }
