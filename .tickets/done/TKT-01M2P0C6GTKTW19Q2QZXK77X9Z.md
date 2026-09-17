@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2P0C6GTKTW19Q2QZXK77X9Z
 title: Say what the label chips and the status chips each do to a filter
 type: task
-status: in-progress
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T21:01:16Z
-updated_at: 2026-09-16T23:51:05Z
+updated_at: 2026-09-17T00:00:19Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -68,6 +68,15 @@ Worth deciding rather than assuming. Options, none obviously right:
 
 Whatever is chosen, the count reaching zero should probably say why: `0 of 80`
 is true but unhelpful when a board has gone blank.
+
+## Acceptance criteria
+
+- [x] The label chips offer both an intersection and a union, with the intersection as the default so no existing selection changes meaning
+- [x] Which mode is in force is readable from the closed toolbar button, and the popover says what the mode does
+- [x] Excluding still wins under both modes, and a filter that only excludes does not empty the board under any
+- [x] The mode reaches the cards as well as the count, guarded by a test confirmed to fail when it does not
+- [x] An emptied board says which clause emptied it and offers the ways out, each counted against the store rather than predicted
+- [x] The choice between the three filed options is decided against measurement of this store and recorded
 
 ## Implementation plan
 
@@ -118,3 +127,49 @@ The useful reading is that neither operator is right at three labels, because th
 So the choice is not which operator. It is that a board has no way to tell the difference between 'the filter is working and nothing matches' and 'the filter does not mean what you thought'. 0 of 80 is true and says neither.
 
 This also makes the third option, an any/all toggle, look less like extra furniture than it did when it was filed. It is the only one of the three that serves both widths. The cost is a third control in a toolbar that already overflowed once, on TKT-01M2NHFKX.
+
+## Summary
+
+The label chips now carry a match mode, `all` or `any`, and the board says which
+one is in force. The empty case explains itself and offers a measured way out.
+
+The option chosen was not the one this ticket leaned toward. Making label
+includes union, so both sets of chips in the toolbar meant the same thing, was
+the obvious fix and the measurement killed it: at three required labels an
+intersection empties 13 of the 20 commonest combinations on this store, and a
+union of the same three matches more than half the tickets. The complaint was
+that the filter showed nothing; union answers it by showing everything. They are
+useful at different widths, so the board offers both rather than picking, with
+`all` as the default so no existing selection changes meaning under the upgrade.
+
+Two details that would have been bugs.
+
+`any` with no required labels must not empty the board. A filter that only
+excludes has nothing for the mode to change, and asking whether any of an empty
+set is present answers no. Counting requirements separately rather than reaching
+for `some()` is what keeps that right, and there is a test named for it.
+
+Canvas takes the mode as a prop rather than defaulting it. Dimming and the count
+run off one predicate on purpose, and a card deciding the mode for itself is
+exactly how they come to disagree -- the class of fault TKT-01M2P0BQT4 just
+fixed in the stylesheet. The browser test asserts the card's painted opacity as
+well as the count, and it was confirmed to fail when the prop is dropped rather
+than assumed to guard anything.
+
+The offers are ordered smallest-change-first, not by how many tickets each
+returns. Sorting by count was what I wrote first, and a test caught that it puts
+`Clear label filters` ahead of `Match any label instead` whenever clearing
+returns more, which leads with the option that throws the user's selection away.
+Each button carries its own count, so the comparison is still there without the
+order making it for them.
+
+Verified against this store rather than only against fixtures: three labels
+selected gives `Labels: all 3`, `0 of 122`, and the sentence "No ticket carries
+all 3 of canvas, ui and multiuser", with offers reading 74 and 122. The 74
+matches an independent count taken over the ticket files before any of this was
+written.
+
+Not done, and deliberately. The summary names the mode only from two required
+labels up, because at one the two modes select the same tickets. The status
+chips still union without saying so; they are consistent with themselves and
+nothing reported them, so relabelling them is a separate question.
