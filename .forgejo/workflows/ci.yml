@@ -22,6 +22,11 @@ jobs:
           fetch-depth: 0
       - name: Install ledger checker
         run: GOBIN=/usr/local/bin go install github.com/terva-sh/git-ticket/cmd/git-ticket@v0.19.1
+      # Named separately from the gate below so a difference between the two
+      # canvases reports as one, rather than as a failure somewhere in a
+      # twelve-step release check.
+      - name: Check the two canvases have not drifted
+        run: just drift-check
       - name: Verify embedded parity
         run: just parity-check
       - name: Validate release configuration

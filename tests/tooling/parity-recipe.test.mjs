@@ -14,6 +14,7 @@ test('parity gate runs each check separately so variadic recipes cannot swallow 
     'just fmt-check',
     'just vet',
     'just test',
+    'just drift-check',
     'just tickets-check',
     'just browser-test-embedded',
     'just go-only-check',

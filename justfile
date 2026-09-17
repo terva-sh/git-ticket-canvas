@@ -110,6 +110,13 @@ browser-test-embedded *args:
 go-only-check:
     python3 scripts/verify-go-only.py
 
+# Assert that the desk and served canvases differ only where docs/canvas-parity.json
+# says they do. Named apart from parity-check, which is the release gate and means
+# something else: this one is about the two commands not drifting from each other.
+drift-check:
+    npm exec -- vitest run web/src/ui/canvas-parity.test.tsx
+    go test ./internal/api/ -run 'TestEveryRouteDifferenceBetweenTheTwoCanvasesIsDeclared|TestTheProbeListCoversEveryRegisteredRoute'
+
 # Release gate: verify before any command can overwrite committed assets.
 parity-check:
     just dist-verify
@@ -120,6 +127,7 @@ parity-check:
     just fmt-check
     just vet
     just test
+    just drift-check
     just tickets-check
     just browser-test-embedded
     just go-only-check
