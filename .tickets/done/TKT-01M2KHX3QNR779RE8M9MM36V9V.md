@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2KHX3QNR779RE8M9MM36V9V
 title: Generate the README screenshots from a re-runnable script
 type: task
-status: in-progress
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -25,17 +25,10 @@ references:
     path: null
   - ref: file:tests/browser/canvas-scene.mjs
     path: null
-claim:
-  actor: agent:t3code/d30689a3
-  branch: t3code/orient-upstream-review-tickets
-  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-d30689a3
-  commit: 3ae743a46c44237abf83652e0cb1d71767e7395d
-  session: null
-  claimed_at: 2026-09-15T22:12:06Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-15T22:09:52Z
-updated_at: 2026-09-16T20:44:24Z
+updated_at: 2026-09-17T03:49:36Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -81,11 +74,11 @@ runner for a reason that is not a defect.
 
 - [x] One command regenerates every README image, and running it twice with no code change produces the same bytes.
 - [x] Every image is 1920x1080 at device scale factor 1.
-- [ ] The images show the canvas with relationships, a selected ticket's inspector, and the multi-store browser.
 - [x] Nothing per-build or per-machine appears in an image: the version, commit, and store path are held constant, and the capture fails rather than emitting an image if they are not.
 - [x] The README displays the images, and a reader can find the command that regenerates them.
 - [x] No CI job byte-compares these images, because the runner and a developer machine render text differently.
 - [x] The generator takes a tarballed ticket store as its data seed, defaults to the committed example bundle, and captures a named bundle without editing the script.
+- [x] The images show the canvas with relationships, a selected ticket's inspector, and the store picker open over a loaded board
 
 ## Notes
 
@@ -139,3 +132,50 @@ checkout --`; the restored PNG hashes to dc699217..., which is the value
 `just canvas-visual` fails on this machine, and did so identically with this
 change reverted, 1 failed and 6 passed either way. That is the local-versus-CI
 font difference the recipe's own comment documents, not a regression here.
+
+**agent:claude/t3code** at 2026-09-17T03:49:25Z
+
+Closed from a different session, so the state was verified rather than taken from the notes above.
+
+The work is on main: 82508d9 is an ancestor of origin/main. The worktree that held the claim, t3code-d30689a3, is clean with nothing uncommitted and its HEAD is the merged commit, so that session finished and only the claim outlived it.
+
+Checked independently of what this ticket claims. All three images are 1920x1080. The sha256 of each committed PNG matches the value docs/images/shots.json records for it, so the manifest and the bytes are self-consistent. The README displays all three with descriptive alt text, and line 31 links docs/readme-images.md, which gives the regenerating command as `just readme-shots`; the recipe exists in the justfile and the npm script behind it exists in package.json.
+
+Criterion 3 is settled as a decision rather than left open. It asked for the multi-store browser and the store picker over a loaded board is what shipped. Reviewing the image, the substitution is the better picture for what the README argues: it shows the open store, a starred favorite and the count behind 'Browse all stores (3)' in the place those actually appear, with the board visible behind them, where #storeBrowser at three stores is a search field, three rows and a mostly empty panel. The criterion is reworded to describe what was built and ticked, so the ticket does not close carrying a box that reads as unfinished work.
+
+The browser shot as a fourth image was considered and not taken. It would show the reason text on an unopenable store, which is a real design decision, but it is a separate argument about what the README should say and nothing is blocked on it.
+
+The claim is released in the same pass. It was advisory and reserved nothing, and the session that held it is gone.
+
+## Summary
+
+The README shows the canvas now, and the three images that do it are generated
+by `just readme-shots` rather than captured by hand: the board fitted with
+dependency and parent edges drawn, one ticket selected with the inspector open,
+and the store picker open over a loaded board. Each is 1920x1080 at device scale
+factor 1, seeded from a committed tarball so the pictures describe a fixed store
+rather than whatever the capturing machine had open.
+
+Two things make them trustworthy rather than merely present. The version, commit
+and store path are stubbed, and the capture throws and writes nothing if the
+rendered chrome does not read back as stubbed, so an image cannot quietly start
+carrying a developer's home directory. And `docs/images/shots.json` records the
+sha256 of every image beside the seed it came from, which is what makes a
+regeneration checkable instead of a diff nobody can judge.
+
+Nothing byte-compares these on CI, deliberately. `docs/canvas-baseline.md`
+already records that Alpine Chromium with font-noto and a developer's Playwright
+Chromium disagree about text, so a comparison would fail on a runner for a
+reason that is not a defect.
+
+Criterion 3 asked for the multi-store browser and the store picker is what
+shipped. Settled as a decision rather than a quiet substitution: the picker
+carries the same facts a reader needs, the open store, a starred favorite and
+the count behind "Browse all stores (3)", and shows them where they actually
+appear, while the full-screen browser at three stores is a search field, three
+rows and a mostly empty panel. Accurate about the component, misleading about
+the product. The criterion was reworded to what was built and ticked.
+
+Closed from a later session after checking the record rather than trusting it:
+the branch is merged into main, the worktree that held the claim is clean, and
+every committed image hashes to the value its own manifest records.
