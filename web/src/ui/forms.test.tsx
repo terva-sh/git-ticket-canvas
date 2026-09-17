@@ -140,12 +140,33 @@ it('distinguishes the three chip states without hovering and names each one', ()
 it('summarizes the active label filters on the closed button', () => {
   expect(labelSummary(undefined)).toBe('Labels')
   expect(labelSummary(new Map())).toBe('Labels')
+  // At one required label the mode selects the same tickets either way, so the
+  // summary does not name it. `all 1` would assert a difference that is not one.
   expect(labelSummary(new Map([['ui', 'include']]) as LabelFilters)).toBe('Labels: 1 in')
+  expect(labelSummary(new Map([['ui', 'include']]) as LabelFilters, 'any')).toBe('Labels: 1 in')
   expect(labelSummary(new Map([['ui', 'exclude']]) as LabelFilters)).toBe('Labels: 1 out')
   const both = new Map([['ui', 'include'], ['canvas', 'include'], ['idea', 'exclude']]) as LabelFilters
-  expect(labelSummary(both)).toBe('Labels: 2 in, 1 out')
+  // `2 in` used to be true of both modes and told nobody which was in force,
+  // which is the confusion this ticket exists to end.
+  expect(labelSummary(both)).toBe('Labels: all 2, 1 out')
+  expect(labelSummary(both, 'any')).toBe('Labels: any of 2, 1 out')
   act(() => render(<Toolbar {...toolbarProps({ labels: ['ui'], labelFilters: both })} />, root))
-  expect(element('#labelFilter > summary').textContent).toBe('Labels: 2 in, 1 out')
+  expect(element('#labelFilter > summary').textContent).toBe('Labels: all 2, 1 out')
+  act(() => render(<Toolbar {...toolbarProps({ labels: ['ui'], labelFilters: both, labelMatch: 'any' })} />, root))
+  expect(element('#labelFilter > summary').textContent).toBe('Labels: any of 2, 1 out')
+})
+it('offers the match mode in the popover, pressed to show which is in force', () => {
+  const onLabelMatch = vi.fn()
+  act(() => render(<Toolbar {...toolbarProps({ labels: ['ui'], labelFilters: new Map(), onLabelMatch })} />, root))
+  // Absent reads as `all`, so a board that never touched the toggle shows it.
+  expect(element('#labelMatch-all').getAttribute('aria-pressed')).toBe('true')
+  expect(element('#labelMatch-any').getAttribute('aria-pressed')).toBe('false')
+  expect(element('#labelMatchHint').textContent).toBe('a ticket needs every one of them')
+  act(() => { element<HTMLButtonElement>('#labelMatch-any').click() })
+  expect(onLabelMatch).toHaveBeenCalledWith('any')
+  act(() => render(<Toolbar {...toolbarProps({ labels: ['ui'], labelFilters: new Map(), labelMatch: 'any', onLabelMatch })} />, root))
+  expect(element('#labelMatch-any').getAttribute('aria-pressed')).toBe('true')
+  expect(element('#labelMatchHint').textContent).toBe('a ticket needs at least one of them')
 })
 it('clears the label filters only when some are set, and says so when the store has none', () => {
   const onClearLabelFilters = vi.fn()

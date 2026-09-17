@@ -12,7 +12,7 @@ import type { View } from '../platform/canvas/geometry'
 import { OPENING_ZOOM } from './canvas/viewMemory'
 import { recall, remember } from './canvas/viewMemory'
 import { sameJSON } from '../platform/tickets/reconcile'
-import { cycleLabel, labelUniverse, matchesTicket, type LabelFilters } from '../platform/tickets/filters'
+import { cycleLabel, emptyBoardHelp, labelUniverse, matchesTicket, type LabelFilters, type LabelMatch, type Relaxation } from '../platform/tickets/filters'
 import { FramePanel, FrameMembership } from './FramesPanel'
 import { Canvas, type CanvasHandle } from './Canvas'
 import { Toolbar } from './Toolbar'
@@ -34,6 +34,8 @@ function storeInAddress() {
 interface InterfaceState {
   selected: string | null; selection: Set<string>; query: string; filters: Set<string>
   labelFilters: LabelFilters
+  /** How the required labels combine. `all` is what the board has always done. */
+  labelMatch: LabelMatch
   composer: ComposerPosition | null; composerKey: number; generation: number
 }
 export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publicationBridge?: PublicationBridge; samplingProbe?: CommittedSampling }>) {
@@ -69,7 +71,7 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
   const [version, setVersion] = useState<VersionInfo | null | undefined>(undefined)
   const published = useRef(store.state), publications = useRef(0)
   const [ui, setUI] = useState<InterfaceState>({ selected: null, selection: new Set(), query: '', filters: new Set(),
-    labelFilters: new Map(), composer: null, composerKey: 0, generation: 0 })
+    labelFilters: new Map(), labelMatch: 'all', composer: null, composerKey: 0, generation: 0 })
   const [frameUI, setFrameUI] = useState<{ selected: string | null; draft: Frame | null; key: number }>({ selected: null, draft: null, key: 0 })
   const frameLatest = useRef(frameUI); frameLatest.current = frameUI
   const histories = useRef(new Map<string, FrameHistory>())
@@ -556,8 +558,9 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       flushView()
     }
   }, [store, registry])
+  const activeFilters = { statuses: ui.filters, labels: ui.labelFilters, labelMatch: ui.labelMatch, query: ui.query }
   const matches = (ticket: Ticket) =>
-    matchesTicket(ticket, { statuses: ui.filters, labels: ui.labelFilters, query: ui.query })
+    matchesTicket(ticket, activeFilters)
   const syncMessage = sync.readFailed ? snapshot.config
     ? 'Refresh failed. Showing the last accepted board; retrying.' : 'Board unavailable. Retrying.'
     : sync.stale ? 'Store data is incomplete or invalid. Showing the last valid board; retrying.'
@@ -568,9 +571,24 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
   const frameOpen = !!frameUI.draft || !!selectedFrame
   const history = historyFor(snapshot.board)
   const frameMatching = new Set([...snapshot.tickets.values()].filter(matches).map(ticket => ticket.id))
+  // Only ever consulted when the board came back empty, and it re-counts the
+  // store once per candidate to do it. That is a handful of passes over the
+  // tickets already in memory, and it happens on the one render where there is
+  // nothing else to draw.
+  const emptyHelp = emptyBoardHelp(snapshot.tickets.values(), activeFilters)
+  const relax = (kind: Relaxation['kind']) => setUI(current => kind === 'labelMatch' ? { ...current, labelMatch: 'any' }
+    : kind === 'labels' ? { ...current, labelFilters: new Map() }
+      : kind === 'statuses' ? { ...current, filters: new Set<string>() }
+        : { ...current, query: '' })
   return <>
     <div id="syncStatus" role="status" class="sync-status" hidden={!syncMessage}
       data-connection={sync.connection} data-stale={sync.stale} data-degraded={sync.degraded}>{syncMessage}</div>
+    {emptyHelp && <div id="filterNotice" class="filter-notice" role="status">
+      <p class="filter-notice-reason">{emptyHelp.reason}</p>
+      {!!emptyHelp.offers.length && <div class="filter-notice-offers">{emptyHelp.offers.map(offer =>
+        <button key={offer.kind} type="button" class="tool" data-relax={offer.kind}
+          onClick={() => relax(offer.kind)}>{offer.label} <span class="badge">{offer.count}</span></button>)}</div>}
+    </div>}
     <div id="toolbarRoot" data-store-publications={publications.current}><Toolbar storePath={snapshot.storePath} readOnly={snapshot.readOnly} version={version}
       boards={snapshot.boards} board={snapshot.board} config={snapshot.config} query={ui.query} filters={ui.filters}
       counts={`${[...snapshot.tickets.values()].filter(matches).length} of ${snapshot.tickets.size}`}
@@ -585,8 +603,10 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       onNewFrame={() => canvas.current?.newFrame()} onUndoFrame={() => { void frameHistoryAction(false) }} onRedoFrame={() => { void frameHistoryAction(true) }}
       framePending={!!framePreview} undoFrame={history.undoEntry} redoFrame={history.redoEntry}
       labels={labelUniverse(snapshot.config?.labels, snapshot.tickets.values())} labelFilters={ui.labelFilters}
+      labelMatch={ui.labelMatch}
       onLabelFilter={label => setUI(current => ({ ...current, labelFilters: cycleLabel(current.labelFilters, label) }))}
       onClearLabelFilters={() => setUI(current => ({ ...current, labelFilters: new Map() }))}
+      onLabelMatch={labelMatch => setUI(current => ({ ...current, labelMatch }))}
       onQuery={query => setUI(current => ({ ...current, query }))}
       onFilter={status => setUI(current => {
         const filters = new Set(current.filters); filters.has(status) ? filters.delete(status) : filters.add(status)
@@ -613,7 +633,7 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       publicationReady={() => mounted.current && !busy.current && !frameRequest.current && published.current === store.state}
       frames={displayed.frames} selectedFrame={frameUI.selected} frameCreating={!!frameUI.draft} layoutBusy={!!framePreview}
       onSelectFrame={selectFrame} onNewFrame={newFrameDraft} onFrameMove={frameMove} onFrameResize={frameResize}
-      statuses={snapshot.config?.statuses || []} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters}
+      statuses={snapshot.config?.statuses || []} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters} labelMatch={ui.labelMatch}
       onView={viewChanged}
       relationships={relationships} density={density} fitFloor={display.floor} inspector={display.settings.inspector} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>

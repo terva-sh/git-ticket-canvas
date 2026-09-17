@@ -107,3 +107,65 @@ test('a filtered-out card recedes whatever its status looks like', async ({ page
     'the mouse did not land on the card, so the hover assertion would prove nothing').toBe(true)
   expect(Number(await opacity(settled.id))).toBeCloseTo(0.18, 2)
 })
+
+const mode = (page: Page, match: 'all' | 'any') => page.locator(`#labelMatch-${match}`)
+const notice = (page: Page) => page.locator('#filterNotice')
+
+// Two required labels used to be `Labels: 2 in`, which was true whichever way
+// they combined and so said nothing about what the board was doing.
+test('the match mode is visible, switchable, and reaches the cards as well as the count', async ({ page, app }) => {
+  const both = await app.create('Both labels', { x: 0, y: 0 })
+  await app.patch(both, [{ op: 'addLabel', label: 'ui' }, { op: 'addLabel', label: 'canvas' }])
+  const one = await app.create('Only ui', { x: 350, y: 0 })
+  await app.patch(one, [{ op: 'addLabel', label: 'ui' }])
+
+  await page.goto(app.url)
+  await summary(page).click()
+  await chip(page, 'ui').click()
+  await chip(page, 'canvas').click()
+  await expect(summary(page)).toHaveText('Labels: all 2')
+  await expect(counts(page)).toHaveText('1 of 2')
+  await expect(mode(page, 'all')).toHaveAttribute('aria-pressed', 'true')
+
+  await mode(page, 'any').click()
+  await expect(summary(page)).toHaveText('Labels: any of 2')
+  await expect(counts(page)).toHaveText('2 of 2')
+  // The count and the cards run off one predicate, and this is the assertion
+  // that keeps it that way: passing the mode to the toolbar and not to the
+  // canvas would leave this card dimmed while the count claimed it was shown.
+  await expect(card(page, one.id)).not.toHaveClass(/dimmed/)
+  expect(Number(await card(page, one.id).evaluate(node => getComputedStyle(node).opacity))).toBe(1)
+
+  await mode(page, 'all').click()
+  await expect(counts(page)).toHaveText('1 of 2')
+  await expect(card(page, one.id)).toHaveClass(/dimmed/)
+})
+
+// The original report: three labels, a count of zero, and no way to tell a
+// filter that found nothing from a filter that did not mean what was expected.
+test('an emptied board says why and offers a measured way out', async ({ page, app }) => {
+  const a = await app.create('Carries ui', { x: 0, y: 0 })
+  await app.patch(a, [{ op: 'addLabel', label: 'ui' }])
+  const b = await app.create('Carries canvas', { x: 350, y: 0 })
+  await app.patch(b, [{ op: 'addLabel', label: 'canvas' }])
+
+  await page.goto(app.url)
+  await expect(notice(page)).toBeHidden()
+
+  await summary(page).click()
+  await chip(page, 'ui').click()
+  await chip(page, 'canvas').click()
+  await expect(counts(page)).toHaveText('0 of 2')
+  await expect(notice(page)).toBeVisible()
+  await expect(notice(page).locator('.filter-notice-reason'))
+    .toHaveText('No ticket carries all 2 of ui and canvas.')
+
+  // Smallest change first: keep both labels, rejoin them. The number on the
+  // button is counted from the store, so it has to be what actually arrives.
+  const relax = notice(page).locator('[data-relax="labelMatch"]')
+  await expect(relax).toContainText('2')
+  await relax.click()
+  await expect(counts(page)).toHaveText('2 of 2')
+  await expect(notice(page)).toBeHidden()
+  await expect(summary(page)).toHaveText('Labels: any of 2')
+})

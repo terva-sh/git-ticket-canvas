@@ -1,5 +1,5 @@
 import type { Schema, VersionInfo } from '../platform/tickets/types'
-import type { LabelFilters, LabelState } from '../platform/tickets/filters'
+import type { LabelFilters, LabelMatch, LabelState } from '../platform/tickets/filters'
 import type { Density } from '../platform/canvas/geometry'
 import { MAX_ZOOM, MIN_ZOOM } from '../platform/canvas/geometry'
 import type { RelationshipMode } from './canvas/Edges'
@@ -24,7 +24,10 @@ export interface ToolbarProps {
   onDisplay?(): void
   /** Every label the store offers, configured or carried by a ticket. */
   labels?: readonly string[]; labelFilters?: LabelFilters
+  /** How the required labels combine. Absent reads as `all`. */
+  labelMatch?: LabelMatch
   onLabelFilter?(label: string): void; onClearLabelFilters?(): void
+  onLabelMatch?(match: LabelMatch): void
   /** Absent on a canvas serving one store, which needs no picker. */
   stores?: StorePickerProps
   /** Absent on a desk canvas, which has no session to describe or to end. */
@@ -38,13 +41,19 @@ const stateWords: Record<LabelState | 'off', string> = {
   include: 'included', exclude: 'excluded', off: 'not filtered',
 }
 /** What the button says with the popover shut, so the active filters are
- * readable without opening it. */
-export function labelSummary(filters: LabelFilters | undefined): string {
+ * readable without opening it.
+ *
+ * From two required labels up this names the mode, because `3 in` was true of
+ * both and told nobody which one was in force. At one required label it does
+ * not: `all` and `any` select exactly the same tickets there, so `all 1` would
+ * assert a difference the board cannot demonstrate. */
+export function labelSummary(filters: LabelFilters | undefined, match: LabelMatch = 'all'): string {
   let include = 0, exclude = 0
   for (const state of filters?.values() || []) if (state === 'include') include++; else exclude++
   if (!include && !exclude) return 'Labels'
   const parts = []
-  if (include) parts.push(`${include} in`)
+  if (include === 1) parts.push('1 in')
+  else if (include) parts.push(match === 'any' ? `any of ${include}` : `all ${include}`)
   if (exclude) parts.push(`${exclude} out`)
   return `Labels: ${parts.join(', ')}`
 }
@@ -56,13 +65,29 @@ export function labelSummary(filters: LabelFilters | undefined): string {
 function LabelFilter(p: ToolbarProps) {
   const filters = p.labelFilters
   const active = !!filters?.size
+  const match = p.labelMatch || 'all'
+  const summary = labelSummary(filters, match)
+  // The toggle sits in the popover rather than on the toolbar row. The row
+  // already overflowed once, on TKT-01M2NHFKX, and this body is absolutely
+  // positioned, so it costs the row no width at any window size.
+  const mode = (value: LabelMatch, text: string) =>
+    <button key={value} type="button" class="chip" id={`labelMatch-${value}`} data-match={value}
+      aria-pressed={match === value} onClick={() => p.onLabelMatch?.(value)}>{text}</button>
   return <details class="label-filter" id="labelFilter">
-    <summary class="tool" aria-label={`Filter by label. ${labelSummary(filters)}`}>{labelSummary(filters)}</summary>
+    <summary class="tool" aria-label={`Filter by label. ${summary}`}>{summary}</summary>
     <div class="label-filter-body">
       <div class="label-filter-head">
-        <span class="badge">Click to require a label, again to exclude it</span>
+        <span class="badge">Click to filter by a label, again to exclude it</span>
         <button type="button" class="tool" id="clearLabelFilters" disabled={!active}
           onClick={() => p.onClearLabelFilters?.()}>Clear</button>
+      </div>
+      {/* Spelled out rather than left to the words `all` and `any`, because
+          which one a board is on is exactly what was never visible before. */}
+      <div class="label-filter-mode" id="labelMatchMode" role="group" aria-label="How required labels combine">
+        <span class="badge">Match</span>{mode('all', 'all')}{mode('any', 'any')}
+        <span class="badge" id="labelMatchHint">{match === 'any'
+          ? 'a ticket needs at least one of them'
+          : 'a ticket needs every one of them'}</span>
       </div>
       {p.labels?.length
         ? <div class="chip-row" id="labelChips">{p.labels.map(label => {

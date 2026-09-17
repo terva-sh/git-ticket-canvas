@@ -7,7 +7,7 @@ import type { Density, Point, View } from '../platform/canvas/geometry'
 import type { Card, CardChanges, Cards, Frame, Frames, Ticket } from '../platform/tickets/types'
 import './FrameCanvas.css'
 import { matchesTicket } from '../platform/tickets/filters'
-import type { LabelFilters } from '../platform/tickets/filters'
+import type { LabelFilters, LabelMatch } from '../platform/tickets/filters'
 import { CardView } from './canvas/CardView'
 import { Edges } from './canvas/Edges'
 import type { Placement } from './canvas/Edges'
@@ -55,6 +55,10 @@ export interface CanvasProps {
   query: string
   filters: ReadonlySet<string>
   labelFilters?: LabelFilters
+  /** Carried rather than defaulted here: the toolbar owns which mode is in
+      force, and a card deciding for itself is how dimming and the count come
+      to disagree about what the same filters mean. */
+  labelMatch?: LabelMatch
   readOnly: boolean
   onSelect: (id: string, additive: boolean) => void
   onLayout: (board: string, cards: CardChanges) => Promise<unknown>
@@ -605,7 +609,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   // The same predicate the toolbar counts with, so a dimmed card and the count
   // can never disagree about what the filters mean.
   const matching = new Set([...props.tickets.values()].filter(ticket => matchesTicket(ticket,
-    { statuses: props.filters, labels: props.labelFilters || empty, query: props.query })).map(t => t.id))
+    { statuses: props.filters, labels: props.labelFilters || empty, labelMatch: props.labelMatch, query: props.query })).map(t => t.id))
   const gesture = local.gesture
   const ghost = gesture?.kind === 'link' ? { from: gesture.from, point: gesture.point } : null
   // One width for this render. The stylesheet, the edge anchors and the fit
