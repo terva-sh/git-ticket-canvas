@@ -7,11 +7,13 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/terva-sh/git-ticket-canvas/internal/actors"
+	"github.com/terva-sh/git-ticket/ticket"
 )
 
 // The canvas ships as two commands over one registry. Which routes exist is
@@ -28,6 +30,7 @@ import (
 type parityManifest struct {
 	Routes []struct {
 		Route   string `json:"route"`
+		Axis    string `json:"axis"`
 		Present string `json:"present"`
 		Reason  string `json:"reason"`
 	} `json:"routes"`
@@ -106,11 +109,15 @@ func reachable(t *testing.T, server *httptest.Server, p probe) bool {
 	return resp.StatusCode != http.StatusNotFound
 }
 
-// canvasOfKind builds a registry shaped like one of the two commands. A desk
+// canvasOfKind builds a registry at one point on the sign-on axis. A desk
 // canvas is exactly a nil Access, which is what internal/cli.signOn returns for
 // it; a served canvas has one, and is given every grant so that a refusal never
 // stands in for an absence.
-func canvasOfKind(t *testing.T, served bool) *httptest.Server {
+//
+// readOnly is the other axis. It is taken here so the test below can show that
+// it produces no route differences, which is the claim the manifest makes when
+// it files every route under sign-on.
+func canvasOfKind(t *testing.T, served, readOnly bool) *httptest.Server {
 	t.Helper()
 	remembered, _ := stateIn(t)
 	opts := RegistryOptions{State: remembered}
@@ -126,7 +133,18 @@ func canvasOfKind(t *testing.T, served bool) *httptest.Server {
 		}
 		opts.Actors = bound
 	}
-	r, _ := lazyRegistry(t, opts, 1)
+	// Registered here rather than through lazyRegistry, because read-only is a
+	// property of the store rather than of the registry and lazyRegistry does
+	// not set it.
+	r := NewRegistry(opts)
+	t.Cleanup(func() { _ = r.Close() })
+	dir := t.TempDir()
+	if _, err := ticket.Init(dir, ticket.InitOptions{Actor: testActor}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Register(StoreSpec{Name: "a", Path: dir, ReadOnly: readOnly}); err != nil {
+		t.Fatal(err)
+	}
 	if err := r.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -142,8 +160,8 @@ func TestEveryRouteDifferenceBetweenTheTwoCanvasesIsDeclared(t *testing.T) {
 		declared[entry.Route] = entry.Present
 	}
 
-	desk := canvasOfKind(t, false)
-	served := canvasOfKind(t, true)
+	desk := canvasOfKind(t, false, false)
+	served := canvasOfKind(t, true, false)
 
 	var undeclared, stale []string
 	seen := map[string]bool{}
@@ -208,6 +226,60 @@ func TestTheProbeListCoversEveryRegisteredRoute(t *testing.T) {
 		if !listed[pattern] {
 			t.Errorf("registry.go registers %q and the probe list does not cover it.\n"+
 				"Add it to probes in parity_test.go, so a difference in its reachability is visible.", pattern)
+		}
+	}
+}
+
+// Every route the manifest declares is filed under the sign-on axis, which is a
+// claim that read-only changes nothing about what exists. It should not:
+// read-only refuses at the handler with 403, and a refusal means the route is
+// there. Asserted rather than assumed, because the manifest would otherwise be
+// resting on a reading of the source that nothing rechecks.
+func TestReadOnlyChangesNoRouteReachability(t *testing.T) {
+	for _, served := range []bool{false, true} {
+		kind := "desk"
+		if served {
+			kind = "served"
+		}
+		writable := canvasOfKind(t, served, false)
+		readOnly := canvasOfKind(t, served, true)
+		for _, p := range probes {
+			if got, want := reachable(t, readOnly, p), reachable(t, writable, p); got != want {
+				t.Errorf("on the %s canvas %s is reachable=%v when writable and %v when read-only.\n"+
+					"Read-only is meant to refuse at the handler, not to unregister anything, and every route\n"+
+					"in docs/canvas-parity.json is filed under the sign-on axis on that basis.\n"+
+					"Either restore the registration or give the manifest a read-only route axis.",
+					kind, p, want, got)
+			}
+		}
+	}
+}
+
+// The routes half of the manifest has the same axis-typo hazard the chrome half
+// does, and Go reads its own copy, so it checks its own.
+func TestEveryDeclaredRouteAxisIsOneTheManifestDefines(t *testing.T) {
+	path := filepath.Join("..", "..", "docs", "canvas-parity.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var full struct {
+		Axes map[string]struct {
+			Sides []string `json:"sides"`
+		} `json:"axes"`
+	}
+	if err := json.Unmarshal(raw, &full); err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range readParityManifest(t).Routes {
+		axis, defined := full.Axes[entry.Axis]
+		if !defined {
+			t.Errorf("%s is filed under %q, which is not an axis this manifest defines", entry.Route, entry.Axis)
+			continue
+		}
+		if !slices.Contains(axis.Sides, entry.Present) {
+			t.Errorf("%s is declared present on %q, which is not a side of the %s axis",
+				entry.Route, entry.Present, entry.Axis)
 		}
 	}
 }

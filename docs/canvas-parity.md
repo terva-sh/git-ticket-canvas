@@ -17,10 +17,36 @@ falls behind.
 
 So a difference between them is either declared or a test failure.
 
+## Two axes, measured apart
+
+Two independent things can produce a difference, and conflating them is how the
+manifest first got written.
+
+**Sign-on** is inherent. `internal/cli/signon.go` returns a pass-through and
+four nils for the desk kind, so there is no session and no `Access`. Neither
+command can be run as the other.
+
+**Read-only** is a flag both commands have, differing only in default:
+`-read-only` is true by default on the served canvas and false on the desk one.
+Pointing a desk canvas at a store you do not intend to modify is a real reason
+to set it, which is exactly why it cannot be folded into sign-on. The first
+version of this manifest did fold it in, and it made the read-only badge read as
+though a desk canvas could not show it — and, worse, would have absorbed any
+genuine read-only difference into "that is just the served canvas".
+
+So each axis is measured with the other held constant, over the whole 2x2 grid.
+An axis whose differences depend on the other is an *interaction*, and that is
+its own failure: neither measurement would be the answer, so the test says so
+rather than picking one.
+
+Routes are all on the sign-on axis, because read-only refuses at the handler
+with a 403 and never changes what is registered. That is asserted rather than
+assumed — `TestReadOnlyChangesNoRouteReachability` probes both settings.
+
 ## Declaring one
 
-`docs/canvas-parity.json` names every deliberate difference and why it is one.
-Two tests read it:
+`docs/canvas-parity.json` names every deliberate difference, which axis it is
+on, and why it is one. Two tests read it:
 
 - `web/src/ui/canvas-parity.test.tsx` mounts the real `App` in both shapes and
   compares the identified controls.
@@ -53,18 +79,12 @@ worse than no guard.
 addressable, so the chrome test treats an id as the definition of an identified
 control. Markup that differs without an id is invisible to it.
 
-**Differences that are not between the commands.** The store picker is the one
-that catches people, including the ticket that asked for this tooling: it looks
-like a served-canvas control and is not. It appears whenever `GET /api/stores`
-returns anything, so a desk canvas over several repositories shows it too. The
-chrome test holds the store count equal across both shapes so that a difference
-in configuration is not reported as a difference between the commands.
-
-The read-only badge is the softer version of the same thing. It follows the
-board's `readOnly`, not the command, and either canvas shows it when the flag is
-set. It is declared as served-only because that is the shape the two commands
-ship in and therefore the pair a person actually compares, and the manifest
-entry says so rather than implying the desk canvas cannot show it.
+**The store count.** It is a third axis and is held constant at two everywhere.
+The store picker is the one that catches people, including the ticket that asked
+for this tooling: it looks like a served-canvas control and is not. It appears
+whenever `GET /api/stores` returns anything, so a desk canvas over several
+repositories shows it too. Adding it as a real axis is now a matter of extending
+the grid rather than reworking anything.
 
 **Refusals.** A route that exists and answers 401 or 403 counts as reachable
 here. Who may use it is an access question, and `internal/api/access_test.go`
