@@ -26,7 +26,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T20:35:20Z
-updated_at: 2026-09-16T20:46:07Z
+updated_at: 2026-09-16T23:15:09Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -99,6 +99,18 @@ Separately: doctor's `--json` `file` field is malformed. It prepends `.tickets/`
 to an already-absolute path, giving
 `.tickets/home/sothr/.../. tickets/draft/TKT-....md`. The text output is fine,
 so this is a JSON-only path join bug in git-ticket v0.19.0 and belongs upstream.
+
+**agent:claude/t3code** at 2026-09-16T23:15:09Z
+
+v0.19.1 moved the ground under this ticket's main conclusion, so it is worth saying what survived and what did not.
+
+What survived: the 31 soft findings really were unanswerable, and answering them one at a time really was the only honest thing to do with them at the time. Reading each one and concluding that the store was right and the rule was wrong was not wasted work.
+
+What did not: the recommendation that the gate should be 'no hard findings, soft as a review prompt' was a workaround for a rule that fired on everything. v0.19.1's label_order infers the store's dominant leading-label dimension and reports only the tickets that disagree, and stays silent when there is no convention to infer. This store has no dimensional convention, so it now reports nothing, measured at 0 soft findings against the same tree that gives 32 under v0.19.0.
+
+So soft findings are now sparse enough to be worth reading rather than worth suppressing, and a future gate can treat them as signal. That is a change in the tool, not in this store: nothing here was cleaned up, the rule got quieter.
+
+Upstream reached the same conclusion independently and with numbers, in git-ticket TKT-01M2P0FWJ1BEDGV3603X5YKR5G. It measured four real stores and found label_order firing on 99% of terva's open tickets and 100% of ketju's, and it records this store's zero as the correct answer rather than a gap.
 
 ## Summary
 
