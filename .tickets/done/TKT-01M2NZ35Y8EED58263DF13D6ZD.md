@@ -20,7 +20,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-16T20:38:52Z
-updated_at: 2026-09-17T04:15:42Z
+updated_at: 2026-09-17T04:20:52Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -73,6 +73,18 @@ needs its own verb.
 - [x] A Go test asserts which routes each kind serves, and fails when a handler's reachability changes without the table changing.
 - [x] The check runs in CI on every change, not only at release, and has a name that does not collide with the parity-check release gate.
 - [x] Adding a control to one canvas only is possible, and the failure message says to write down why rather than just going red.
+
+## Notes
+
+**agent:claude/t3code** at 2026-09-17T04:20:52Z
+
+CI rejected the first attempt and the fix corrected two things, one of which was only visible because the first failed.
+
+The reported fault was mine: the new CI step ran `just drift-check` before anything had run `just web-setup`, which is `npm ci`, so the frontend half had no node_modules and vitest could not load its config. Reproduced locally by moving node_modules aside rather than inferred from the timing, because a 25-second failure has several plausible causes and last time I guessed at a CI-only failure I could not confirm it.
+
+The second fault was worse and had passed every local check. Adding `drift-check` as a step inside `parity-check` was duplicated work with no signal: `web-test` runs every vitest and `test` runs every Go test, so both parity files already ran in the gate, and `web-test` runs first. A real drift would therefore have failed at `web-test` and the `drift-check` name -- the entire point of giving it a separate verb -- would never have appeared. The gate was doing the checking and the named recipe was decoration.
+
+So `drift-check` came back out of `parity-check`, and the `parity-recipe` tooling test went back to its original expectation. The verb now exists for two purposes it actually serves: running on its own locally, and as its own early CI step where the name is the whole value. CI installs the frontend dependencies for that step and the gate installs them again, which is a second npm ci bought for an earlier and clearer signal. Recorded rather than hidden, since somebody optimising CI time will want to know it was a choice.
 
 ## Summary
 

@@ -30,6 +30,15 @@ Two tests read it:
 Run both with `just drift-check`. It is named apart from `parity-check`, which
 is the release gate and means something else.
 
+It is deliberately not a step inside `parity-check`. Both files are already
+covered there by `web-test` and `test`, which run every vitest and every Go
+test, so a step would be duplicated work — and `web-test` runs first, so a drift
+would fail there and the name would never appear anyway. CI runs `drift-check`
+as its own step before the gate, which is where the name earns its keep: a
+difference between the two canvases reports as one, early, rather than as a
+failure somewhere inside a twelve-step release check. That step installs the
+frontend dependencies for itself, and the gate installs them again.
+
 Adding a control or a route to one canvas only is allowed. What is not allowed
 is doing it silently: the failure names what appeared where and asks for the
 reason, and the manifest is where the reason goes. A stale entry fails too, so

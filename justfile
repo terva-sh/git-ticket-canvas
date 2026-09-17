@@ -113,6 +113,12 @@ go-only-check:
 # Assert that the desk and served canvases differ only where docs/canvas-parity.json
 # says they do. Named apart from parity-check, which is the release gate and means
 # something else: this one is about the two commands not drifting from each other.
+#
+# Deliberately not a step in parity-check. Both files it runs are already covered
+# there by web-test and test, which run every vitest and every Go test, so adding
+# it would be duplicated work -- and web-test runs first, so a drift would fail
+# there and the name would never appear anyway. This exists to be run on its own,
+# locally and as its own CI step, where the name is the point.
 drift-check:
     npm exec -- vitest run web/src/ui/canvas-parity.test.tsx
     go test ./internal/api/ -run 'TestEveryRouteDifferenceBetweenTheTwoCanvasesIsDeclared|TestTheProbeListCoversEveryRegisteredRoute'
@@ -127,7 +133,6 @@ parity-check:
     just fmt-check
     just vet
     just test
-    just drift-check
     just tickets-check
     just browser-test-embedded
     just go-only-check

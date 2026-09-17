@@ -24,7 +24,11 @@ jobs:
         run: GOBIN=/usr/local/bin go install github.com/terva-sh/git-ticket/cmd/git-ticket@v0.19.1
       # Named separately from the gate below so a difference between the two
       # canvases reports as one, rather than as a failure somewhere in a
-      # twelve-step release check.
+      # twelve-step release check. It runs the frontend half, so it needs the
+      # dependencies installed; parity-check installs them again for itself,
+      # which is the price of the earlier, clearer signal.
+      - name: Install web dependencies
+        run: just web-setup
       - name: Check the two canvases have not drifted
         run: just drift-check
       - name: Verify embedded parity
