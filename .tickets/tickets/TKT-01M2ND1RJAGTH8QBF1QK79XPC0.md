@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2ND1RJAGTH8QBF1QK79XPC0
 title: Read the board from the command line
 type: task
-status: draft
+status: in-progress
 status_reason: null
 priority: normal
 due_on: null
@@ -19,15 +19,22 @@ dependencies:
   - TKT-01M2ND1RH33T89QZ7JBA0YC1AZ
 blocks_on: none
 references: []
-claim: null
+claim:
+  actor: agent:claude/t3code-a6d0ff31
+  branch: t3code/review-open-queued-work
+  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-a6d0ff31
+  commit: 374511fc8dd5266563128b434ac03c726aa2f32a
+  session: null
+  claimed_at: 2026-09-19T23:28:52Z
+  expires_at: null
 archive: null
 created_at: 2026-09-16T15:23:31Z
-updated_at: 2026-09-16T20:45:17Z
+updated_at: 2026-09-19T23:28:52Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/t3code
+  id: agent:claude/t3code-a6d0ff31
   name: ""
 extensions: {}
 ---
