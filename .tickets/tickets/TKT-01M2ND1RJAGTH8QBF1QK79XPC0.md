@@ -18,7 +18,9 @@ origin: null
 dependencies:
   - TKT-01M2ND1RH33T89QZ7JBA0YC1AZ
 blocks_on: none
-references: []
+references:
+  - ref: git-ticket PR 211 https://git.local.sothr.com/terva-sh/git-ticket/pulls/211
+    path: null
 claim:
   actor: agent:claude/t3code-a6d0ff31
   branch: t3code/review-open-queued-work
@@ -29,7 +31,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T15:23:31Z
-updated_at: 2026-09-19T23:45:49Z
+updated_at: 2026-09-19T23:46:00Z
 created_by:
   id: agent:claude/t3code
   name: ""
