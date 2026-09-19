@@ -59,7 +59,9 @@ explore the full checkout. Keep normal CI as the deterministic validation gate.
 The workflow fetches only reviewer commit
 `c8730fee5650346b17c61babd5da8fdd9982c5d3` into `.terva-review-action`; no consumer
 PR code is executed with review credentials. Terva 0.137.0 Linux amd64 is checked
-against its pinned SHA-256. The runner requires Node >=24 and verifies it.
+against its pinned SHA-256. The checkout helper is pinned to mirror commit
+`d23441a48e516b6c34aea4fa41551a30e30af803` (v6.1.0). The runner requires Node >=24
+and verifies it. System packages/image tags remain provisioning dependencies.
 `BOT_TOKEN` supplies private reviewer checkout and publication permissions;
 `CPA_API_KEY` supplies inference authentication. Only secret references belong in
 source. Existing organization secrets must be available to this repository.

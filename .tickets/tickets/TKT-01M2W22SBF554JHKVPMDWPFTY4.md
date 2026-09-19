@@ -26,7 +26,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-19T05:26:31Z
-updated_at: 2026-09-19T05:27:45Z
+updated_at: 2026-09-19T05:29:37Z
 created_by:
   id: agent:codex/installation-20260919
   name: ""
@@ -54,3 +54,11 @@ Add a separate terva-review workflow using the existing docker runner and organi
 **agent:codex/installation-20260919** at 2026-09-19T05:27:45Z
 
 Installation PR 11 is open. Dispatched inspected branch ci/terva-review for request install-review, head a33ae5a and base e59bdca, using merged reviewer c8730fe, Terva 0.137.0, code profile and CPA gpt-5.6-sol/low. The API confirms native review run 82 (https://git.local.sothr.com/terva-sh/git-ticket-canvas/actions/runs/82) despite tea returning its known empty-JSON dispatch error. Existing parity CI is independently running as run 81. Repository-local secret metadata is empty, but organization BOT_TOKEN/CPA_API_KEY names exist and sothr-bot has owner access; actual inheritance/authentication remains to be verified by this run. No secret values were read and no settings were changed.
+
+**agent:codex/installation-20260919** at 2026-09-19T05:29:37Z
+
+First external review completed in run 82 and published review 18: https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/11#issuecomment-8425. This proves cross-repository private checkout, inherited org secrets, runtime installation and real CPA inference/publication work. The findings gate failed as intended for two reported findings, not for setup.
+
+Accepted the high checkout-helper pinning finding: replaced mutable @v6 with its verified full v6.1.0 commit d23441a48e516b6c34aea4fa41551a30e30af803. Inspected its action metadata (node24, token/repository/path inputs, dist entrypoint) and upstream package identity; it is the same revision the v6 ref currently names, not an untested version upgrade. Kept system package/image provisioning explicit rather than claiming a hermetic runtime.
+
+Declined the claimed comment-ID collision. The pinned reviewer's src/run.mjs builds command keys from repository/revisions plus canonical comment ID/body digest, and ignores workflow request-id for command identity. src/comments.mjs validates commands and canonical authors; test/runner.test.mjs verifies duplicate delivery and ignored workflow overrides. Clarified the workflow comment; no runtime change is warranted. The action reviews a bounded diff and cannot inspect the external action implementation, explaining the missing context. Dispatch a new ready review after the substantive pin correction; do not weaken the gate.
