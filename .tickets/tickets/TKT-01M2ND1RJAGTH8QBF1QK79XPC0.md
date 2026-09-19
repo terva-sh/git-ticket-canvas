@@ -29,7 +29,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T15:23:31Z
-updated_at: 2026-09-19T23:29:48Z
+updated_at: 2026-09-19T23:37:42Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -78,3 +78,9 @@ Source-inspected on 2026-09-19: git-ticket at e568e5a (layout package landed in 
 ### Settled with the user before code (git-ticket AGENTS.md)
 
 The command spelling, the JSON kind names, the wording of the not-yet-applied section, and confirmation that first-match-in-order is the semantics, since the only existing evaluator does something else. Asked in one interruption; answers recorded here as a note.
+
+## Notes
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T23:37:42Z
+
+Settled with the user on 2026-09-19 before code: the command is git ticket canvas with the words show, pens, and explain ID, each taking --board; the JSON kinds are canvas-board (show and pens) and canvas-explain; the resolver's semantics are first match in ruleOrder, the adopted design, so the canvas's unused TypeScript evaluator is superseded and ND1RK decides whether it consumes the Go result or is rewritten; explain states the status-lane fact first and reports routing under a heading saying it is not applied until the canvas reads rules.
