@@ -35,7 +35,9 @@ what the canvas does). Regenerate the file list with `ls docs/*.md`.
 Each of these names its date or the commit it was measured against, either in
 its first lines or in a provenance block at the end.
 
-**Designs and specifications.** `board-organization-design-v1.md`,
+**Designs and specifications.** `board-organization-design-v1.md` (adopted
+2026-09-19 as the pen contract; the pen documents that follow yield to it on
+matching, resolution order, lanes for a board with no pens, and authoring order),
 `canvas-organization-design.md`, `frame-specification-v1.md`,
 `pen-specification-v1.md`, `pen-rule-authoring-addendum-v1.md`,
 `pen-implementation-plan-v1.md`, `pen-position-consumers-proposal-v1.md`,

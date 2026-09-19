@@ -1,6 +1,9 @@
 # Pen rule authoring addendum v1
 
-Status: approved by the user before implementation.
+Status: approved by the user before implementation. The decision of 2026-09-19
+moves rule matching to the `match` record in `board-organization-design-v1.md`;
+the empty-rule refusal and the label-entry rules here still apply to the
+`labels` field.
 
 For TKT-01M2441T0PTXRFK6VC4FM1PET7 (Route automatic tickets to label-matching canvas pens).
 

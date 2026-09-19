@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M2441T0PTXRFK6VC4FM1PET7
 title: Route automatic tickets to label-matching canvas pens
 type: task
-status: ready
-status_reason: Nobody is working this. The claim from the checkpoint session was released and the ticket moved back to ready so the board does not report active work that has stopped. Its three children remain in draft, so the pen work cannot finish until a person promotes them.
+status: archived
+status_reason: null
 priority: normal
 due_on: null
 labels:
@@ -146,14 +146,17 @@ references:
   - ref: build:frontend-assets
     path: web/dist/index.html
 claim: null
-archive: null
+archive:
+  archived_at: 2026-09-19T08:14:45Z
+  from_status: blocked
+  reason: Superseded by TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3 under the contract adopted on 2026-09-19; end-to-end criteria never met, so archived rather than done.
 created_at: 2026-09-09T22:19:10Z
-updated_at: 2026-09-16T20:45:17Z
+updated_at: 2026-09-19T08:14:45Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
 updated_by:
-  id: agent:claude/t3code
+  id: agent:claude/t3code-a6d0ff31
   name: ""
 extensions: {}
 ---
@@ -534,6 +537,24 @@ Checkpoint review at the user's request: docs/pen-checkpoint-verification.md rec
 
 in-progress to ready: Nobody is working this. The claim from the checkpoint session was released and the ticket moved back to ready so the board does not report active work that has stopped. Its three children remain in draft, so the pen work cannot finish until a person promotes them.
 
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T08:04:44Z
+
+Review of 2026-09-19 (recorded in full on child TKT-01M26SQB4JWTW8FPSVHYZKFKCR): this ticket and its plan follow docs/pen-specification-v1.md, while docs/board-organization-design-v1.md and the drafts under TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3 describe a different contract for the same records: schema 4 match records, first-match resolution without specificity, lanes kept for boards with no pens, one resolver shared with a git ticket canvas CLI. The served canvas being read-only makes CLI authoring the path that works everywhere. Which contract wins is a person's decision and gates promoting the children. The description's reference to canvas-organization-design.md is stale; that design is superseded by the pen and frame specifications.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T08:06:40Z
+
+Decision 2026-09-19 by the user: the pen work follows docs/board-organization-design-v1.md (schema 4 match records, first match in ruleOrder, lanes for a board with no pens, one resolver shared with git ticket canvas, CLI authoring before browser authoring). docs/pen-specification-v1.md keeps Inbox, manual-over-automatic, Preview/Apply/Cancel, counts, explanations, and read-only rules. Sequence: TKT-01M2ND1RH33T89QZ7JBA0YC1AZ (Move the layout schema into git-ticket), then TKT-01M2ND1RJAGTH8QBF1QK79XPC0 (Read the board from the command line), TKT-01M2ND1RKK6S4GXZQKKPP6H87P (Place unpinned cards by rule), TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR (Write board rules from the command line), and only then the browser controls in TKT-01M26SQB4JWTW8FPSVHYZKFKCR. Default activation is ND1RK's job under this contract, not SQB's. Promotion of any of these remains the user's.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T08:12:30Z
+
+ready to blocked: The description, criteria, and plan follow docs/pen-specification-v1.md, which the decision of 2026-09-19 superseded by docs/board-organization-design-v1.md on matching, resolution, the no-pen board, and authoring order. A worker claiming this as written would build the old contract. Blocked until a person decides whether it closes as superseded by TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3 or is rewritten to track the new sequence.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T08:14:45Z
+
+archived from blocked: Superseded by TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3 under the contract adopted on 2026-09-19; end-to-end criteria never met, so archived rather than done.
+
 ## Summary
 
-Checkpoint includes completed schema-3/CAS backend, TypeScript preservation/evaluation, pure allocator/snapshots, measurement publications, optional diagnostic bridge, pure scene/local capture guards and capture-v1 transport. Committed sampling implementation is present with passing unit/component tests, but its final scope audit and real-source browser evidence remain unfinished. Fixed the refresh instrumentation hook after reproducing two failures and regenerated stale dist with explicit user approval. just check passes: 446 frontend tests, 65 tooling tests, TypeScript, Go race/vet/format and strict store validation. Embedded browser suite passes 53 tests with five opt-in measurement skips. Evidence: docs/pen-checkpoint-verification.md. Three draft children track sampling verification, opt-in integration and default activation. Parent stays in-progress, end-to-end criteria unchecked and default activation blocked.
+Checkpoint state, unchanged since the last claim was released: the schema-3 backend with CAS routing writes, TypeScript preservation and evaluation, the pure allocator and snapshots, measurement publications, the optional diagnostic bridge, pure scene and local capture guards, and the capture-v1 transport are committed and tested. The committed sampling probe exists with passing unit and component tests; its scope audit and real-source browser evidence were never finished. Evidence at the time: docs/pen-checkpoint-verification.md. The shipped canvas still places automatic cards in status lanes; nothing here is wired into main.ts.
+
+Decision of 2026-09-19: the contract is docs/board-organization-design-v1.md. The sequence is TKT-01M2ND1RH33T89QZ7JBA0YC1AZ (Move the layout schema into git-ticket), TKT-01M2ND1RJAGTH8QBF1QK79XPC0 (Read the board from the command line), TKT-01M2ND1RKK6S4GXZQKKPP6H87P (Place unpinned cards by rule), which owns wiring the resolver into placement and keeps lanes for a board with no pens, TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR (Write board rules from the command line), and then TKT-01M26SQB4JWTW8FPSVHYZKFKCR (Show and author pens in the browser after the CLI), which depends on the CLI write commands. The other two children, TKT-01M26SPJGBWT2B3QP0NE7CRQQT (sampling probe verification) and TKT-01M26SPW8XM5Q3M73536W5X0F1 (the opt-in scene trial), verified the superseded route and are candidates for archiving when ND1RK is planned. Closed as superseded on 2026-09-19 by the user's decision: TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3 (Let an agent organize a board) carries the work under the adopted contract, and TKT-01M26SQB4JWTW8FPSVHYZKFKCR now sits under that epic. This ticket is archived rather than done because its end-to-end criteria were never met; the approval records, mockup hashes, checkpoint evidence, and review dispositions stay here as the record of the route that was tried.
