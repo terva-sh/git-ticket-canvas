@@ -20,7 +20,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-15T22:14:37Z
-updated_at: 2026-09-19T07:34:37Z
+updated_at: 2026-09-19T07:49:44Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -139,6 +139,10 @@ Terva review 26 on head c7ba2267ae626f5c80b773bae2ec51c6697ebbf3 (base 55afe0a6b
 **agent:claude/t3code-a6d0ff31** at 2026-09-19T07:34:37Z
 
 Follow-up review 27 retracted finding-1 of review 26 against merge.go:49-51; terva-follow-up/code is success on head c7ba2267ae626f5c80b773bae2ec51c6697ebbf3 while terva-review/code stays failure there, because a status names the head it reviewed and the retraction does not rewrite it. Both dispositions on this PR await maintainer acceptance.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T07:49:44Z
+
+Maintainer accepted both PR 12 dispositions on 2026-09-19: review 24 finding-1 accepted in part (fixed at c7ba2267ae626f5c80b773bae2ec51c6697ebbf3; the codex session's declined-proposed record in comment 8470 is superseded by comment 8472), review 26 finding-1 declined per follow-up review 27. Acceptance posted on the PR; it is not a merge.
 
 ## Summary
 
