@@ -20,8 +20,13 @@ branch `ci/terva-review`. An empty-JSON dispatch error may still mean the run wa
 created; check the Actions UI before retrying. Reuse the request ID for recovery;
 change it for an intentional fresh review of the same revision.
 
-After the workflow lands on the default branch, authorized new PR discussion
-comments can request work:
+After the workflow lands on the default branch, the pilot comment allowlist
+initially admits `warricksothr` (verified repository owner). Approved maintainers
+can be added through a PR changing both allowlists in the workflow. Unlisted
+commenters are skipped before job setup and use a separate ignored queue; other
+authorized maintainers can use manual dispatch. The action still checks current
+repository permissions for every request. New PR discussion comments can request
+work:
 
 ```text
 /terva review HEAD_SHA BASE_SHA

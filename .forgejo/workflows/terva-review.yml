@@ -13,14 +13,16 @@ on:
         required: true
         default: ready-review
 concurrency:
-  group: terva-review-${{ github.repository }}-${{ inputs.pr || github.event.issue.number }}
+  # Replace the maintainer list here AND in the job condition below.
+  # Unlisted commenters never enter an authorized PR's serialized queue.
+  group: terva-review-${{ github.repository }}-${{ inputs.pr || (contains(fromJSON('["warricksothr"]'), github.actor) && github.event.issue.number) || 'ignored' }}
   cancel-in-progress: false
 permissions:
   contents: read
 jobs:
   review:
     # Parsing and authorization are repeated inside the action.
-    if: ${{ github.event_name != 'issue_comment' || (github.event.issue.pull_request && startsWith(github.event.comment.body, '/terva ')) }}
+    if: ${{ github.event_name != 'issue_comment' || (contains(fromJSON('["warricksothr"]'), github.actor) && github.event.issue.pull_request && startsWith(github.event.comment.body, '/terva ')) }}
     runs-on: docker
     container:
       image: container.local.sothr.com/library/golang:1.27-alpine
