@@ -1,5 +1,7 @@
 # Serving many ticket stores from one canvas
 
+Design recorded on 2026-09-15 and built since. Read it for the reasoning; `README.md` under "Serve several stores" describes what shipped. One flag was renamed on the way: the `--recursive` proposed here is `-R`.
+
 Today `git-ticket-canvas` serves one store. You pass `--store`, the process
 discovers one `.tickets` directory, and everything from that point down assumes
 there is exactly one: one actor, one read-only setting, one file watcher, one

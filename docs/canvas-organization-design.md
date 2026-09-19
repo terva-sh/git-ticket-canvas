@@ -2,7 +2,7 @@
 
 Design recorded on 2026-09-09 from the organized-board screenshot and follow-up
 placement discussion. This is proposed work, not a description of shipped
-features. The linked implementation tickets remain draft. Existing architecture
+features. Readability, frames, and the layout schema behind pens have since shipped; `frame-specification-v1.md` and `pen-specification-v1.md` supersede the frame and pen sections here. Existing architecture
 and gesture guarantees are documented in [preact-canvas.md](preact-canvas.md).
 
 ## Purpose

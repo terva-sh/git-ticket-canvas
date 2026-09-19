@@ -1,5 +1,7 @@
 # Typed platform modules
 
+Historical record from 2026-09-09. The vanilla renderer and `canvas/state.ts` it describes were removed when the canvas became a Preact component; `preact-canvas.md` is current.
+
 This guide supplements `docs/development-vite.md` after
 TKT-01M23HME7E2RC19BXEHD65TP1R (Extract typed ticket state and canvas geometry modules).
 The vanilla DOM renderer remains in `web/app.js`. This change does not mount

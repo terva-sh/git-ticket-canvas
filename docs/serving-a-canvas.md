@@ -9,9 +9,11 @@ For the reasoning behind every decision here, read
 
 ## What it is not
 
-It is read-only. Writer roles exist in the grant vocabulary so that the
-configuration you write today does not need migrating, and nothing grants one
-yet. The reason is attribution rather than effort: the canvas writes ticket
+It is read-only by default, and the default is the whole of the write policy:
+writer roles exist in the grant vocabulary so that the configuration you write
+today does not need migrating, but nothing grants one yet, so a served canvas
+started with `-read-only=false` lets every reader of a store write to it. Leave
+the default alone. The reason is attribution rather than effort: the canvas writes ticket
 changes and never commits them, so several people writing into one working tree
 produce a state where the next `git commit` sweeps up several people's edits
 under one name.
@@ -273,5 +275,7 @@ trusts to log in, or to who may read anything.
 ## The desk canvas
 
 `git-ticket-canvas` is unchanged: loopback, writable, no authentication, and it
-refuses a non-loopback `-addr`. A configuration file carrying an `identity:`
+refuses a non-loopback `-addr`. The one override,
+`-unsafe-publish-without-authentication`, exists for a container whose port the
+host maps to loopback, and `README-release.md` says when to use it. A configuration file carrying an `identity:`
 block is read by it, reported as ignored, and ignored.

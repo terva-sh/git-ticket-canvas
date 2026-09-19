@@ -97,4 +97,4 @@ detect stalls without treating a particular display cadence as a performance SLA
 
 Recorded with terva 0.134.5-0.20260908184005-01e3a6719b46, commit `01e3a67`,
 built 2026-09-08T18:49:46Z. Loaded extensions were index 0.8.2, obsidian 0.2.0
-and web 0.3.1. The final embedded-parity gate remains a separate draft ticket.
+and web 0.3.1. The embedded-parity gate landed afterwards as `just parity-check`; see `development-preact.md`.

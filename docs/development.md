@@ -1,5 +1,7 @@
 # Developing tkcanvas with just
 
+Historical record from 2026-09-09, before the frontend build and the rename from `tkcanvas`. Superseded by `development-preact.md` and `README-git-ticket-canvas.md`; the recipes and paths below no longer match the justfile.
+
 The root `justfile` wraps the Go build and test commands. The frontend remains vanilla JavaScript embedded in the Go binary; there is no npm install or frontend build step.
 
 ## Prerequisites
