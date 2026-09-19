@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/terva-sh/git-ticket-canvas/internal/layout"
+	"github.com/terva-sh/git-ticket/layout"
 )
 
 var captureTokenSyntax = regexp.MustCompile(`^capture-v1:[0-9a-f]{64}$`)

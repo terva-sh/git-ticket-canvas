@@ -193,7 +193,7 @@ authored, follow under `pens:`, `ruleOrder:`, and `inbox:`.
 
 Verified, not asserted: one drag produces a one-line diff, and two branches
 each moving a different card merge with no driver and no conflict.
-`internal/layout/layout_test.go` holds that property down.
+`layout/layout_test.go` in git-ticket holds that property down.
 
 **The database still belongs in the design — for the other half.** Search
 index, viewport and session state, presence, undo history, per-user overlays:
@@ -238,8 +238,8 @@ internal/auth        the relying party, server-side sessions, the login guard
 internal/grants      which roles an identity holds on a named resource
 internal/actors      which signed-in subject writes under which actor id
 internal/people      who has signed in, built as a side effect of logging in
-internal/layout      the board file: cards, frames, routing; read, write, render
 internal/api         one Server per store, a Registry over them, the watcher, DTOs
+                     (the board file itself is git-ticket's layout package)
 internal/buildinfo   version, commit, and modified state for --version and /api/version
 internal/testpath    absolute paths for tests that must name one, portably
 web/src/main.ts      Preact entry point

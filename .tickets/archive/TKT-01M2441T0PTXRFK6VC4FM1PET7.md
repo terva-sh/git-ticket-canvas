@@ -29,8 +29,6 @@ references:
     path: web/src/ui/App.tsx
   - ref: code:canvas
     path: web/src/ui/Canvas.tsx
-  - ref: code:layout-store
-    path: internal/layout/layout.go
   - ref: doc:gesture-ownership
     path: docs/preact-canvas.md
   - ref: spec:pens-v1
@@ -47,14 +45,8 @@ references:
     path: docs/pen-implementation-plan-v1.md
   - ref: spec:pen-rule-authoring-v1
     path: docs/pen-rule-authoring-addendum-v1.md
-  - ref: test:pen-schema
-    path: internal/layout/pens_test.go
   - ref: test:pen-transactions
     path: internal/api/pens_test.go
-  - ref: code:pen-schema
-    path: internal/layout/pens.go
-  - ref: code:routing-transactions
-    path: internal/layout/frames.go
   - ref: code:routing-api
     path: internal/api/server.go
   - ref: evidence:pen-backend-schema3
@@ -145,13 +137,21 @@ references:
     path: tests/browser/refresh-support.ts
   - ref: build:frontend-assets
     path: web/dist/index.html
+  - ref: code:layout-store
+    path: null
+  - ref: test:pen-schema
+    path: null
+  - ref: code:pen-schema
+    path: null
+  - ref: code:routing-transactions
+    path: null
 claim: null
 archive:
   archived_at: 2026-09-19T08:14:45Z
   from_status: blocked
   reason: Superseded by TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3 under the contract adopted on 2026-09-19; end-to-end criteria never met, so archived rather than done.
 created_at: 2026-09-09T22:19:10Z
-updated_at: 2026-09-19T08:14:45Z
+updated_at: 2026-09-19T18:06:22Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -552,6 +552,10 @@ ready to blocked: The description, criteria, and plan follow docs/pen-specificat
 **agent:claude/t3code-a6d0ff31** at 2026-09-19T08:14:45Z
 
 archived from blocked: Superseded by TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3 under the contract adopted on 2026-09-19; end-to-end criteria never met, so archived rather than done.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T18:06:22Z
+
+The internal/layout files this ticket referenced moved to github.com/terva-sh/git-ticket/layout in git-ticket v0.20.0 (TKT-01M2ND1RH33T89QZ7JBA0YC1AZ). The refs are kept by name without a path; read them in that repository.
 
 ## Summary
 

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/terva-sh/git-ticket-canvas/internal/layout"
+	"github.com/terva-sh/git-ticket/layout"
 )
 
 func apiFrame(ids ...string) layout.Frame {

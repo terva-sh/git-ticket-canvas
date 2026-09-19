@@ -19,8 +19,6 @@ blocks_on: none
 references:
   - ref: design:canvas-organization
     path: docs/canvas-organization-design.md
-  - ref: code:layout-store
-    path: internal/layout/layout.go
   - ref: code:canvas
     path: web/src/ui/Canvas.tsx
   - ref: code:layout-types
@@ -35,8 +33,6 @@ references:
     path: docs/mockups/frames-v1-check.mjs
   - ref: doc:frames-v1-implementation
     path: docs/frames-v1-implementation.md
-  - ref: code:frame-transactions
-    path: internal/layout/frames.go
   - ref: code:frame-api
     path: internal/api/frames.go
   - ref: code:frame-history
@@ -47,24 +43,28 @@ references:
     path: tests/browser/frames.spec.ts
   - ref: test:frame-history
     path: web/src/platform/canvas/frames.test.ts
-  - ref: test:frame-layout
-    path: internal/layout/frames_test.go
   - ref: test:frame-api
     path: internal/api/frames_test.go
   - ref: doc:frames-v1-review-fixes
     path: docs/frames-v1-review-fixes.md
   - ref: test:mutation-network-isolation
     path: internal/api/mutation_io_test.go
+  - ref: code:layout-store
+    path: null
+  - ref: code:frame-transactions
+    path: null
+  - ref: test:frame-layout
+    path: null
 claim: null
 archive: null
 created_at: 2026-09-09T22:18:45Z
-updated_at: 2026-09-10T04:00:55Z
+updated_at: 2026-09-19T18:06:23Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
 updated_by:
-  id: agent:terva/mieli
-  name: Mieli
+  id: agent:claude/t3code-a6d0ff31
+  name: ""
 extensions: {}
 ---
 
@@ -155,6 +155,10 @@ done to in-progress: User requested fixes and regression tests for pre-commit re
 **agent:terva/mieli** at 2026-09-10T04:00:39Z
 
 Fixed both reproduced pre-commit findings at the user's request. New red/green regressions cover YAML-sensitive board/card/frame identifiers, live snapshots and repeat writes, stalled POST/PATCH/PUT bodies, stalled response headers/bodies, body size limits and read-only refusal before reads. Race-detector repetitions and final full checks passed. docs/frames-v1-review-fixes.md supplements the unchanged prior implementation record with fixes, test evidence and remaining connection-resource/cross-process limits. Final saved layout SHA-256 remains 852da1cea4bae70a3809aab5ddaa679ca09cabda477e828636fdf2b62cdf5eee. No layout edits or staging, and no commit/push/install. Runtime provenance is recorded in the new document.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T18:06:23Z
+
+The internal/layout files this ticket referenced moved to github.com/terva-sh/git-ticket/layout in git-ticket v0.20.0 (TKT-01M2ND1RH33T89QZ7JBA0YC1AZ). The refs are kept by name without a path; read them in that repository.
 
 ## Summary
 
