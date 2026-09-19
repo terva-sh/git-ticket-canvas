@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2KJ5STJFD39PWNFFYJCZP3B
 title: Bring user and developer documentation up to what the canvas does
 type: task
-status: in-progress
+status: done
 status_reason: null
 priority: high
 due_on: null
@@ -17,17 +17,10 @@ dependencies:
   - TKT-01M2KHX3QNR779RE8M9MM36V9V
 blocks_on: none
 references: []
-claim:
-  actor: agent:claude/t3code-a6d0ff31
-  branch: t3code/review-open-queued-work
-  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-a6d0ff31
-  commit: 55afe0a6b7e86079c3673c9fb9219d742de5c585
-  session: null
-  claimed_at: 2026-09-19T06:52:12Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-15T22:14:37Z
-updated_at: 2026-09-19T06:56:03Z
+updated_at: 2026-09-19T07:02:25Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -84,13 +77,13 @@ position, trusting a document that was right about some things.
 
 ## Acceptance criteria
 
-- [ ] The README no longer describes the watcher as future work, and says what the canvas does when the store changes on disk.
-- [ ] The known edges list matches the layout package: nothing claims z, w, frames, or pens are unimplemented.
-- [ ] The architecture block names every package under internal/ and says what each is for.
-- [ ] The API section documents the per-store route prefix and the store, favorites, rescan, and version endpoints, so a client written from it can address a store.
-- [ ] Multi-store use is documented for a user: naming stores, discovery roots, the picker and browser, favorites, display names, and where state is kept.
-- [ ] Every documented command, flag, path, and count in the files changed was run or read at the commit that lands them, and the ticket says which were not.
-- [ ] Each document under docs/ is either confirmed current, updated, or explicitly recorded as historical, with none left unexamined.
+- [x] The README no longer describes the watcher as future work, and says what the canvas does when the store changes on disk.
+- [x] The known edges list matches the layout package: nothing claims z, w, frames, or pens are unimplemented.
+- [x] The architecture block names every package under internal/ and says what each is for.
+- [x] The API section documents the per-store route prefix and the store, favorites, rescan, and version endpoints, so a client written from it can address a store.
+- [x] Multi-store use is documented for a user: naming stores, discovery roots, the picker and browser, favorites, display names, and where state is kept.
+- [x] Every documented command, flag, path, and count in the files changed was run or read at the commit that lands them, and the ticket says which were not.
+- [x] Each document under docs/ is either confirmed current, updated, or explicitly recorded as historical, with none left unexamined.
 
 ## Implementation plan
 
@@ -120,3 +113,23 @@ Every command, flag, path, and count written into a changed file is run or read 
 **agent:t3code/d30689a3** at 2026-09-15T22:14:51Z
 
 Ordered behind TKT-01M2KHX3QNR779RE8M9MM36V9V (Generate the README screenshots from a re-runnable script) rather than blocked by it. The screenshots land in the README, so doing the prose pass first would mean editing the same sections twice and describing images that are not there yet.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T07:02:25Z
+
+What was run or read at 6e68d90 (the code is unchanged in the doc commit that follows) to back the changed files:
+
+Run: `go build` of both commands, then `-h` on each and `--version` and `--version --json` on the desk one; `just --list`; `git tag`; `sha256sum` was not needed because the investigators reproduced the baseline checksums. Read: `internal/cli/cli.go` and `identity.go` for flags and defaults, `internal/api/server.go` and `registry.go` for every route, status code, and error code in the API table, `internal/api/live.go`, `events.go`, and `web/src/platform/tickets/live.ts` for the live-update timings, `internal/layout/*.go` and `.tickets/canvas/default.yml` for the board file shape, `internal/state/state.go` for the state directory per platform, `internal/api/merge.go` for the id scheme, `internal/config/config.go` for the configuration keys, `web/src/ui/App.tsx`, `Toolbar.tsx`, `Canvas.tsx`, `FramesPanel.tsx`, and `CardView.tsx` for the interactions table and frame behaviour, `web/src/main.ts` to confirm no pen bridge ships, `.goreleaser.yaml`, `Dockerfile`, `install.sh`, `vite.config.ts`, and the justfile. Every relative link in the three READMEs and the edited docs was checked to resolve, and every `.md` under docs/ is named in `docs/README.md`.
+
+Not run: `just install`, `just readme-shots`, `just parity-check`, `just browser-test`, `install.sh`, the docker commands, the `curl` line, goreleaser, and the served canvas against a real identity provider. Those claims rest on reading the recipes and scripts, not on executing them. The investigators' reads happened under a guard that refused `go run`, so their flag claims came from the source and mine from the built binaries; the two agree.
+
+Three audits were delegated read-only and their findings folded in: pen, frame, and organization docs (all historical, none contradicted by README); architecture and serving docs (`serving-a-canvas.md` current claim by claim, `version-display.md` fixed, superseded guides marked); development, test, and release docs (`development-preact.md` fixed, `browser-testing.md` and `canvas-baseline.md` counts fixed, `pr-reviews.md` vestigial line removed).
+
+Left as records rather than edited, on purpose: the pen evidence docs that say the pen ticket is still in progress, `frames-v1-implementation.md` saying schema 2, `live-update-implementation.md` crediting `main.go`, and the cited line numbers in `multiuser-design-v1.md`. Each names its date or commit, and `docs/README.md` now says how to read them.
+
+## Summary
+
+Landed as one documentation commit on `t3code/review-open-queued-work`, following the claim and plan commits.
+
+`README.md` was rewritten around what ships: the fsnotify watcher and server-sent invalidations with their timings, a "Serve several stores" section covering `-store`, `-root`, `-R`, `-depth`, `-exclude`, `-config`, `GIT_TICKET_CANVAS_STORES`, `-scan`, the hashed store id in `#store=`, the picker and browser, favorites, and the state directory per platform, an architecture block naming all twelve `internal/` packages, an API table with the `/api/stores/{store}/` prefix and the store, rescan, favorites, session, version, actor, and people routes, a frames section, an interactions table with `u` and Delete, and a known-edges list that says `w` and `collapsed` are preserved but unset and that pens are validated and evaluated but not wired into placement, pointing at TKT-01M2441T0PTXRFK6VC4FM1PET7 (Route automatic tickets to label-matching canvas pens).
+
+`README-git-ticket-canvas.md` and `README-release.md` lost their claims that the main README is superseded, that writes need `-actor`, and that `install.sh` waits on a first release. Under docs/, `development-preact.md`, `version-display.md`, `canvas-baseline.md`, `browser-testing.md`, `pr-reviews.md`, `serving-a-canvas.md`, and `preact-canvas.md` were corrected; `development.md`, `development-vite.md`, `platform-modules.md`, `preact-forms.md`, `multi-store-design-v1.md`, `multiuser-design-v1.md`, and `canvas-organization-design.md` gained a first-line status; and `docs/README.md` is new, listing every document as current or historical. The note on this ticket says what was run and what was only read.
