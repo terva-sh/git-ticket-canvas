@@ -20,7 +20,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-15T22:14:37Z
-updated_at: 2026-09-19T07:32:17Z
+updated_at: 2026-09-19T07:34:37Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -131,6 +131,14 @@ Left as records rather than edited, on purpose: the pen evidence docs that say t
 PR https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/12. Terva review 24 (run 48dc9b49-b685-4e64-b30e-bbef0c96a5ef, profile code) reviewed head 0c3ad85ffcdc58bebb82da3ac1d735f7fdec6967 against base 55afe0a6b7e86079c3673c9fb9219d742de5c585 and raised one high finding: the known-edges bullet saying `git-ticket-canvas-server` is read-only contradicts the actor and mutation routes documented above it. Follow-up review 25 (comment 8468, from another agent session) had the model retract it: the served binary defaults to `-read-only`, `refuseWrite` answers 403, and nothing grants the reserved Writer role.
 
 Disposition: accepted in part. The suggested fix, that a writer grant and configured actor enable served writes, is declined; no such grant exists. The kernel is real, though: `internal/cli/cli.go:139` makes read-only a default rather than a rule, nothing refuses `-read-only=false` on the served canvas, and with it off every reader writes. The README known edge and `docs/serving-a-canvas.md` now say that in so many words. Reviewed again at the head that carries this note.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T07:34:09Z
+
+Terva review 26 on head c7ba2267ae626f5c80b773bae2ec51c6697ebbf3 (base 55afe0a6b7e86079c3673c9fb9219d742de5c585) raised one medium finding: that `NAME=PATH` does not replace the hashed store id, so README.md:99 misleads. Declined. `internal/api/merge.go:49-51` keeps a written name as the id and hashes only a derived one, `internal/config/config.go:79-82` states the rule, and `config.go:317-320` sets Derived only when no name was supplied. The review had read the ticket plan's description of discovered-store ids as the rule for every store. A follow-up was posted on the PR with those lines; nothing in the README changed for this finding.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T07:34:37Z
+
+Follow-up review 27 retracted finding-1 of review 26 against merge.go:49-51; terva-follow-up/code is success on head c7ba2267ae626f5c80b773bae2ec51c6697ebbf3 while terva-review/code stays failure there, because a status names the head it reviewed and the retraction does not rewrite it. Both dispositions on this PR await maintainer acceptance.
 
 ## Summary
 
