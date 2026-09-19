@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2ND1RH33T89QZ7JBA0YC1AZ
 title: Move the layout schema into git-ticket
 type: task
-status: draft
+status: in-progress
 status_reason: null
 priority: normal
 due_on: null
@@ -17,15 +17,22 @@ origin: null
 dependencies: []
 blocks_on: none
 references: []
-claim: null
+claim:
+  actor: agent:claude/t3code-a6d0ff31
+  branch: t3code/review-open-queued-work
+  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-a6d0ff31
+  commit: 0021a8d8e6d4453c65544a04832053d4fba87e3c
+  session: null
+  claimed_at: 2026-09-19T08:34:33Z
+  expires_at: null
 archive: null
 created_at: 2026-09-16T15:23:31Z
-updated_at: 2026-09-16T15:23:51Z
+updated_at: 2026-09-19T08:34:33Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/t3code
+  id: agent:claude/t3code-a6d0ff31
   name: ""
 extensions: {}
 ---
