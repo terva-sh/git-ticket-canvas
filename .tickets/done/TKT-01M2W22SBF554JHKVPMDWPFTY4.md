@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2W22SBF554JHKVPMDWPFTY4
 title: Install targeted Terva PR reviews
 type: task
-status: in-progress
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -16,17 +16,10 @@ origin: null
 dependencies: []
 blocks_on: none
 references: []
-claim:
-  actor: agent:codex/installation-20260919
-  branch: ci/terva-review
-  worktree: /tmp/terva-consumer-install-u7v015yl/git-ticket-canvas
-  commit: e59bdca7d9317b7018a49683483e288108c72c84
-  session: null
-  claimed_at: 2026-09-19T05:26:31Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-19T05:26:31Z
-updated_at: 2026-09-19T05:38:43Z
+updated_at: 2026-09-19T05:42:42Z
 created_by:
   id: agent:codex/installation-20260919
   name: ""
@@ -84,3 +77,11 @@ in-progress to blocked: Reviewer installation and real feedback are verified, bu
 User supplied run 81's failure: TestExactlyOneWorkflowPublishes treats the installer's /releases/download/ URL as publication. This supersedes earlier notes describing parity as an unknown independent failure: the new workflow exposed an existing classifier false positive. All 602 web tests, 77 tooling tests, dist parity, typecheck and vet passed before this failure.
 
 Fix the classifier in this installation ticket because it is required to integrate the new workflow. Exempt only the asset-download route from the conservative /releases heuristic, retaining all other endpoint detection and existing publisher checks. Do not exempt an entire workflow/step, remove the publication gate, or rewrite the URL to hide it. Add regression coverage for download-only, API create/upload, mixed steps and GoReleaser modes. Existing CI jobs and release policy remain unchanged. Local Go is absent; obtain a checksum-verified temporary toolchain for focused tests, then verify native parity CI.
+
+**agent:codex/installation-20260919** at 2026-09-19T05:40:44Z
+
+Targeted review https://git.local.sothr.com/terva-sh/git-ticket-canvas/actions/runs/89 completed inference and published review 21: https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/11#issuecomment-8438. Reviewed head de08ca0f5f6d909ebb492f5252b692a6881b4a3f, base e59bdca7d9317b7018a49683483e288108c72c84, request release-classifier-fix. No release-classifier findings. One high finding asserts inputs.request-id is invalid subtraction. Declined: https://docs.github.com/en/actions/reference/workflows-and-actions/contexts explicitly permits hyphens in property dereference names (letter or underscore first, then alphanumeric, hyphen or underscore). This native run also parsed, executed and published from that workflow. Keep the finding and failing model gate visible; do not change valid syntax or rerun for a pass. Earlier accepted pin/allowlist/ignored-group findings are fixed; the comment request identity finding remains declined with runtime/source evidence. Native parity run 88 is still running. No merge authorized.
+
+## Summary
+
+Implemented in canvas PR #11. Native parity CI run 88 passed on de08ca0f5f6d909ebb492f5252b692a6881b4a3f (https://git.local.sothr.com/terva-sh/git-ticket-canvas/actions/runs/88). Real CPA review 21/run 89 completed on that head against e59bdca7d9317b7018a49683483e288108c72c84. All findings have dispositions; latest model gate remains failed for a documented false-positive syntax finding. Download classifier regression and local root Go tests pass. Workflow awaits merge before default-branch comment triggers activate. Not merged; subsequent ticket-only commits are not covered by the recorded CI/review SHA.
