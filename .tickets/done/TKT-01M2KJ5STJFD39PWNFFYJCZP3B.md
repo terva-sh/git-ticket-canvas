@@ -20,7 +20,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-15T22:14:37Z
-updated_at: 2026-09-19T07:02:25Z
+updated_at: 2026-09-19T07:32:17Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -125,6 +125,12 @@ Not run: `just install`, `just readme-shots`, `just parity-check`, `just browser
 Three audits were delegated read-only and their findings folded in: pen, frame, and organization docs (all historical, none contradicted by README); architecture and serving docs (`serving-a-canvas.md` current claim by claim, `version-display.md` fixed, superseded guides marked); development, test, and release docs (`development-preact.md` fixed, `browser-testing.md` and `canvas-baseline.md` counts fixed, `pr-reviews.md` vestigial line removed).
 
 Left as records rather than edited, on purpose: the pen evidence docs that say the pen ticket is still in progress, `frames-v1-implementation.md` saying schema 2, `live-update-implementation.md` crediting `main.go`, and the cited line numbers in `multiuser-design-v1.md`. Each names its date or commit, and `docs/README.md` now says how to read them.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T07:32:17Z
+
+PR https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/12. Terva review 24 (run 48dc9b49-b685-4e64-b30e-bbef0c96a5ef, profile code) reviewed head 0c3ad85ffcdc58bebb82da3ac1d735f7fdec6967 against base 55afe0a6b7e86079c3673c9fb9219d742de5c585 and raised one high finding: the known-edges bullet saying `git-ticket-canvas-server` is read-only contradicts the actor and mutation routes documented above it. Follow-up review 25 (comment 8468, from another agent session) had the model retract it: the served binary defaults to `-read-only`, `refuseWrite` answers 403, and nothing grants the reserved Writer role.
+
+Disposition: accepted in part. The suggested fix, that a writer grant and configured actor enable served writes, is declined; no such grant exists. The kernel is real, though: `internal/cli/cli.go:139` makes read-only a default rather than a rule, nothing refuses `-read-only=false` on the served canvas, and with it off every reader writes. The README known edge and `docs/serving-a-canvas.md` now say that in so many words. Reviewed again at the head that carries this note.
 
 ## Summary
 

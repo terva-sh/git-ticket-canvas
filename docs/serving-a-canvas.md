@@ -9,9 +9,11 @@ For the reasoning behind every decision here, read
 
 ## What it is not
 
-It is read-only. Writer roles exist in the grant vocabulary so that the
-configuration you write today does not need migrating, and nothing grants one
-yet. The reason is attribution rather than effort: the canvas writes ticket
+It is read-only by default, and the default is the whole of the write policy:
+writer roles exist in the grant vocabulary so that the configuration you write
+today does not need migrating, but nothing grants one yet, so a served canvas
+started with `-read-only=false` lets every reader of a store write to it. Leave
+the default alone. The reason is attribution rather than effort: the canvas writes ticket
 changes and never commits them, so several people writing into one working tree
 produce a state where the next `git commit` sweeps up several people's edits
 under one name.

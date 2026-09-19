@@ -358,9 +358,13 @@ Solid arrows are dependencies (gating), faint dashed lines are parent edges
 - The board payload sends every ticket with full body. Fine at a few hundred;
   the seam for splitting card-level fields from detail is the `/api/board` DTO.
 - `git-ticket-canvas` has no authentication. Keep it and any container port
-  mapping on loopback. `git-ticket-canvas-server` is read-only, its sessions do
-  not survive a restart, rescanning is refused, and there is no administration
-  interface yet.
+  mapping on loopback.
+- `git-ticket-canvas-server` defaults to read-only, and no grant confers a
+  writer role yet, so nothing distinguishes a reader from a writer. Turning
+  `-read-only` off would let every person who can read a store write to it
+  under the actor they chose. Leave it on. Its sessions do not survive a
+  restart, rescanning is refused, and there is no administration interface
+  yet.
 - The layout schema carries `w` and `collapsed` on a card, and the API accepts
   and preserves them, but no shipped control sets either. `z` is read for
   stacking.
