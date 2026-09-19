@@ -29,7 +29,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T15:23:31Z
-updated_at: 2026-09-19T08:42:22Z
+updated_at: 2026-09-19T08:43:07Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -102,3 +102,7 @@ The package name (`layout`), the version (`v0.20.0`), and whether the plan.md en
 **agent:claude/t3code-a6d0ff31** at 2026-09-19T08:42:22Z
 
 Step 1 done on 2026-09-19: git-ticket PR 208 (https://git.local.sothr.com/terva-sh/git-ticket/pulls/208) adds layout/ from this repository's internal/layout at 9d1f6ed, unchanged apart from a package-comment origin note, plus plan.md section 12.10. Its ticket there is TKT-01M2WD5XZKM5XBYP41ZRF2P0SK, claimed by this session; just ci passed. Waiting on the maintainer to merge and tag v0.20.0 and push the tag to GitHub. Step 3 here is prepared but not committed until the tag resolves without a replace directive.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T08:43:07Z
+
+Step 3 rehearsed locally on 2026-09-19 with a go.mod replace pointing at the git-ticket worktree carrying PR 208, then reverted so nothing with a replace is committed. Results: the canvas builds with all twelve import paths rewritten to github.com/terva-sh/git-ticket/layout; go test -race ./internal/... passes in every package; and a Load-then-Save of .tickets/canvas/default.yml and of the fixture board under docs/artifacts produces bytes identical between the old package and the new one, and identical to the committed file. Not yet run: just parity-check and the browser suites, which wait for the tag so they run on the commit that lands.
