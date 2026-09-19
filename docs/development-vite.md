@@ -1,5 +1,7 @@
 # Developing tkcanvas with Vite
 
+Historical record from 2026-09-09, midway through the Preact migration. Superseded by `development-preact.md`; the binary name, install recipe, and proxy variable below have since changed.
+
 This guide supersedes the no-frontend-build instructions in `README.md` and `docs/development.md`. The browser setup in `docs/browser-testing.md` still applies, but browser runs now build frontend assets first. Historical validation reports remain unchanged.
 
 ## Prerequisites

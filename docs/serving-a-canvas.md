@@ -273,5 +273,7 @@ trusts to log in, or to who may read anything.
 ## The desk canvas
 
 `git-ticket-canvas` is unchanged: loopback, writable, no authentication, and it
-refuses a non-loopback `-addr`. A configuration file carrying an `identity:`
+refuses a non-loopback `-addr`. The one override,
+`-unsafe-publish-without-authentication`, exists for a container whose port the
+host maps to loopback, and `README-release.md` says when to use it. A configuration file carrying an `identity:`
 block is read by it, reported as ignored, and ignored.

@@ -1,5 +1,7 @@
 # Serving a canvas to more than one person
 
+Design measured against v0.3.2 and built in part since: identity, per-store read grants, per-user state, and actor choice shipped; grant administration and the audit log did not. `serving-a-canvas.md` describes what an operator has today, and the line numbers cited below are as of v0.3.2.
+
 Today `git-ticket-canvas` has no authentication of any kind. There is no
 credential, no session, and no authorization code in the binary. Every request
 that reaches the port is served, and the one security control in the HTTP layer,

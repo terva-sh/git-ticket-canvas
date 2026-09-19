@@ -15,8 +15,7 @@ tea actions workflows dispatch terva-review.yml --ref main \
   --input pr=PR_NUMBER --input request-id=ready-review
 ```
 
-Before the installation PR merges, replace `main` with the inspected installation
-branch `ci/terva-review`. An empty-JSON dispatch error may still mean the run was
+An empty-JSON dispatch error may still mean the run was
 created; check the Actions UI before retrying. Reuse the request ID for recovery;
 change it for an intentional fresh review of the same revision.
 

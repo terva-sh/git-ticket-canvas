@@ -27,16 +27,16 @@ in flight the element is absent, so the label is never blank.
 
 ## Where the value comes from
 
-`internal/buildinfo` owns the parser that `version.go` used to own. `Parse`
+`internal/buildinfo` owns the parser that the root `version.go` used to own. `Parse`
 follows the git-ticket CLI conventions: `runtime/debug.ReadBuildInfo` supplies
 the module version and `vcs.*` settings, and missing metadata falls back to
-`devel` and `unknown`. `version.go` aliases the type and calls the package, so
+`devel` and `unknown`. `internal/cli/version.go` aliases the type and calls the package, so
 the CLI and the API cannot drift.
 
 `GET /api/version` returns `buildinfo.Info` with the same six keys as
-`--version --json`. `main.go` passes `buildinfo.Read()` through
-`api.Options.Version`; a Server built without it serves the devel fallback
-instead of empty strings. The handler reads no store state, so it answers 200
+`--version --json`. `internal/cli` passes `buildinfo.Read()` through
+`api.RegistryOptions.Version`; a Registry built without it serves the devel
+fallback instead of empty strings. The handler reads no store state, so it answers 200
 while `/api/board` answers 503 for a missing snapshot. The response carries no
 paths, environment values, or credentials, and the API test refuses an
 envelope with extra fields.
@@ -48,7 +48,7 @@ failure sets the label to `unknown` and does not touch board loading.
 
 - `go test ./internal/buildinfo` covers release, dirty release, pseudo
   version, devel, nil, and empty metadata at 100% coverage.
-- `version_test.go` pins `parseBuildVersion` to `buildinfo.Parse` and keeps
+- `internal/cli/version_test.go` pins `parseBuildVersion` to `buildinfo.Parse` and keeps
   the CLI text and JSON output checks.
 - `internal/api/version_test.go` covers released, modified, devel, unset, and
   an unstarted server with no snapshot.

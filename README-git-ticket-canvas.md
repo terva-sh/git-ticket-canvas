@@ -1,11 +1,11 @@
 # git-ticket-canvas
 
-A standalone browser canvas for a repository's `.tickets` store. The project
-and executable were previously named `tkcanvas`. This is the current usage
-entry point. It supersedes the project name and command examples in `README.md`
-and the development guides, including `docs/development-preact.md`. Those
-shipped documents and validation reports remain unchanged as historical records.
-The Preact architecture and release-gate details in the latter guide still apply.
+A browser canvas for one or more `.tickets` stores. The project and executable
+were previously named `tkcanvas`; the validation reports under `docs/` that
+still use that name are historical records and were left as written. This file
+is the short developer entry point: how to build, install, and check a source
+checkout. `README.md` describes what the canvas does and how to run it over
+several stores, and `README-release.md` covers installing a published release.
 
 ## Install and run
 
@@ -33,15 +33,17 @@ or install it first. Use `-h` for application help. Git may handle `--help`
 itself and look for a manual page.
 
 This is `git ticket-canvas`, not `git ticket canvas`. The existing `git ticket`
-CLI remains separate. The server defaults to `http://127.0.0.1:7777` and discovers
-the store from the current directory when `-store` is absent. A Git repository
-is not required for Git's external-command discovery; the application still
-requires a discoverable ticket store.
+CLI remains separate. The server defaults to `http://127.0.0.1:7777` and looks
+for a store at or above the current directory when `-store` is absent. `-store`
+is repeatable, and `-root` with `-R` searches a workspace; see
+[serve several stores](README.md#serve-several-stores). A Git repository is not
+required for Git's external-command discovery; the application still requires a
+discoverable ticket store.
 
 `git-ticket-canvas` has no authentication and refuses a non-loopback `-addr`,
-naming `git-ticket-canvas-server` in the error. To permit writes, remove
-`-read-only` and pass `-actor human:your-id` explicitly. Ticket and layout
-formats, API routes, actor rules, and frontend interactions are unchanged.
+naming `git-ticket-canvas-server` in the error. It is writable by default and
+records writes as the store's configured actor; `-actor human:your-id` overrides
+that and `-read-only` refuses every write.
 
 `go install .` installs `git-ticket-canvas` into GOBIN or GOPATH/bin. It does not
 remove an old `tkcanvas` binary, create a compatibility alias, or modify PATH.

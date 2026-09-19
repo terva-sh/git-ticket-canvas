@@ -1,9 +1,9 @@
 # Developing the Preact frontend
 
-This is the current developer guide. It supersedes the no-frontend-build
-instructions in `README.md` and `docs/development.md`, and the incremental
-migration and validation instructions in `docs/development-vite.md`.
-Those documents and the historical browser and migration reports remain unchanged.
+This is the current developer guide for the frontend build and the release
+gate. It supersedes `docs/development.md` and `docs/development-vite.md`, which
+are kept as historical records. `README.md` describes what the canvas does and
+`README-git-ticket-canvas.md` is the short developer entry point.
 See `docs/preact-canvas.md` for component ownership and gesture/save policies.
 
 ## Requirements
@@ -21,12 +21,15 @@ just web-typecheck      # strict TypeScript, no output
 just web-test           # platform, component, and import-boundary tests
 just tooling-test       # dist verifier failure modes and cleanup
 just web-build          # typecheck and Vite production build
-just build              # rebuild frontend, then ./tkcanvas
-just run -read-only      # rebuild both, then serve on loopback
+just build              # rebuild frontend, then both commands
+just run -read-only     # rebuild, then serve the desk canvas on loopback
+just serve --issuer ... # rebuild, then serve the served canvas
+just drift-check        # the two commands differ only where docs/canvas-parity.json says
 ```
 
-`just install` rebuilds frontend assets and runs `go install .`. It may replace
-an existing binary in GOBIN or GOPATH/bin. No recipe uses sudo.
+`just install` rebuilds frontend assets and installs both commands into the
+first writable of `~/.local/bin` or `~/bin`, never GOBIN; see
+`docs/local-install.md`. No recipe uses sudo.
 Re-run `web-setup` after dependency changes. Commit source, lockfile, and all
 `web/dist` additions and deletions together. Never edit generated assets by hand.
 
@@ -35,13 +38,13 @@ Re-run `web-setup` after dependency changes. Commit source, lockfile, and all
 A checkout with committed assets needs no JavaScript toolchain:
 
 ```sh
-go build -o tkcanvas .
-go install .
+go build -o git-ticket-canvas .
+go build -o git-ticket-canvas-server ./cmd/git-ticket-canvas-server
 ```
 
 Go embeds only `web/dist`. Raw Go commands do not compile TypeScript or run Vite.
 They use the committed bundle, so use `just build` when changing the frontend.
-The single binary serves both the API and frontend. No runtime Node process,
+Each binary serves both the API and frontend. No runtime Node process,
 Vite server, router, service worker, or new transport is required.
 
 ## Two-terminal development
@@ -58,9 +61,10 @@ Open `http://127.0.0.1:5173`. Vite serves source with Preact refresh and proxies
 The Go port serves the last built bundle, not Vite's source.
 
 For another API port, pass `-addr 127.0.0.1:8888` to `api-dev` and set
-`TKCANVAS_API_URL=http://127.0.0.1:8888` for `web-dev`. The proxy accepts only
-loopback HTTP origins. Keep both servers on loopback. This prototype has no
-authentication and this workflow is not a public deployment recipe.
+`GIT_TICKET_CANVAS_API_URL=http://127.0.0.1:8888` for `web-dev`. The proxy accepts only
+loopback HTTP origins. Keep both servers on loopback. The desk canvas has no
+authentication and this workflow is not a public deployment recipe; see
+`docs/serving-a-canvas.md` for that.
 
 ## Development checks and the release gate
 

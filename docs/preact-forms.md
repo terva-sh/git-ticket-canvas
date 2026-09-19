@@ -1,5 +1,7 @@
 # Preact forms beside the legacy canvas
 
+Historical record from 2026-09-09, midway through the Preact migration. The mount roots and `mount.tsx` it describes are gone; `preact-canvas.md` is current.
+
 This guide supplements `docs/platform-modules.md` and supersedes its description
 of the renderer owning form controls. It records
 TKT-01M23HMQ1PGCP8XSJ7PDJGWD3E (Convert ticket forms and toolbar to Preact components).

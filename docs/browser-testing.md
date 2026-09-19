@@ -1,4 +1,6 @@
-# Browser baseline for the vanilla frontend
+# Browser baseline for the frontend before the Preact migration
+
+Historical record from 2026-09-09. It describes the Playwright baseline captured before the frontend moved to Preact; the defect it names was fixed and the run recorded in `browser-baseline-passed.md`. The current commands are in `development-preact.md`, and `tests/browser/` now holds more than this baseline. The setup and failure-artifact sections below still apply.
 
 This guide supplements `docs/development.md` with Playwright testing. It does not introduce Preact or change the frontend build. The npm workspace sits at the repository root so `node_modules` is outside the current `go:embed web` tree. The lockfile can be reused when introducing Vite.
 
@@ -23,7 +25,7 @@ The browser gate remains separate from `just check`, which still runs the existi
 
 ## Covered behavior
 
-The ten tests in `tests/browser/baseline.spec.ts` exercise:
+The tests in `tests/browser/baseline.spec.ts` at the time exercised:
 
 - Draft creation and placement through the composer, title edits, and reload persistence.
 - A stale inspector write after an independent HTTP edit, conflict feedback, and authoritative reload.

@@ -24,8 +24,10 @@ Every archive carries both. Native Windows uses the amd64 zip and the `.exe`
 names; Linux and macOS have amd64 and arm64 tarballs.
 Keep LICENSE and THIRD_PARTY_LICENSES with redistributed copies.
 
-After the first release is published, the repository's `install.sh` provides
-checksum-verified installation into `~/.local/bin`, falling back to `~/bin`:
+The repository's `install.sh` downloads the latest release, verifies its
+checksum, and installs both commands into `~/.local/bin`, falling back to
+`~/bin`. `--prefix DIR` chooses another directory and `--version TAG` another
+release:
 
 ```sh
 curl -fsSLO https://raw.githubusercontent.com/terva-sh/git-ticket-canvas/main/install.sh
@@ -52,9 +54,11 @@ This is not `git ticket canvas`. The existing `git ticket` CLI initializes and
 manages the store independently. Version and help work without a store.
 Use `-h` for application help; Git may interpret `--help` as a manual-page request.
 
-The browser is at http://127.0.0.1:7777. To edit, remove `-read-only` and set
-`-actor human:your-id`. The application never commits or pushes ticket changes
-for you.
+The browser is at http://127.0.0.1:7777. Without `-read-only` the desk canvas
+is writable and records writes as the store's configured actor; `-actor
+human:your-id` overrides that. The application never commits or pushes ticket
+changes for you. To serve several repositories from one canvas, see
+[serve several stores](README.md#serve-several-stores).
 
 `git-ticket-canvas` has no authentication of any kind, so it refuses a
 non-loopback `-addr` and its error names the other command. There is no flag

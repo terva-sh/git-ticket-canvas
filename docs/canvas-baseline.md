@@ -49,9 +49,9 @@ The helper is plain `.mjs` on purpose. `tests/browser` is not in the `tsconfig.j
 
 ## The visual suite
 
-`tests/browser/canvas-density.spec.ts` is the regression gate for the dense scene. It holds two tests, and they are split on purpose.
+`tests/browser/canvas-density.spec.ts` is the regression gate for the dense scene. It holds seven tests, split on purpose: six structural tests that run everywhere, and one pixel comparison that is opt-in.
 
-The structural test runs everywhere, including CI. It asserts the board, the relationship mode, 30 cards, 41 relationships, the inspector open on the reference ticket, the stubbed toolbar, the right-side cluster as counts, and the metadata rows a full card presents. Each assertion carries its own message, so a dropped edge fails as `rendered relationships` rather than as a picture with some pixels moved. The edge counts are checked twice, against the recorded numbers and against the store: 30 dependency edges are the 30 dependency links in the fixture, and 11 parent edges are the 11 tickets with a parent. A fixture swap that changes what the scene means therefore fails too.
+The first structural test runs everywhere, including CI. It asserts the board, the relationship mode, 30 cards, 41 relationships, the inspector open on the reference ticket, the stubbed toolbar, the right-side cluster as counts, and the metadata rows a full card presents. Each assertion carries its own message, so a dropped edge fails as `rendered relationships` rather than as a picture with some pixels moved. The edge counts are checked twice, against the recorded numbers and against the store: 30 dependency edges are the 30 dependency links in the fixture, and 11 parent edges are the 11 tickets with a parent. A fixture swap that changes what the scene means therefore fails too.
 
 The pixel test is opt-in and local:
 
@@ -75,7 +75,7 @@ Then add an entry to `baseline-history.json`, newest first, saying what changed 
 
 That is also what stops the shortcut. `playwright --update-snapshots` writes the PNG and cannot write the metadata beside it, so the checksums disagree and the tooling test names the capture command. Verified by truncating the image: both checks failed with that message, and restoring it returned the suite to green.
 
-The child tickets change the picture on purpose, and not always the counts. `TKT-01M26Y32BZHJFXFGRYZ37TWYFP` (Reduce relationship clutter in the all-edges view) landed a new baseline while every number here held: same 30 cards, same 41 edges, same cluster counts, because it changed what edges paint rather than where anything sits. I had predicted it would move `rightHalf.edgesTouching`, and it did not. `TKT-01M26Y3D0BAX6KGND8PYXXR918` (Add a compact card density mode for large boards) is the one that should move `cardMetadataRows` in `tests/browser/canvas-scene.mjs`.
+The child tickets change the picture on purpose, and not always the counts. `TKT-01M26Y32BZHJFXFGRYZ37TWYFP` (Reduce relationship clutter in the all-edges view) landed a new baseline while every number here held: same 30 cards, same 41 edges, same cluster counts, because it changed what edges paint rather than where anything sits. I had predicted it would move `rightHalf.edgesTouching`, and it did not. `TKT-01M26Y3D0BAX6KGND8PYXXR918` (Add a compact card density mode for large boards) landed as its own structural tests in the spec, the ones named `compact`, and left `cardMetadataRows` in `tests/browser/canvas-scene.mjs` describing the full-density card.
 
 That is the division the gate is built on. A change that only repaints needs a new baseline entry and leaves the constants alone. A change that moves or restructures cards fails a structural assertion first, and editing that constant is how you say the move was intended.
 
