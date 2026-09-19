@@ -16,7 +16,6 @@ milestone: null
 parent: TKT-01M2441T0PTXRFK6VC4FM1PET7
 origin: null
 dependencies:
-  - TKT-01M26SPW8XM5Q3M73536W5X0F1
   - TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR
 blocks_on: none
 references:
@@ -29,7 +28,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-10T23:16:24Z
-updated_at: 2026-09-19T08:08:57Z
+updated_at: 2026-09-19T08:10:28Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -95,3 +94,7 @@ Decision 2026-09-19: the board design is the contract. This ticket now depends o
 **agent:claude/t3code-a6d0ff31** at 2026-09-19T08:08:57Z
 
 Terva review 28 on PR 13 (head 1a2c8f9a62a9d996828e98376818f956c7c944a5) found the note-only rewrite left this draft's title, description, and criteria stating the superseded scope. Accepted: the title, description, and acceptance criteria now state the adopted contract, and the previous criteria are replaced rather than appended. The dependency on TKT-01M26SPW8XM5Q3M73536W5X0F1 (the opt-in trial) is left for the person who decides whether that ticket is archived.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T08:10:28Z
+
+Terva review 29 on PR 13 (head ba2a6e7f12ba68767be9677061d961376f6868e3): the dependency on TKT-01M26SPW8XM5Q3M73536W5X0F1 (the opt-in trial) contradicted the adopted sequence. Accepted and removed; this ticket now waits only on TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR (Write board rules from the command line). Whether the trial ticket is archived is still a person's call and no longer gates this one.
