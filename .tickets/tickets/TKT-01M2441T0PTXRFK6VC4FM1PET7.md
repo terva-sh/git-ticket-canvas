@@ -148,7 +148,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-09T22:19:10Z
-updated_at: 2026-09-19T08:06:40Z
+updated_at: 2026-09-19T08:11:28Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -544,4 +544,6 @@ Decision 2026-09-19 by the user: the pen work follows docs/board-organization-de
 
 ## Summary
 
-Checkpoint includes completed schema-3/CAS backend, TypeScript preservation/evaluation, pure allocator/snapshots, measurement publications, optional diagnostic bridge, pure scene/local capture guards and capture-v1 transport. Committed sampling implementation is present with passing unit/component tests, but its final scope audit and real-source browser evidence remain unfinished. Fixed the refresh instrumentation hook after reproducing two failures and regenerated stale dist with explicit user approval. just check passes: 446 frontend tests, 65 tooling tests, TypeScript, Go race/vet/format and strict store validation. Embedded browser suite passes 53 tests with five opt-in measurement skips. Evidence: docs/pen-checkpoint-verification.md. Three draft children track sampling verification, opt-in integration and default activation. Parent stays in-progress, end-to-end criteria unchecked and default activation blocked.
+Checkpoint state, unchanged since the last claim was released: the schema-3 backend with CAS routing writes, TypeScript preservation and evaluation, the pure allocator and snapshots, measurement publications, the optional diagnostic bridge, pure scene and local capture guards, and the capture-v1 transport are committed and tested. The committed sampling probe exists with passing unit and component tests; its scope audit and real-source browser evidence were never finished. Evidence at the time: docs/pen-checkpoint-verification.md. The shipped canvas still places automatic cards in status lanes; nothing here is wired into main.ts.
+
+Decision of 2026-09-19: the contract is docs/board-organization-design-v1.md. The sequence is TKT-01M2ND1RH33T89QZ7JBA0YC1AZ (Move the layout schema into git-ticket), TKT-01M2ND1RJAGTH8QBF1QK79XPC0 (Read the board from the command line), TKT-01M2ND1RKK6S4GXZQKKPP6H87P (Place unpinned cards by rule), which owns wiring the resolver into placement and keeps lanes for a board with no pens, TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR (Write board rules from the command line), and then TKT-01M26SQB4JWTW8FPSVHYZKFKCR (Show and author pens in the browser after the CLI), which depends on the CLI write commands. The other two children, TKT-01M26SPJGBWT2B3QP0NE7CRQQT (sampling probe verification) and TKT-01M26SPW8XM5Q3M73536W5X0F1 (the opt-in scene trial), verified the superseded route and are candidates for archiving when ND1RK is planned. This ticket stays ready with its end-to-end criteria unchecked; whether it closes as superseded or is reworked to track the new sequence is the promoter's call.
