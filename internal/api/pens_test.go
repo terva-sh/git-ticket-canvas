@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/terva-sh/git-ticket-canvas/internal/layout"
+	"github.com/terva-sh/git-ticket/layout"
 )
 
 // Schema-3 wire contract, asserted independently of production routing types:

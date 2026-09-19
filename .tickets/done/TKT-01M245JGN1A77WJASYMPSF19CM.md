@@ -22,8 +22,6 @@ references:
     path: docs/live-updates-design.md
   - ref: code:api
     path: internal/api/server.go
-  - ref: code:layout-store
-    path: internal/layout/layout.go
   - ref: code:ticket-store
     path: web/src/platform/tickets/store.ts
   - ref: code:app
@@ -48,16 +46,18 @@ references:
     path: internal/api/live.go
   - ref: code:live-client
     path: web/src/platform/tickets/live.ts
+  - ref: code:layout-store
+    path: null
 claim: null
 archive: null
 created_at: 2026-09-09T22:45:46Z
-updated_at: 2026-09-10T01:02:30Z
+updated_at: 2026-09-19T18:06:23Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
 updated_by:
-  id: agent:terva/mieli
-  name: Mieli
+  id: agent:claude/t3code-a6d0ff31
+  name: ""
 extensions: {}
 ---
 
@@ -146,6 +146,10 @@ Resolved the two old refresh-test assumptions the browser worker flagged: the tw
 One worker test was broken by construction. The reconnect regression used page.context().setOffline() to disconnect an established stream, but an instrumented run proved Chromium's offline emulation never errors an established EventSource: the stream stays open and the held event arrives after going online, so no reconnect ever occurs and the test cannot pass. Rewrote it around a real server restart on the same port (tests/browser/fixtures.ts gained app.restart(whileDown)), which kills the socket, changes the epoch, and genuinely misses an edit while down. The test now asserts reconnection within 15s, epoch change, convergence to the missed edit, and a subsequent event-driven edit within 3s. It passes in 2.5s. This supersedes the harness doc's description of the reconnect case's offline mechanism; the doc file is kept as delivered.
 
 All 8 live-update regressions, the pointer-motion guard, and all 4 refresh regressions pass against the integrated server. Measurements not yet run.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T18:06:23Z
+
+The internal/layout files this ticket referenced moved to github.com/terva-sh/git-ticket/layout in git-ticket v0.20.0 (TKT-01M2ND1RH33T89QZ7JBA0YC1AZ). The refs are kept by name without a path; read them in that repository.
 
 ## Summary
 

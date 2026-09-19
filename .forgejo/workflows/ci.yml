@@ -21,7 +21,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install ledger checker
-        run: GOBIN=/usr/local/bin go install github.com/terva-sh/git-ticket/cmd/git-ticket@v0.19.1
+        run: GOBIN=/usr/local/bin go install github.com/terva-sh/git-ticket/cmd/git-ticket@v0.20.0
       # Named separately from the gate below so a difference between the two
       # canvases reports as one, rather than as a failure somewhere in a
       # twelve-step release check. It runs the frontend half, so it needs the

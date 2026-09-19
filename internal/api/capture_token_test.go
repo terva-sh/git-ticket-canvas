@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/terva-sh/git-ticket-canvas/internal/layout"
+	"github.com/terva-sh/git-ticket/layout"
 )
 
 func TestCaptureCanonicalProjection(t *testing.T) {

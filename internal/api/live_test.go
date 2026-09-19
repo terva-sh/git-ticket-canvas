@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/terva-sh/git-ticket-canvas/internal/layout"
+	"github.com/terva-sh/git-ticket/layout"
 	"github.com/terva-sh/git-ticket/ticket"
 )
 
