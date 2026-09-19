@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M2W22SBF554JHKVPMDWPFTY4
 title: Install targeted Terva PR reviews
 type: task
-status: in-progress
-status_reason: null
+status: blocked
+status_reason: Reviewer installation and real feedback are verified, but existing parity CI runs 81/84/86 fail. Need safe failed-step/error detail to triage the independent gate before rollout; private logs unavailable through API and local Go/browser prerequisites are absent.
 priority: normal
 due_on: null
 labels:
@@ -26,7 +26,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-19T05:26:31Z
-updated_at: 2026-09-19T05:34:40Z
+updated_at: 2026-09-19T05:35:30Z
 created_by:
   id: agent:codex/installation-20260919
   name: ""
@@ -42,8 +42,8 @@ Install the pinned Terva review action as the first external consumer, coordinat
 
 ## Acceptance criteria
 
-- [ ] Add trusted pinned workflow and operator guidance without changing existing CI.
-- [ ] Verify real manual review and published feedback on the installation PR.
+- [x] Add trusted pinned workflow and operator guidance without changing existing CI.
+- [x] Verify real manual review and published feedback on the installation PR.
 
 ## Implementation plan
 
@@ -74,3 +74,7 @@ Existing parity CI run 81 failed independently; no source/test/CI changes were m
 Run 85 completed review 20 on fa2d6a1 (issuecomment-8433) with one medium concern about a shared ignored-event concurrency group. Adopted a focused refinement: rejected events now use format(ignored-{0}, github.run_id), eliminating a shared serialized backlog while retaining the pre-job allowlist and stable authorized PR group. Manual and permitted comment requests still share their PR group. General event/run record creation is unavoidable for a public issue_comment trigger and belongs to server-side anti-abuse policy; no runner/model work is authorized by rejected events. No repository settings were changed. Did not request another model verdict for this small refinement; it is explicitly after the reviewed SHA.
 
 The installation is functional: three native workflow runs fetched the private pinned action, installed the runtime, authenticated CPA and published real review findings. Remaining review concerns have dispositions above; no clean result is claimed for the latest unreviewed refinement. Existing parity CI also failed on run 86. Its error detail is still pending from the operator; keep this PR unmerged until that independent gate is understood.
+
+**agent:codex/installation-20260919** at 2026-09-19T05:35:30Z
+
+in-progress to blocked: Reviewer installation and real feedback are verified, but existing parity CI runs 81/84/86 fail. Need safe failed-step/error detail to triage the independent gate before rollout; private logs unavailable through API and local Go/browser prerequisites are absent.
