@@ -13,7 +13,7 @@ labels:
   - ui
 assignees: []
 milestone: null
-parent: TKT-01M2441T0PTXRFK6VC4FM1PET7
+parent: TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3
 origin: null
 dependencies:
   - TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR
@@ -28,7 +28,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-10T23:16:24Z
-updated_at: 2026-09-19T08:10:28Z
+updated_at: 2026-09-19T08:14:48Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
