@@ -23,12 +23,12 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-16T06:27:56Z
-updated_at: 2026-09-16T15:36:48Z
+updated_at: 2026-09-19T08:04:44Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/t3code
+  id: agent:claude/t3code-a6d0ff31
   name: ""
 extensions: {}
 ---
@@ -70,3 +70,7 @@ What that turned on, verified in the tree at `41ecbe6` rather than assumed:
 So of this ticket's four options, what is deployed is closest to "the canvas commits nothing and somebody watches", which was not on the list because it is not a design. The option this makes most attractive is the third — a served canvas pointed at a working tree nothing else uses — because it is available today, costs one `git worktree add`, and removes the only risk of the three that can destroy work rather than merely mislabel it.
 
 The acceptance criteria are untouched. Nothing here weighs the options, and the per-request actor question is not settled: the cost recorded in the description still stands, that the actor is part of the cached board response and making it per-request means either unsharing the snapshot cache or taking the actor out of the payload.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T08:04:44Z
+
+Scope addition from the pen review of 2026-09-19: layout writes are unattributed. handleLayout (internal/api/server.go:634) takes no actor and the board file has no author field, so a served writer editing pens, frames, or card positions leaves nothing saying who. A pen edit moves every automatic card on a shared board, which makes this the sharper case. Settle it with the per-request actor question rather than after it.

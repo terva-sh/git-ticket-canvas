@@ -148,12 +148,12 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-09T22:19:10Z
-updated_at: 2026-09-16T20:45:17Z
+updated_at: 2026-09-19T08:04:44Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
 updated_by:
-  id: agent:claude/t3code
+  id: agent:claude/t3code-a6d0ff31
   name: ""
 extensions: {}
 ---
@@ -533,6 +533,10 @@ Checkpoint review at the user's request: docs/pen-checkpoint-verification.md rec
 **agent:terva/mieli** at 2026-09-11T05:22:01Z
 
 in-progress to ready: Nobody is working this. The claim from the checkpoint session was released and the ticket moved back to ready so the board does not report active work that has stopped. Its three children remain in draft, so the pen work cannot finish until a person promotes them.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T08:04:44Z
+
+Review of 2026-09-19 (recorded in full on child TKT-01M26SQB4JWTW8FPSVHYZKFKCR): this ticket and its plan follow docs/pen-specification-v1.md, while docs/board-organization-design-v1.md and the drafts under TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3 describe a different contract for the same records: schema 4 match records, first-match resolution without specificity, lanes kept for boards with no pens, one resolver shared with a git ticket canvas CLI. The served canvas being read-only makes CLI authoring the path that works everywhere. Which contract wins is a person's decision and gates promoting the children. The description's reference to canvas-organization-design.md is stale; that design is superseded by the pen and frame specifications.
 
 ## Summary
 
