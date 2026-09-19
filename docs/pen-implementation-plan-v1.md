@@ -1,5 +1,10 @@
 # Pen implementation plan v1
 
+Historical: written against `pen-specification-v1.md` before the decision of
+2026-09-19 that `board-organization-design-v1.md` sets the matching, resolution,
+and authoring contract. Sections 1 to 3 describe code that exists; section 4's
+browser controls now come after the schema move and the CLI commands.
+
 For TKT-01M2441T0PTXRFK6VC4FM1PET7 (Route automatic tickets to label-matching canvas pens).
 
 The user authorized promotion, code inspection, and this plan before code changes.

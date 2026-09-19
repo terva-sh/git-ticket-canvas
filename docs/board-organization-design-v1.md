@@ -1,5 +1,11 @@
 # Organizing a board that nobody has organized
 
+Adopted on 2026-09-19 as the contract for pens: matching, resolution order,
+lanes for a board with no pens, and CLI authoring before browser authoring. It
+supersedes `pen-specification-v1.md` on those points and nothing else. The
+decision and its reasons are on TKT-01M2441T0PTXRFK6VC4FM1PET7 and
+TKT-01M26SQB4JWTW8FPSVHYZKFKCR.
+
 Open a canvas on a ticket store that has never been arranged and you get every
 card at once, in status lanes, sorted by ticket ID. Seventy-nine cards on the
 ledger store, in a grid, where adjacency means nothing: the tickets either side

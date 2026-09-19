@@ -148,7 +148,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-09T22:19:10Z
-updated_at: 2026-09-19T08:04:44Z
+updated_at: 2026-09-19T08:06:40Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -537,6 +537,10 @@ in-progress to ready: Nobody is working this. The claim from the checkpoint sess
 **agent:claude/t3code-a6d0ff31** at 2026-09-19T08:04:44Z
 
 Review of 2026-09-19 (recorded in full on child TKT-01M26SQB4JWTW8FPSVHYZKFKCR): this ticket and its plan follow docs/pen-specification-v1.md, while docs/board-organization-design-v1.md and the drafts under TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3 describe a different contract for the same records: schema 4 match records, first-match resolution without specificity, lanes kept for boards with no pens, one resolver shared with a git ticket canvas CLI. The served canvas being read-only makes CLI authoring the path that works everywhere. Which contract wins is a person's decision and gates promoting the children. The description's reference to canvas-organization-design.md is stale; that design is superseded by the pen and frame specifications.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T08:06:40Z
+
+Decision 2026-09-19 by the user: the pen work follows docs/board-organization-design-v1.md (schema 4 match records, first match in ruleOrder, lanes for a board with no pens, one resolver shared with git ticket canvas, CLI authoring before browser authoring). docs/pen-specification-v1.md keeps Inbox, manual-over-automatic, Preview/Apply/Cancel, counts, explanations, and read-only rules. Sequence: TKT-01M2ND1RH33T89QZ7JBA0YC1AZ (Move the layout schema into git-ticket), then TKT-01M2ND1RJAGTH8QBF1QK79XPC0 (Read the board from the command line), TKT-01M2ND1RKK6S4GXZQKKPP6H87P (Place unpinned cards by rule), TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR (Write board rules from the command line), and only then the browser controls in TKT-01M26SQB4JWTW8FPSVHYZKFKCR. Default activation is ND1RK's job under this contract, not SQB's. Promotion of any of these remains the user's.
 
 ## Summary
 

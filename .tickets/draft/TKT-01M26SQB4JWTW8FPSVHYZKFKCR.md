@@ -17,6 +17,7 @@ parent: TKT-01M2441T0PTXRFK6VC4FM1PET7
 origin: null
 dependencies:
   - TKT-01M26SPW8XM5Q3M73536W5X0F1
+  - TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR
 blocks_on: none
 references:
   - ref: spec:pens
@@ -28,7 +29,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-10T23:16:24Z
-updated_at: 2026-09-19T08:04:44Z
+updated_at: 2026-09-19T08:06:40Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -74,3 +75,7 @@ This ticket, its two siblings, and docs/pen-implementation-plan-v1.md build on t
 The multi-user features favour the second contract on one point that matters: in a served deployment the people reading a board cannot author it, so authoring by CLI or agent and consumption by every canvas is the only path that works everywhere. The two contracts also disagree on what an unorganized board looks like once pens are the default. The spec routes unmatched cards to the Inbox pin and says nothing about a board with no pens; the design keeps status lanes there. For served readers who cannot add a pen, lanes are the only acceptable answer, and TKT-01M2ND1RKK6S4GXZQKKPP6H87P (Place unpinned cards by rule) already states it.
 
 Which contract this ticket targets, and whether it is resequenced behind the schema move and the CLI, is a decision for a person; recorded here so the next reader does not re-derive it.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T08:06:40Z
+
+Decision 2026-09-19: the board design is the contract. This ticket now depends on TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR (Write board rules from the command line) and shrinks to the browser side: a pen layer and Inbox drawn from the resolver, explain and counts in the inspector, read-only verification on the served command, and browser rule authoring with Preview, Apply, Cancel over the match record. Default activation moves to TKT-01M2ND1RKK6S4GXZQKKPP6H87P. The title and description still describe the old scope; rewriting them is for whoever promotes it.

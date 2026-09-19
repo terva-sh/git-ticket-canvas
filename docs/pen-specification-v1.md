@@ -3,6 +3,13 @@
 Status: interaction policies approved by the user; specification for mockup review.
 This approval does not promote the ticket or authorize implementation.
 
+Decision of 2026-09-19: `board-organization-design-v1.md` is the contract for
+matching, resolution order, the no-pen board, and the authoring path (CLI first).
+What this document still governs: the Inbox being visible and non-deletable,
+manual placement overriding routing, Preview, Apply, and Cancel for browser
+authoring, counts and explanations, and read-only blocking every pen mutation.
+Recorded on TKT-01M2441T0PTXRFK6VC4FM1PET7.
+
 Tracks TKT-01M2441T0PTXRFK6VC4FM1PET7 (Route automatic tickets to label-matching
 canvas pens). Its dependency is TKT-01M24411DDC98WXKT2MY2FMHQN (Add persistent
 canvas grouping frames), now complete.

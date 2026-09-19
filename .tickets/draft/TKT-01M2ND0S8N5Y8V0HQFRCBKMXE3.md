@@ -20,12 +20,12 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-16T15:22:59Z
-updated_at: 2026-09-16T15:22:59Z
+updated_at: 2026-09-19T08:06:40Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/t3code
+  id: agent:claude/t3code-a6d0ff31
   name: ""
 extensions: {}
 ---
@@ -41,3 +41,9 @@ Nor can an agent write them. `git ticket` has no canvas commands, so organizing 
 This epic closes both halves: agents author rules rather than coordinates, and the card encodes actionability rather than lifecycle.
 
 See `docs/board-organization-design-v1.md`.
+
+## Notes
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T08:06:40Z
+
+Adopted on 2026-09-19 as the contract for pens over docs/pen-specification-v1.md on matching, resolution order, the no-pen board, and authoring order; see the note on TKT-01M2441T0PTXRFK6VC4FM1PET7. Under the served canvas, which is read-only, this epic's CLI is the only authoring path that reaches every reader.
