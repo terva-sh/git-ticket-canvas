@@ -19,12 +19,12 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-19T05:26:31Z
-updated_at: 2026-09-19T05:42:42Z
+updated_at: 2026-09-19T05:56:34Z
 created_by:
   id: agent:codex/installation-20260919
   name: ""
 updated_by:
-  id: agent:codex/installation-20260919
+  id: agent:codex/dispositions-20260919
   name: ""
 extensions: {}
 ---
@@ -81,6 +81,10 @@ Fix the classifier in this installation ticket because it is required to integra
 **agent:codex/installation-20260919** at 2026-09-19T05:40:44Z
 
 Targeted review https://git.local.sothr.com/terva-sh/git-ticket-canvas/actions/runs/89 completed inference and published review 21: https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/11#issuecomment-8438. Reviewed head de08ca0f5f6d909ebb492f5252b692a6881b4a3f, base e59bdca7d9317b7018a49683483e288108c72c84, request release-classifier-fix. No release-classifier findings. One high finding asserts inputs.request-id is invalid subtraction. Declined: https://docs.github.com/en/actions/reference/workflows-and-actions/contexts explicitly permits hyphens in property dereference names (letter or underscore first, then alphanumeric, hyphen or underscore). This native run also parsed, executed and published from that workflow. Keep the finding and failing model gate visible; do not change valid syntax or rerun for a pass. Earlier accepted pin/allowlist/ignored-group findings are fixed; the comment request identity finding remains declined with runtime/source evidence. Native parity run 88 is still running. No merge authorized.
+
+**agent:codex/dispositions-20260919** at 2026-09-19T05:56:34Z
+
+Applied the advisory disposition process from TKT-01M2W3KM31J45QARBJQQC8ESR3 — Formalize finding dispositions and validate consumer discussion. Canonical record: https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/11#issuecomment-8443; also linked in the PR description. Review 21/finding-1 is proposed declined, with grammar evidence, reviewed de08ca0/base e59bdca and assessed 0bb1f13/base e59bdca. Confirmed only ticket bookkeeping changed. Explicit maintainer acceptance remains pending; model failure is preserved. This record enables ordinary PR discussion without a model command, which is currently unavailable because the workflow is unmerged and source review head is historical. No new status, credential/settings change or merge performed. This note is additional bookkeeping after the assessed revision.
 
 ## Summary
 
