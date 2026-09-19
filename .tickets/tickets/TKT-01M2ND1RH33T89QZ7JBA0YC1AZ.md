@@ -29,7 +29,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T15:23:31Z
-updated_at: 2026-09-19T08:36:40Z
+updated_at: 2026-09-19T08:42:22Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -96,3 +96,9 @@ Keeping the schema here and adding `git-ticket-canvas layout …` subcommands: r
 ### Open choices for the person reviewing
 
 The package name (`layout`), the version (`v0.20.0`), and whether the plan.md entry is wanted or the package doc comment is record enough. Each is chosen above with its reason and any of them can be changed before step 1.
+
+## Notes
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T08:42:22Z
+
+Step 1 done on 2026-09-19: git-ticket PR 208 (https://git.local.sothr.com/terva-sh/git-ticket/pulls/208) adds layout/ from this repository's internal/layout at 9d1f6ed, unchanged apart from a package-comment origin note, plus plan.md section 12.10. Its ticket there is TKT-01M2WD5XZKM5XBYP41ZRF2P0SK, claimed by this session; just ci passed. Waiting on the maintainer to merge and tag v0.20.0 and push the tag to GitHub. Step 3 here is prepared but not committed until the tag resolves without a replace directive.
