@@ -23,7 +23,7 @@ change it for an intentional fresh review of the same revision.
 After the workflow lands on the default branch, the pilot comment allowlist
 initially admits `warricksothr` (verified repository owner). Approved maintainers
 can be added through a PR changing both allowlists in the workflow. Unlisted
-commenters are skipped before job setup and use a separate ignored queue; other
+commenters are skipped before job setup and use unique per-run ignored groups; other
 authorized maintainers can use manual dispatch. The action still checks current
 repository permissions for every request. New PR discussion comments can request
 work:

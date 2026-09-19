@@ -26,7 +26,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-19T05:26:31Z
-updated_at: 2026-09-19T05:31:58Z
+updated_at: 2026-09-19T05:34:40Z
 created_by:
   id: agent:codex/installation-20260919
   name: ""
@@ -68,3 +68,9 @@ Declined the claimed comment-ID collision. The pinned reviewer's src/run.mjs bui
 Run 83 completed review 19 on head 07dca89 and raised one medium queue-exhaustion concern. Accepted: the action blocked unauthorized inference/publication but matching public comments could still cause dependency/checkout setup. Added an explicit pilot commenter allowlist before job provisioning, initially warricksothr after verifying live owner permission. Unlisted comment events also resolve to a separate ignored concurrency group so they do not occupy a legitimate PR queue. Manual dispatch remains available to authorized maintainers; runtime permission checks remain authoritative, and operators must update both workflow lists when approving another commenter. This narrows the pilot rather than broadening credential access.
 
 Existing parity CI run 81 failed independently; no source/test/CI changes were made in this PR. Requested only the safe failed-step/error line because private logs are unavailable through the API. Keep that gate visible and do not merge while its cause is unknown. A targeted new review will verify the substantive workflow gate change after push.
+
+**agent:codex/installation-20260919** at 2026-09-19T05:34:40Z
+
+Run 85 completed review 20 on fa2d6a1 (issuecomment-8433) with one medium concern about a shared ignored-event concurrency group. Adopted a focused refinement: rejected events now use format(ignored-{0}, github.run_id), eliminating a shared serialized backlog while retaining the pre-job allowlist and stable authorized PR group. Manual and permitted comment requests still share their PR group. General event/run record creation is unavoidable for a public issue_comment trigger and belongs to server-side anti-abuse policy; no runner/model work is authorized by rejected events. No repository settings were changed. Did not request another model verdict for this small refinement; it is explicitly after the reviewed SHA.
+
+The installation is functional: three native workflow runs fetched the private pinned action, installed the runtime, authenticated CPA and published real review findings. Remaining review concerns have dispositions above; no clean result is claimed for the latest unreviewed refinement. Existing parity CI also failed on run 86. Its error detail is still pending from the operator; keep this PR unmerged until that independent gate is understood.

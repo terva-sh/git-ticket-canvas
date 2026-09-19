@@ -15,7 +15,7 @@ on:
 concurrency:
   # Replace the maintainer list here AND in the job condition below.
   # Unlisted commenters never enter an authorized PR's serialized queue.
-  group: terva-review-${{ github.repository }}-${{ inputs.pr || (contains(fromJSON('["warricksothr"]'), github.actor) && github.event.issue.number) || 'ignored' }}
+  group: terva-review-${{ github.repository }}-${{ inputs.pr || (contains(fromJSON('["warricksothr"]'), github.actor) && github.event.issue.number) || format('ignored-{0}', github.run_id) }}
   cancel-in-progress: false
 permissions:
   contents: read
