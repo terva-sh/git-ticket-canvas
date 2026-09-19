@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-15T22:14:37Z
-updated_at: 2026-09-19T06:52:12Z
+updated_at: 2026-09-19T06:56:03Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
@@ -91,6 +91,29 @@ position, trusting a document that was right about some things.
 - [ ] Multi-store use is documented for a user: naming stores, discovery roots, the picker and browser, favorites, display names, and where state is kept.
 - [ ] Every documented command, flag, path, and count in the files changed was run or read at the commit that lands them, and the ticket says which were not.
 - [ ] Each document under docs/ is either confirmed current, updated, or explicitly recorded as historical, with none left unexamined.
+
+## Implementation plan
+
+Treat the audit as the work. Three passes, each checked against the code at the commit that lands it.
+
+### README.md
+Rewrite the sections the ticket names and re-read the rest. Verified facts to write in:
+- Live updates: `internal/api/live.go` watches with fsnotify (100ms debounce, one-second burst cap, 60s safety scan) and publishes epoch/generation/scopes on `GET /api/events`; the browser (`web/src/platform/tickets/live.ts`) answers with a conditional `GET /api/board` (`If-None-Match`, 304), falls back to a 12s poll while the stream is down, and 60s when live, plus a read on tab visibility.
+- Layout schema: `internal/layout` holds `Card{x,y,w,z,collapsed}`, `Frame{title,x,y,w,h,color,members}`, and `Routing{pens,ruleOrder,inbox}`. Frames are user-facing (toolbar New frame, draw on canvas, FramesPanel). `z` is read for stacking; `w` and `collapsed` are accepted and preserved but no shipped control sets them. Pens are validated by the API and computed by `web/src/platform/canvas/pens.ts` and `placement.ts`, but `web/src/main.ts` passes no publication bridge, so the shipped canvas still auto-places in status lanes. Say so as the known edge rather than "nothing sets them".
+- Architecture: name all twelve `internal/` packages (actors, api, auth, buildinfo, cli, config, discover, grants, layout, people, state, testpath) from their package comments.
+- API: routes are `/api/stores/{store}/…` for board, schema, events, tickets, layout; flat `/api/…` only when exactly one store is served (`store_required` otherwise); plus `GET /api/stores`, `POST /api/stores/rescan` (refused on the served canvas), `GET|PUT /api/favorites`, `GET /api/session`, `GET /api/version`, and on the served canvas `GET|PUT /api/stores/{store}/actor`, `GET|PUT /api/actor`, `GET /api/people`.
+- Multi-store for a user: `-store PATH` or `NAME=PATH`, `-root`/`-R`/`-depth`/`-exclude`, `-config`, `GIT_TICKET_CANVAS_STORES`, `-scan`; ids are `leaf-<12 hex of sha256(path)>` and appear in the `#store=` fragment; display names default to the directory name; picker, browser with search, favorites star, rescan; state in `$XDG_STATE_HOME/git-ticket-canvas/state.json` (or `~/.local/state`, `~/Library/Application Support`, `%LOCALAPPDATA%`) with `actors.json` and `people.json` beside it on a served canvas; `-state` overrides; `-max-active` and `-store-idle` bound watchers.
+- Interactions: add `u` (release to automatic), `Delete`/`Backspace`, shift-click multi-select, New frame, Arrange, boards select, density, relationships.
+- Known edges: rewrite from what is true now.
+
+### README-git-ticket-canvas.md and README-release.md
+Re-read against the same facts; fix drift only (module path, commands, flags, env vars). Keep their scope.
+
+### docs/
+Three read-only investigators audit every `.md` under `docs/` in parallel (design/pen/frame set; architecture/serving set; dev/test/release set), each classifying CURRENT, NEEDS-UPDATE with evidence, or HISTORICAL. Then: fix living docs that drift; add a one-line status header to historical docs that lack one; list every doc and its disposition in the ticket summary. A living doc that needs more than wording fixes gets its own draft ticket rather than growing this one.
+
+### Verification
+Every command, flag, path, and count written into a changed file is run or read at HEAD: both binaries' `-h`, `--version`, `just --list`, route table from `internal/api`, link targets. The ticket note names anything not run (browser-only checks, release publication).
 
 ## Notes
 
