@@ -1,7 +1,7 @@
 ---
 schema: 3
 id: TKT-01M26SQB4JWTW8FPSVHYZKFKCR
-title: Gate default pen activation on controls and trial evidence
+title: Show and author pens in the browser after the CLI
 type: task
 status: draft
 status_reason: null
@@ -29,7 +29,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-10T23:16:24Z
-updated_at: 2026-09-19T08:06:40Z
+updated_at: 2026-09-19T08:08:57Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -41,14 +41,26 @@ extensions: {}
 
 ## Description
 
-Default pen activation remains blocked even after a passing opt-in trial. Keep this ticket draft until a person reviews the trial evidence and explicitly approves a bounded controls/activation plan. Queue order or passing foundation tests is not authorization. Remaining production scope includes visible pen/Inbox controls, rule authoring, preview/apply/cancel, explanations/counts, removal and return-to-automatic, complete obstacles, and end-to-end verification. Preserve approved specifications and record later decisions in new documents.
+The browser side of pens, after the CLI. Under the contract adopted on 2026-09-19 (docs/board-organization-design-v1.md, recorded on TKT-01M2441T0PTXRFK6VC4FM1PET7), the layout schema moves into git-ticket, `git ticket canvas` reads and writes rules, and TKT-01M2ND1RKK6S4GXZQKKPP6H87P (Place unpinned cards by rule) wires the resolver into placement, keeping status lanes for a board with no pens. That ticket is where automatic cards start following pens; nothing here switches that on.
+
+What is left for the canvas is to show what the resolver decided and to let a person at a desk author rules without the CLI:
+
+- A pen layer and the Inbox, drawn from the resolver's output, with the counts and the per-ticket explanation the pen specification describes: winning rule, rules it beat, missing fields, and whether a saved position overrides routing.
+- Return to automatic in the inspector, which removes the saved position and reevaluates; a failed removal keeps the card manual and says so.
+- Browser rule authoring over the `match` record with Preview, Apply, and Cancel, explicit rule-order controls, overlap feedback, and removal that reevaluates the remaining rules. A completed gesture is a preview, never an implicit save. The empty-rule refusal and label-entry rules from docs/pen-rule-authoring-addendum-v1.md apply to the `labels` field.
+- Read-only canvases, which includes every served canvas today, render the layer, counts, and explanations with every authoring control disabled behind the existing badge. Layout writes are unattributed until TKT-01M2MED3BW4T8PF2C45V6RNSJQ settles them, so pen authoring stays a desk feature.
+
+Pens are shared board data. Nobody gets a private pen; per-user state holds favorites and the last store only. Card density is per viewer and feeds the resolver's card width, so two people can see different automatic positions on one board; explanations are computed per viewer and stay truthful.
+
+Promotion is a person's decision and needs the CLI write commands done first, because the browser and the CLI must author the same record and the CLI is the path that works where the canvas is read-only. Keep the approved specifications as records; write later decisions in new documents.
 
 ## Acceptance criteria
 
-- [ ] Record explicit human promotion approval referencing trial evidence and a reviewed bounded controls/activation plan.
-- [ ] Implement and verify approved pen/Inbox and rule-authoring interactions, including previews, manual intent, counts, ties and removal.
-- [ ] Review external-writer concurrency limits and complete production obstacle coverage before activation.
-- [ ] Verify end-to-end routing/save/history behavior, 120-card performance and generated assets before separately approved default activation.
+- [ ] The pen layer, Inbox, counts, and per-ticket explanations render from the resolver on every canvas, and a served read-only canvas shows them with every authoring control disabled
+- [ ] Return to automatic removes the saved position and reevaluates routing; a failed removal keeps the card manual and reports it
+- [ ] Browser rule authoring over the match record uses Preview, Apply, and Cancel with explicit rule order, overlap feedback, and removal that reevaluates remaining rules, and produces the same file the CLI writes
+- [ ] A rule written by the CLI while a browser holds a preview is refused with layout_conflict on Apply and the preview is discarded with a visible reason
+- [ ] End-to-end routing, save, frame history, and 120-card behavior are verified with a viewer that is not the author
 
 ## Notes
 
@@ -79,3 +91,7 @@ Which contract this ticket targets, and whether it is resequenced behind the sch
 **agent:claude/t3code-a6d0ff31** at 2026-09-19T08:06:40Z
 
 Decision 2026-09-19: the board design is the contract. This ticket now depends on TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR (Write board rules from the command line) and shrinks to the browser side: a pen layer and Inbox drawn from the resolver, explain and counts in the inspector, read-only verification on the served command, and browser rule authoring with Preview, Apply, Cancel over the match record. Default activation moves to TKT-01M2ND1RKK6S4GXZQKKPP6H87P. The title and description still describe the old scope; rewriting them is for whoever promotes it.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T08:08:57Z
+
+Terva review 28 on PR 13 (head 1a2c8f9a62a9d996828e98376818f956c7c944a5) found the note-only rewrite left this draft's title, description, and criteria stating the superseded scope. Accepted: the title, description, and acceptance criteria now state the adopted contract, and the previous criteria are replaced rather than appended. The dependency on TKT-01M26SPW8XM5Q3M73536W5X0F1 (the opt-in trial) is left for the person who decides whether that ticket is archived.
