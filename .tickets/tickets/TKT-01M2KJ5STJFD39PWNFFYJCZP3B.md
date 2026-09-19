@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2KJ5STJFD39PWNFFYJCZP3B
 title: Bring user and developer documentation up to what the canvas does
 type: task
-status: ready
+status: in-progress
 status_reason: null
 priority: high
 due_on: null
@@ -17,15 +17,22 @@ dependencies:
   - TKT-01M2KHX3QNR779RE8M9MM36V9V
 blocks_on: none
 references: []
-claim: null
+claim:
+  actor: agent:claude/t3code-a6d0ff31
+  branch: t3code/review-open-queued-work
+  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-a6d0ff31
+  commit: 55afe0a6b7e86079c3673c9fb9219d742de5c585
+  session: null
+  claimed_at: 2026-09-19T06:52:12Z
+  expires_at: null
 archive: null
 created_at: 2026-09-15T22:14:37Z
-updated_at: 2026-09-16T20:44:24Z
+updated_at: 2026-09-19T06:52:12Z
 created_by:
   id: agent:t3code/d30689a3
   name: ""
 updated_by:
-  id: agent:claude/t3code
+  id: agent:claude/t3code-a6d0ff31
   name: ""
 extensions: {}
 ---
