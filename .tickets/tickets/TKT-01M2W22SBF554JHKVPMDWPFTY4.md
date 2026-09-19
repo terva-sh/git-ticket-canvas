@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M2W22SBF554JHKVPMDWPFTY4
 title: Install targeted Terva PR reviews
 type: task
-status: blocked
-status_reason: Reviewer installation and real feedback are verified, but existing parity CI runs 81/84/86 fail. Need safe failed-step/error detail to triage the independent gate before rollout; private logs unavailable through API and local Go/browser prerequisites are absent.
+status: in-progress
+status_reason: null
 priority: normal
 due_on: null
 labels:
@@ -26,7 +26,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-19T05:26:31Z
-updated_at: 2026-09-19T05:35:30Z
+updated_at: 2026-09-19T05:38:43Z
 created_by:
   id: agent:codex/installation-20260919
   name: ""
@@ -78,3 +78,9 @@ The installation is functional: three native workflow runs fetched the private p
 **agent:codex/installation-20260919** at 2026-09-19T05:35:30Z
 
 in-progress to blocked: Reviewer installation and real feedback are verified, but existing parity CI runs 81/84/86 fail. Need safe failed-step/error detail to triage the independent gate before rollout; private logs unavailable through API and local Go/browser prerequisites are absent.
+
+**agent:codex/installation-20260919** at 2026-09-19T05:38:43Z
+
+User supplied run 81's failure: TestExactlyOneWorkflowPublishes treats the installer's /releases/download/ URL as publication. This supersedes earlier notes describing parity as an unknown independent failure: the new workflow exposed an existing classifier false positive. All 602 web tests, 77 tooling tests, dist parity, typecheck and vet passed before this failure.
+
+Fix the classifier in this installation ticket because it is required to integrate the new workflow. Exempt only the asset-download route from the conservative /releases heuristic, retaining all other endpoint detection and existing publisher checks. Do not exempt an entire workflow/step, remove the publication gate, or rewrite the URL to hide it. Add regression coverage for download-only, API create/upload, mixed steps and GoReleaser modes. Existing CI jobs and release policy remain unchanged. Local Go is absent; obtain a checksum-verified temporary toolchain for focused tests, then verify native parity CI.

@@ -107,9 +107,41 @@ func publishes(step workflowStep) bool {
 			!strings.Contains(args, "--snapshot") &&
 			!strings.Contains(args, "--skip=publish")
 	}
+	// Asset download routes cannot publish. Exempt only that route, not the
+	// entire step: a later API release creation/upload must still be caught.
+	// Other release endpoints remain conservative publication signals.
 	return strings.Contains(step.Run, "gh release create") ||
 		strings.Contains(step.Run, "publish-forgejo") ||
-		strings.Contains(step.Run, "/releases")
+		strings.Contains(strings.ReplaceAll(step.Run, "/releases/download/", "/download/"), "/releases")
+}
+
+func TestPublishes(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		step workflowStep
+		want bool
+	}{
+		{"asset download", workflowStep{Run: "curl -fL https://forge/org/repo/releases/download/v1/tool.tar.gz"}, false},
+		{"multiple downloads", workflowStep{Run: "curl https://forge/org/repo/releases/download/v1/tool.tar.gz\ncurl https://forge/org/repo/releases/download/v1/checksums.txt"}, false},
+		{"GitHub CLI download", workflowStep{Run: "gh release download v1"}, false},
+		{"GitHub CLI publish", workflowStep{Run: "gh release create v1"}, true},
+		{"Forgejo publish script", workflowStep{Run: "just publish-forgejo"}, true},
+		{"API create", workflowStep{Run: "curl -X POST https://forge/api/v1/repos/org/repo/releases"}, true},
+		{"API upload", workflowStep{Run: "curl --data-binary @tool.tar.gz https://forge/api/v1/repos/org/repo/releases/123/assets"}, true},
+		{"download then API create", workflowStep{Run: "curl https://forge/org/repo/releases/download/v1/tool.tar.gz\ncurl -X POST https://forge/api/v1/repos/org/repo/releases"}, true},
+		{"API upload then download", workflowStep{Run: "curl --data-binary @tool.tar.gz https://forge/api/v1/repos/org/repo/releases/123/assets\ncurl https://forge/org/repo/releases/download/v1/checksums.txt"}, true},
+		{"download then CLI publish", workflowStep{Run: "curl https://forge/org/repo/releases/download/v1/tool.tar.gz; gh release create v1"}, true},
+		{"GoReleaser publish", workflowStep{Uses: "goreleaser/goreleaser-action@v7", With: map[string]string{"args": "release --clean"}}, true},
+		{"GoReleaser build", workflowStep{Uses: "goreleaser/goreleaser-action@v7", With: map[string]string{"args": "release --clean --skip=publish"}}, false},
+		{"GoReleaser snapshot", workflowStep{Uses: "goreleaser/goreleaser-action@v7", With: map[string]string{"args": "release --snapshot"}}, false},
+		{"GoReleaser check", workflowStep{Uses: "goreleaser/goreleaser-action@v7", With: map[string]string{"args": "check"}}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := publishes(tc.step); got != tc.want {
+				t.Fatalf("publishes = %v, want %v", got, tc.want)
+			}
+		})
+	}
 }
 
 // One forge publishes a tag. Two forges publishing produced two artifact sets
