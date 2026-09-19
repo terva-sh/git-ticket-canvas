@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M2441T0PTXRFK6VC4FM1PET7
 title: Route automatic tickets to label-matching canvas pens
 type: task
-status: ready
-status_reason: Nobody is working this. The claim from the checkpoint session was released and the ticket moved back to ready so the board does not report active work that has stopped. Its three children remain in draft, so the pen work cannot finish until a person promotes them.
+status: blocked
+status_reason: The description, criteria, and plan follow docs/pen-specification-v1.md, which the decision of 2026-09-19 superseded by docs/board-organization-design-v1.md on matching, resolution, the no-pen board, and authoring order. A worker claiming this as written would build the old contract. Blocked until a person decides whether it closes as superseded by TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3 or is rewritten to track the new sequence.
 priority: normal
 due_on: null
 labels:
@@ -148,7 +148,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-09T22:19:10Z
-updated_at: 2026-09-19T08:11:28Z
+updated_at: 2026-09-19T08:12:30Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -542,8 +542,12 @@ Review of 2026-09-19 (recorded in full on child TKT-01M26SQB4JWTW8FPSVHYZKFKCR):
 
 Decision 2026-09-19 by the user: the pen work follows docs/board-organization-design-v1.md (schema 4 match records, first match in ruleOrder, lanes for a board with no pens, one resolver shared with git ticket canvas, CLI authoring before browser authoring). docs/pen-specification-v1.md keeps Inbox, manual-over-automatic, Preview/Apply/Cancel, counts, explanations, and read-only rules. Sequence: TKT-01M2ND1RH33T89QZ7JBA0YC1AZ (Move the layout schema into git-ticket), then TKT-01M2ND1RJAGTH8QBF1QK79XPC0 (Read the board from the command line), TKT-01M2ND1RKK6S4GXZQKKPP6H87P (Place unpinned cards by rule), TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR (Write board rules from the command line), and only then the browser controls in TKT-01M26SQB4JWTW8FPSVHYZKFKCR. Default activation is ND1RK's job under this contract, not SQB's. Promotion of any of these remains the user's.
 
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T08:12:30Z
+
+ready to blocked: The description, criteria, and plan follow docs/pen-specification-v1.md, which the decision of 2026-09-19 superseded by docs/board-organization-design-v1.md on matching, resolution, the no-pen board, and authoring order. A worker claiming this as written would build the old contract. Blocked until a person decides whether it closes as superseded by TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3 or is rewritten to track the new sequence.
+
 ## Summary
 
 Checkpoint state, unchanged since the last claim was released: the schema-3 backend with CAS routing writes, TypeScript preservation and evaluation, the pure allocator and snapshots, measurement publications, the optional diagnostic bridge, pure scene and local capture guards, and the capture-v1 transport are committed and tested. The committed sampling probe exists with passing unit and component tests; its scope audit and real-source browser evidence were never finished. Evidence at the time: docs/pen-checkpoint-verification.md. The shipped canvas still places automatic cards in status lanes; nothing here is wired into main.ts.
 
-Decision of 2026-09-19: the contract is docs/board-organization-design-v1.md. The sequence is TKT-01M2ND1RH33T89QZ7JBA0YC1AZ (Move the layout schema into git-ticket), TKT-01M2ND1RJAGTH8QBF1QK79XPC0 (Read the board from the command line), TKT-01M2ND1RKK6S4GXZQKKPP6H87P (Place unpinned cards by rule), which owns wiring the resolver into placement and keeps lanes for a board with no pens, TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR (Write board rules from the command line), and then TKT-01M26SQB4JWTW8FPSVHYZKFKCR (Show and author pens in the browser after the CLI), which depends on the CLI write commands. The other two children, TKT-01M26SPJGBWT2B3QP0NE7CRQQT (sampling probe verification) and TKT-01M26SPW8XM5Q3M73536W5X0F1 (the opt-in scene trial), verified the superseded route and are candidates for archiving when ND1RK is planned. This ticket stays ready with its end-to-end criteria unchecked; whether it closes as superseded or is reworked to track the new sequence is the promoter's call.
+Decision of 2026-09-19: the contract is docs/board-organization-design-v1.md. The sequence is TKT-01M2ND1RH33T89QZ7JBA0YC1AZ (Move the layout schema into git-ticket), TKT-01M2ND1RJAGTH8QBF1QK79XPC0 (Read the board from the command line), TKT-01M2ND1RKK6S4GXZQKKPP6H87P (Place unpinned cards by rule), which owns wiring the resolver into placement and keeps lanes for a board with no pens, TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR (Write board rules from the command line), and then TKT-01M26SQB4JWTW8FPSVHYZKFKCR (Show and author pens in the browser after the CLI), which depends on the CLI write commands. The other two children, TKT-01M26SPJGBWT2B3QP0NE7CRQQT (sampling probe verification) and TKT-01M26SPW8XM5Q3M73536W5X0F1 (the opt-in scene trial), verified the superseded route and are candidates for archiving when ND1RK is planned. This ticket is blocked, with its end-to-end criteria unchecked, so that nobody claims it and builds the superseded contract; the blocking reason names the decision a person makes next, to close it as superseded by TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3 or rewrite it to track the new sequence.
