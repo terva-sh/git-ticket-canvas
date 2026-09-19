@@ -29,7 +29,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T15:23:31Z
-updated_at: 2026-09-19T23:37:42Z
+updated_at: 2026-09-19T23:45:49Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -84,3 +84,7 @@ The command spelling, the JSON kind names, the wording of the not-yet-applied se
 **agent:claude/t3code-a6d0ff31** at 2026-09-19T23:37:42Z
 
 Settled with the user on 2026-09-19 before code: the command is git ticket canvas with the words show, pens, and explain ID, each taking --board; the JSON kinds are canvas-board (show and pens) and canvas-explain; the resolver's semantics are first match in ruleOrder, the adopted design, so the canvas's unused TypeScript evaluator is superseded and ND1RK decides whether it consumes the Go result or is rewritten; explain states the status-lane fact first and reports routing under a heading saying it is not applied until the canvas reads rules.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-19T23:45:49Z
+
+Implemented in git-ticket on branch t3code/canvas-read as PR 211 (https://git.local.sothr.com/terva-sh/git-ticket/pulls/211), under its ticket TKT-01M2Y0H9YDK3325C55QHYNM4K4. layout.Route is the one routing implementation; the CLI answers canvas-board and canvas-explain with applied:false until the canvas places by rules. Tried against this repository's board, which has no pens, and every card reports to the inbox. Closes on the git-ticket release that carries it.
