@@ -209,3 +209,10 @@ what an agent does.
 Text that opens with a dash goes after a bare `--`.
 
 <!-- git-ticket:end -->
+
+## PR review workflow
+
+Follow [targeted PR reviews](docs/pr-reviews.md). Request a review when ready or
+after substantive changes; preserve the reviewed revisions and finding decisions
+in the ticket. Do not run the model for every bookkeeping commit. Review success
+does not authorize merging. Keep reviewer credentials away from PR code.

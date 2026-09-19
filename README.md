@@ -249,3 +249,8 @@ next step and changes nothing on the client.
 - `z` and `w` are in the layout schema but nothing sets them yet.
 - Cross-branch reads (`Filter.CrossBranch`) are not surfaced; the canvas shows
   the working tree.
+
+## PR reviews
+
+See [targeted Terva reviews](docs/pr-reviews.md) for manual requests, authorized
+comment commands and interpreting feedback alongside the existing CI checks.
