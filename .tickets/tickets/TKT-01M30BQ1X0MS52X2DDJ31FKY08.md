@@ -28,7 +28,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-20T21:31:50Z
-updated_at: 2026-09-20T22:29:19Z
+updated_at: 2026-09-20T22:32:31Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -62,3 +62,7 @@ Shipped: web/src/platform/canvas/pens.ts (draft operations, validity, preview di
 **agent:claude/t3code-a6d0ff31** at 2026-09-20T22:29:19Z
 
 Terva review of PR 24 at 60898c8 (run 1439f7c9, request pens-24-1), one medium finding, accepted: the Pens toolbar button stayed enabled while the panel was open, and pressing it again rebuilt the draft from disk, losing unapplied edits without Cancel. Fixed: opening keeps the draft that is there and only begins a fresh one when there is none; closing keeps the draft too (a pending Apply keeps running) and withdraws only the preview, since a preview nobody can see should not keep drawing or locking the board. Cancel remains the one control that discards a draft.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T22:32:31Z
+
+PR 24 at 45ddaa3: CI passed and Terva's second pass (run eff6021a, request pens-24-2) is clean. Merge is the human's call.
