@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import { TicketClient, RegistryClient, ApiError, storeBase } from '../platform/tickets/client'
 import { TicketStore, LayoutWriter } from '../platform/tickets/store'
 import { LiveUpdates, type LiveStatus } from '../platform/tickets/live'
-import type { ActorResponse, CardChanges, PersonResponse, Cards, Frame, Op, SessionResponse, StoreSummary, Ticket, VersionInfo } from '../platform/tickets/types'
+import type { ActorResponse, CardChanges, PersonResponse, Cards, Frame, Op, Routing, SessionResponse, StoreSummary, Ticket, VersionInfo } from '../platform/tickets/types'
 import { FrameHistory, applyFrameOperation, assertFrameOperation, createFrame, moveFrame, resizeFrame, updateFrame, deleteFrame, setMembership } from '../platform/canvas/frames'
 import type { FrameOperation, FrameState, Point } from '../platform/canvas/frames'
 import type { View } from '../platform/canvas/geometry'
@@ -20,6 +20,8 @@ import { useDisplay } from './useDisplay'
 import type { RelationshipMode } from './canvas/Edges'
 import { Inspector } from './Inspector'
 import { PlacementSection } from './Placement'
+import { PensPanel } from './PensPanel'
+import { cloneRouting } from '../platform/canvas/pens'
 import { explain } from '../platform/canvas/resolve'
 import { Composer, type ComposerPosition } from './Composer'
 import { FeedbackMessage, type Feedback } from './Feedback'
@@ -77,6 +79,13 @@ export function App() {
   }
   const frameRequest = useRef<object | null>(null)
   const [framePreview, setFramePreview] = useState<{ board: string; generation: number; state: FrameState } | null>(null)
+  // Rule authoring. The draft and the preview live here rather than in the
+  // panel because the canvas draws the preview, and a submitted Apply has to
+  // outlive the panel that submitted it.
+  interface PensState { open: boolean; base: Routing | null; draft: Routing | null; previewed: Routing | null; conflict: string; pending: boolean }
+  const noPens: PensState = { open: false, base: null, draft: null, previewed: null, conflict: '', pending: false }
+  const [pensUI, setPensUI] = useState<PensState>(noPens)
+  const pensLatest = useRef(pensUI); pensLatest.current = pensUI
   const [, setHistoryVersion] = useState(0)
   const [relationships, setRelationships] = useState<RelationshipMode>('selected')
   // Chosen from the size and shape of this window, and overridable per person
@@ -247,6 +256,62 @@ export function App() {
       if (version === generation.current) closeFrames()
     }
   }
+  const acceptedRouting = (): Routing => ({ pens: store.state.pens ?? {}, ruleOrder: store.state.ruleOrder ?? [], inbox: store.state.inbox ?? { x: 0, y: 0 } })
+  function openPens() {
+    closeFrames()
+    setUI(current => ({ ...current, composer: null }))
+    const base = acceptedRouting()
+    setPensUI({ open: true, base, draft: cloneRouting(base), previewed: null, conflict: '', pending: false })
+  }
+  // Closing keeps a pending Apply running; the toast reports how it ended.
+  const closePens = () => setPensUI(current => ({ ...current, open: false, draft: null, previewed: null, conflict: '' }))
+  // An edit after a preview withdraws the preview: what Apply would write is
+  // exactly what was previewed, and that is no longer the draft.
+  const pensDraft = (next: Routing) => setPensUI(current => ({ ...current, draft: next, previewed: null }))
+  const pensPreview = () => setPensUI(current => current.draft ? { ...current, previewed: cloneRouting(current.draft), conflict: '' } : current)
+  const pensCancel = () => setPensUI(current => {
+    const base = acceptedRouting()
+    return { ...current, base, draft: cloneRouting(base), previewed: null, conflict: '' }
+  })
+  async function pensApply(): Promise<'saved' | 'refused'> {
+    const current = pensLatest.current
+    if (store.state.readOnly) throw new Error('read-only')
+    if (!current.previewed || !current.base) throw new Error('Preview the draft before applying it.')
+    if (frameRequest.current || !canvas.current?.layoutReady()) throw new Error('Wait for the current canvas gesture or placement save to finish.')
+    const board = snapshot.board, version = generation.current, routing = current.previewed, expected = current.base
+    setPensUI(state => ({ ...state, pending: true, conflict: '' }))
+    onBusy(true)
+    try {
+      await store.saveRoutingLayout(board, { cards: {}, frames: {}, routing, expect: { cards: {}, frames: {}, routing: expected } })
+      toast(`Rules saved on ${board}.`)
+      if (mounted.current && version === generation.current) {
+        const base = acceptedRouting()
+        setPensUI(state => ({ ...state, pending: false, base, draft: cloneRouting(base), previewed: null }))
+      }
+      return 'saved'
+    } catch (error) {
+      if (mounted.current && version === generation.current) {
+        // The store already re-read the board on a conflict. The preview is
+        // withdrawn because what it showed was against rules that no longer
+        // hold, and so is the draft: a routing write replaces the whole
+        // record, and a draft begun over the old rules would silently drop
+        // whatever the other writer added. The current rules are shown instead.
+        const conflict = error instanceof ApiError && error.code === 'layout_conflict'
+        if (conflict) {
+          const base = acceptedRouting()
+          setPensUI(state => ({ ...state, pending: false, previewed: null, base, draft: cloneRouting(base),
+            conflict: 'Apply refused: the board\'s rules changed on disk while the preview was held (layout_conflict). The preview and the draft were discarded; the rules shown are the current ones. Make the change again against them.' }))
+        } else setPensUI(state => ({ ...state, pending: false }))
+        if (conflict) { report(error); return 'refused' }
+      }
+      report(error)
+      throw error
+    } finally {
+      publish()
+      onBusy(false)
+      void refresh(version !== generation.current).catch(report)
+    }
+  }
   function closeInspector() { setUI(current => ({ ...current, selected: null, selection: new Set() })) }
   async function remove(ticket: Ticket) {
     if (store.state.readOnly) { toast('read-only', true); return }
@@ -335,6 +400,7 @@ export function App() {
     histories.current.clear()
     setUI(current => ({ ...current, selected: null, selection: new Set(), composer: null, generation: current.generation + 1 }))
     setFrameUI({ selected: null, draft: null, key: 0 })
+    setPensUI(noPens)
     setSnapshot(store.state)
     published.current = store.state
   }
@@ -570,6 +636,10 @@ export function App() {
   // places it with, so the panel cannot disagree with the board.
   const selectedTicket = snapshot.tickets.get(ui.selected || '') || null
   const routing = { pens: snapshot.pens ?? {}, ruleOrder: snapshot.ruleOrder ?? [], inbox: snapshot.inbox ?? { x: 0, y: 0 } }
+  // While a preview is held the board is drawn by the previewed rules, so
+  // the pen layer and every automatic card show where things would land.
+  const shownRouting = pensUI.previewed ?? routing
+  const pensOpen = pensUI.open && !!pensUI.draft && !!pensUI.base
   return <>
     <div id="syncStatus" role="status" class="sync-status" hidden={!syncMessage}
       data-connection={sync.connection} data-stale={sync.stale} data-degraded={sync.degraded}>{syncMessage}</div>
@@ -590,6 +660,9 @@ export function App() {
       zoom={zoom} onZoomIn={() => canvas.current?.zoomBy(1.25)}
       onZoomOut={() => canvas.current?.zoomBy(1 / 1.25)}
       onZoomReset={() => canvas.current?.resetZoom()}
+      // Not before the layout has been read: a draft begun over an empty board
+      // would only be refused once the real one arrived.
+      onPens={openPens} pensPending={pensUI.pending || snapshot.layoutSchema === null}
       onNewFrame={() => canvas.current?.newFrame()} onUndoFrame={() => { void frameHistoryAction(false) }} onRedoFrame={() => { void frameHistoryAction(true) }}
       framePending={!!framePreview} undoFrame={history.undoEntry} redoFrame={history.redoEntry}
       labels={labelUniverse(snapshot.config?.labels, snapshot.tickets.values())} labelFilters={ui.labelFilters}
@@ -615,10 +688,10 @@ export function App() {
       onOpen={openStore} onFavorite={(name, favorite) => { void toggleFavorite(name, favorite) }}
       onRescan={() => { void rescan() }} onClose={() => setBrowsing(false)} />}
     <Canvas key={ui.generation} ref={canvas} board={snapshot.board} tickets={snapshot.tickets} cards={displayed.cards}
-      frames={displayed.frames} selectedFrame={frameUI.selected} frameCreating={!!frameUI.draft} layoutBusy={!!framePreview}
+      frames={displayed.frames} selectedFrame={frameUI.selected} frameCreating={!!frameUI.draft} layoutBusy={!!framePreview || !!pensUI.previewed || pensUI.pending}
       onSelectFrame={selectFrame} onNewFrame={newFrameDraft} onFrameMove={frameMove} onFrameResize={frameResize}
       statuses={snapshot.config?.statuses || []} priorities={snapshot.config?.priorities || []}
-      pens={snapshot.pens} ruleOrder={snapshot.ruleOrder} inbox={snapshot.inbox} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters} labelMatch={ui.labelMatch}
+      pens={shownRouting.pens} ruleOrder={shownRouting.ruleOrder} inbox={shownRouting.inbox} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters} labelMatch={ui.labelMatch}
       onView={viewChanged}
       relationships={relationships} density={density} fitFloor={display.floor} inspector={display.settings.inspector} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>
@@ -633,8 +706,11 @@ export function App() {
           readOnly={snapshot.readOnly} pending={!!framePreview} onClose={closeFrames}
           onCapture={frame => canvas.current?.captureFrame(frame) || []} onSave={saveFrame}
           onRemoveMissing={ids => performFrame(setMembership(frameState(), ids, null))} />}
+        {pensOpen && <PensPanel key={ui.generation} accepted={routing} draft={pensUI.draft!} previewed={pensUI.previewed}
+          tickets={snapshot.tickets} cards={snapshot.cards} config={snapshot.config} readOnly={snapshot.readOnly} pending={pensUI.pending}
+          conflict={pensUI.conflict} onDraft={pensDraft} onPreview={pensPreview} onApply={pensApply} onCancel={pensCancel} onClose={closePens} />}
         <Inspector ticket={snapshot.tickets.get(ui.selected || '') || null} config={snapshot.config}
-          tickets={snapshot.tickets} readOnly={snapshot.readOnly || !!framePreview} concealed={frameOpen} onPatch={patch} onClose={closeInspector}
+          tickets={snapshot.tickets} readOnly={snapshot.readOnly || !!framePreview || pensUI.pending} concealed={frameOpen || pensOpen} onPatch={patch} onClose={closeInspector}
           onNavigate={id => { select(id); canvas.current?.focus(id) }} onDelete={remove}>
           {ui.selected && <FrameMembership ticketId={ui.selected} frames={snapshot.frames} readOnly={snapshot.readOnly}
             pending={!!framePreview} onSelectFrame={selectFrame}

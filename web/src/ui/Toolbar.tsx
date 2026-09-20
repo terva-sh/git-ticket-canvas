@@ -13,6 +13,8 @@ export interface ToolbarProps {
   onQuery(value: string): void; onFilter(value: string): void; onBoard(value: string): void
   onNewBoard(): void; onArrange(): void; onFit(): void; onNew(): void
   onNewFrame?(): void; onUndoFrame?(): void; onRedoFrame?(): void
+  /** Opens the rules panel. Offered read-only too: the rules are worth reading anywhere. */
+  onPens?(): void; pensPending?: boolean
   framePending?: boolean; undoFrame?: { label: string; blockedReason?: string }; redoFrame?: { label: string; blockedReason?: string }
   relationships?: RelationshipMode; onRelationships?(mode: RelationshipMode): void
   /** The density in force. `densityAutomatic` is what the viewport asked for,
@@ -185,6 +187,8 @@ export function Toolbar(p: ToolbarProps) {
           <option value="">Automatic{p.densityAutomatic ? ` — ${p.densityAutomatic === 'compact' ? 'Compact' : 'Full'}` : ''}</option>
           <option value="full">Full</option><option value="compact">Compact</option>
         </select></label>}
+        {p.onPens && <button id="btnPens" class="tool" title="The board's rules: which cards go to which pen"
+          disabled={p.pensPending || p.framePending} onClick={p.onPens}>Pens</button>}
         {p.onNewFrame && <>
           <button id="btnFrame" class="tool" disabled={p.readOnly || p.framePending} onClick={p.onNewFrame}>New frame</button>
           <button id="btnFrameUndo" class="tool" disabled={p.readOnly || p.framePending || !p.undoFrame || !!p.undoFrame.blockedReason}

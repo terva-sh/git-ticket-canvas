@@ -225,7 +225,25 @@ matches waits at the `inbox` point, drawn with a dashed border and labelled
 **Unhoused**, because it is a question for whoever wrote the rules. A pen whose
 cards do not fit grows downward and says so on its title. `git ticket canvas
 explain ID` answers where a card went and which rules it beat or missed, with
-no canvas running. Rules are written as text; see the git-ticket README.
+no canvas running, and the inspector's **Placement** section says the same
+for the selected card. Rules are written by `git ticket canvas` (see the
+git-ticket README) or in the **Pens** panel, from the toolbar.
+
+### Authoring rules in the browser
+
+The Pens panel lists the rules in order with what each catches and which
+cards an earlier rule takes from it. Add a pen with a title, a region, a
+colour and its `match` record; move a rule earlier or later; edit or remove
+one; move the inbox. Every change is a draft. **Preview** draws the draft on
+the board and lists the automatic cards that would change destination and
+the pinned cards that would go elsewhere if released; **Apply** writes
+exactly what was previewed, and any edit after a preview needs a new one;
+**Cancel** returns to the rules on disk. The write replaces the whole rule
+record and carries the record it was read against, so when `git ticket
+canvas` changes the rules while a preview is held, Apply is refused with
+`layout_conflict`, the preview and the draft are discarded, and the current
+rules are shown. A read-only canvas shows the panel with every control
+disabled. The file the panel writes is the file the CLI writes, byte for byte.
 
 ### Frames
 
@@ -380,11 +398,9 @@ Solid arrows are dependencies (gating), faint dashed lines are parent edges
 - The layout schema carries `w` and `collapsed` on a card, and the API accepts
   and preserves them, but no shipped control sets either. `z` is read for
   stacking.
-- Pens are drawn and place cards, but nothing in the canvas authors one: a
-  rule is written to the layout file by hand or by `git ticket canvas`, whose
-  write commands shipped in git-ticket v0.23.0. A pen's rule is a `match`
-  record naming `labels`, `status`, `type` and `parent`, which the canvas
-  reads and no control in it writes.
+- Rule authoring is a desk feature. `git-ticket-canvas-server` defaults to
+  read-only, and a layout write carries no actor, so the Pens panel is
+  disabled there until layout writes are attributed.
 - Cross-branch reads (`Filter.CrossBranch`) are not surfaced; the canvas shows
   the working tree.
 
