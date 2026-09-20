@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M30BQ1V3AGKTQX2ZHKS8NZN0
 title: Explain a card's placement in the inspector and return it to automatic
 type: task
-status: in-progress
-status_reason: null
+status: done
+status_reason: Merged in PR 22 as 5163b4f on 2026-09-20; AC 3 left unchecked, see the notes
 priority: normal
 due_on: null
 labels:
@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-20T21:31:50Z
-updated_at: 2026-09-20T21:54:11Z
+updated_at: 2026-09-20T22:10:36Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -68,3 +68,11 @@ CI on 3eef393 failed the refusal spec: the runner is root, so a 0o555 directory 
 **agent:claude/t3code-a6d0ff31** at 2026-09-20T21:54:11Z
 
 CI on d41384f (run 169): all three placement specs passed on the runner, including the refusal. The job failed on refresh-regressions.spec.ts 'unchanged refresh preserves focused inspector drafts', unrelated to this change: one bodyless 304 was recorded with decodedPayloadBytes null because Chromium's ERR_ABORTED for the discarded body arrived before the row had its response bytes, the ordering race the harness's loadingFailed handler in tests/browser/refresh-support.ts guards only when wireResponseBytes is already set (docs/conditional-board-reads.md describes the ERR_ABORTED behaviour). Terva's third pass (request placement-22-3) is clean on d41384f. Re-ran the job rather than pushing a no-op commit; the harness race is worth its own ticket if it recurs.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T22:10:36Z
+
+in-progress to done: Merged in PR 22 as 5163b4f on 2026-09-20; AC 3 left unchecked, see the notes
+
+## Summary
+
+The inspector explains the selected card's placement in the CLI's words and returns a pinned card to automatic through the canvas's release path; a read-only canvas shows the explanation with the control disabled. Merged as 5163b4f (PR 22). The served command was not driven directly: the harness has no https issuer for it, so the read-only evidence is the desk command with -read-only plus the parity manifest.
