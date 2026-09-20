@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M30BQ1X0MS52X2DDJ31FKY08
 title: Author pen rules in the browser with Preview, Apply and Cancel
 type: task
-status: in-progress
-status_reason: null
+status: done
+status_reason: Merged in PR 24 as 76a85ad on 2026-09-20
 priority: normal
 due_on: null
 labels:
@@ -28,7 +28,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-20T21:31:50Z
-updated_at: 2026-09-20T22:32:31Z
+updated_at: 2026-09-20T22:42:06Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -66,3 +66,11 @@ Terva review of PR 24 at 60898c8 (run 1439f7c9, request pens-24-1), one medium f
 **agent:claude/t3code-a6d0ff31** at 2026-09-20T22:32:31Z
 
 PR 24 at 45ddaa3: CI passed and Terva's second pass (run eff6021a, request pens-24-2) is clean. Merge is the human's call.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T22:42:06Z
+
+in-progress to done: Merged in PR 24 as 76a85ad on 2026-09-20
+
+## Summary
+
+Pens are authored in the browser: a Pens panel over the match record with the addendum's label field, Preview drawn on the board, Apply through the routing transaction against the rules it was read against, Cancel to disk; a CLI write under a held preview refuses Apply with layout_conflict and discards preview and draft; read-only shows the panel disabled; the file the browser writes is the file the CLI writes, proved byte for byte by a spec that runs the pinned CLI beside the browser. Merged as 76a85ad (PR 24).
