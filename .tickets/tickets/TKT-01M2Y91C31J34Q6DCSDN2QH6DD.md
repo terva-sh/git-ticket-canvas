@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2Y91C31J34Q6DCSDN2QH6DD
 title: Remove the opt-in pen placement trial engine
 type: task
-status: draft
+status: in-progress
 status_reason: null
 priority: normal
 due_on: null
@@ -18,10 +18,17 @@ dependencies:
   - TKT-01M2ND1RKK6S4GXZQKKPP6H87P
 blocks_on: none
 references: []
-claim: null
+claim:
+  actor: agent:claude/t3code-a6d0ff31
+  branch: t3code/board-rules
+  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-a6d0ff31
+  commit: 9a4ca246150ab480fc659b45b42e0e355f3887d2
+  session: null
+  claimed_at: 2026-09-20T18:30:08Z
+  expires_at: null
 archive: null
 created_at: 2026-09-20T02:06:34Z
-updated_at: 2026-09-20T02:06:34Z
+updated_at: 2026-09-20T18:30:08Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
