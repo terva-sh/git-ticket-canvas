@@ -55,7 +55,6 @@ it('clears everything the previous store put there', async () => {
   expect(store.state.config).toBeNull()
   expect(store.state.storePath).toBe('')
   expect(store.state.layoutSchema).toBeNull()
-  expect(store.state.captureToken).toBeNull()
   expect(store.state.board).toBe('default')
   expect(store.sync).toBeUndefined()
   expect(store.state.pens).toEqual({})

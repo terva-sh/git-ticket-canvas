@@ -38,8 +38,7 @@ export interface Pen {
 export type Pens = Record<string, Pen>
 export interface Routing { pens: Pens; ruleOrder: string[]; inbox: Point }
 export interface LayoutExpectation { cards: CardChanges; frames: FrameChanges; routing?: Routing }
-export interface CapturePrecondition { version: 1; token: string }
-export interface FrameTransaction { cards: CardChanges; frames: FrameChanges; expect: LayoutExpectation; capture?: CapturePrecondition }
+export interface FrameTransaction { cards: CardChanges; frames: FrameChanges; expect: LayoutExpectation }
 export interface RoutingTransaction extends FrameTransaction {
   routing: Routing; expect: LayoutExpectation & { routing: Routing }
 }
@@ -60,8 +59,6 @@ export interface VersionInfo {
 export interface BoardResponse {
   layout: Board; boards: string[]; tickets: Ticket[]; config: Schema
   storePath: string; readOnly: boolean
-  /** Absent on legacy servers; never infer a token from an ETag. */
-  captureToken?: string
 }
 export interface TicketResponse { ticket: Ticket; layout?: Board; layoutError?: string }
 export interface Dangling { Ticket: string; Title: string; Field: string }
@@ -99,7 +96,7 @@ export type Op =
   | { op: 'release' | 'unarchive' }
   | { op: 'archive'; reason: string }
 export interface PatchRequest { ifRevision: string; ops: Op[] }
-export type LayoutRequest = { board: string; cards: CardChanges; frames?: FrameChanges; capture?: CapturePrecondition } & (
+export type LayoutRequest = { board: string; cards: CardChanges; frames?: FrameChanges } & (
   | { routing?: never; expect?: LayoutExpectation }
   | { routing: Routing; expect: LayoutExpectation & { routing: Routing } }
 )
