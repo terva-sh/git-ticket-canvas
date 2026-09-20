@@ -1,23 +1,28 @@
 import { describe, expect, it } from 'vitest'
 import { autoPlace, LANE_GAP, LANE_W, ROW_PITCH } from './geometry'
-import { explain, penHeight, resolveBoard, type RuleTicket } from './resolve'
-import type { Routing } from '../tickets/types'
+import { explain, failures, penHeight, resolveBoard, type RuleTicket } from './resolve'
+import type { Match, Routing } from '../tickets/types'
 
 const statuses = ['draft', 'ready', 'in-progress', 'blocked', 'review', 'done', 'archived']
 const priorities = ['low', 'normal', 'high', 'urgent']
+/** A rule naming only the fields a case is about; the rest test nothing. */
+const rule = (over: Partial<Match> = {}): Match => ({ labels: [], status: [], type: [], parent: [], ...over })
 const pen = (over: Partial<Routing['pens'][string]> = {}) => ({
-  title: 'Pen', x: 0, y: 0, w: 1000, h: 600, color: '#759bcc', pin: { x: 0, y: 0 }, requiredLabels: ['frontend'], ...over,
+  title: 'Pen', x: 0, y: 0, w: 1000, h: 600, color: '#759bcc', pin: { x: 0, y: 0 }, match: rule({ labels: ['frontend'] }), ...over,
 })
 const board = (): Routing => ({
   pens: {
-    fe: pen({ title: 'Frontend', requiredLabels: ['frontend'] }),
-    'fe-bugs': pen({ title: 'Frontend bugs', x: 1200, requiredLabels: ['frontend', 'bug'] }),
-    backend: pen({ title: 'Backend', y: 800, requiredLabels: ['backend'] }),
+    fe: pen({ title: 'Frontend', match: rule({ labels: ['frontend'] }) }),
+    'fe-bugs': pen({ title: 'Frontend bugs', x: 1200, match: rule({ labels: ['frontend', 'bug'] }) }),
+    backend: pen({ title: 'Backend', y: 800, match: rule({ labels: ['backend'] }) }),
   },
   ruleOrder: ['fe', 'fe-bugs', 'backend'],
   inbox: { x: -400, y: 0 },
 })
 const t = (id: string, labels: string[], status = 'ready', priority = 'normal'): RuleTicket => ({ id, labels, status, priority })
+/** A ticket that carries whichever of the four fields a case is about. */
+const ticket = (over: Partial<RuleTicket> = {}): RuleTicket => ({ id: 'a', labels: [], status: 'ready', ...over })
+const one = (match: Match): Routing => ({ pens: { p: pen({ match }) }, ruleOrder: ['p'], inbox: { x: -400, y: 0 } })
 
 describe('resolveBoard', () => {
   it('places an unpinned card by the first pen in ruleOrder whose labels it carries', () => {
@@ -25,7 +30,7 @@ describe('resolveBoard', () => {
     expect(r.ruled).toBe(true)
     // fe-bugs is the closer fit and loses, because the order is the contract.
     expect(r.explanations.get('a')?.destination).toEqual({ kind: 'pen', id: 'fe' })
-    expect(r.explanations.get('a')?.candidates.map(c => c.outcome)).toEqual(['winner', 'later-rule', 'missing-labels'])
+    expect(r.explanations.get('a')?.candidates.map(c => c.outcome)).toEqual(['winner', 'later-rule', 'no-match'])
     expect(r.positions.get('a')).toEqual({ x: LANE_GAP, y: LANE_GAP })
   })
 
@@ -92,11 +97,60 @@ describe('explain', () => {
     const routing = board()
     routing.ruleOrder = ['ghost', ...routing.ruleOrder]
     const e = explain(routing, t('a', ['bug']), false)
-    expect(e.candidates.map(c => [c.pen, c.order, [...c.missing], c.outcome])).toEqual([
-      ['fe', 1, ['frontend'], 'missing-labels'],
-      ['fe-bugs', 2, ['frontend'], 'missing-labels'],
-      ['backend', 3, ['backend'], 'missing-labels'],
+    expect(e.candidates.map(c => [c.pen, c.order, [...c.missingLabels], [...c.failed], c.outcome])).toEqual([
+      ['fe', 1, ['frontend'], ['labels'], 'no-match'],
+      ['fe-bugs', 2, ['frontend'], ['labels'], 'no-match'],
+      ['backend', 3, ['backend'], ['labels'], 'no-match'],
     ])
     expect(e.destination).toEqual({ kind: 'inbox' })
+  })
+
+  it('carries the pen\'s whole rule on every candidate, so a reader needs nothing else', () => {
+    const match = rule({ status: ['ready'], type: ['bug'] })
+    const e = explain(one(match), ticket({ type: 'bug' }), false)
+    expect(e.candidates).toEqual([{ pen: 'p', order: 0, match, missingLabels: [], failed: [], outcome: 'winner' }])
+  })
+})
+
+// One case per field and one per way the fields combine, because this is the
+// half that has to keep agreeing with layout.Match.Failures in Go.
+describe('match fields', () => {
+  it.each<[string, Match, RuleTicket, RuleTicket]>([
+    ['status', rule({ status: ['ready'] }), ticket({ status: 'ready' }), ticket({ status: 'draft' })],
+    ['type', rule({ type: ['bug'] }), ticket({ type: 'bug' }), ticket({ type: 'task' })],
+    ['parent', rule({ parent: ['TKT-1'] }), ticket({ parent: 'TKT-1' }), ticket({ parent: 'TKT-2' })],
+    ['labels', rule({ labels: ['ui'] }), ticket({ labels: ['ui'] }), ticket({ labels: ['api'] })],
+  ])('tests %s and fails a ticket that does not satisfy it', (name, match, matching, other) => {
+    expect(failures(match, matching)).toEqual({ missingLabels: [], failed: [] })
+    expect(failures(match, other).failed).toEqual([name])
+    expect(explain(one(match), matching, false).destination).toEqual({ kind: 'pen', id: 'p' })
+    expect(explain(one(match), other, false).destination).toEqual({ kind: 'inbox' })
+  })
+
+  it('takes a ticket holding no type or parent only where the rule does not test the field', () => {
+    const none = ticket({})
+    expect(failures(rule({ status: ['ready'] }), none).failed).toEqual([])
+    expect(failures(rule({ type: ['task'] }), none).failed).toEqual(['type'])
+    expect(failures(rule({ parent: ['TKT-1'] }), none).failed).toEqual(['parent'])
+  })
+
+  it('disjoins within status, type and parent: any listed value satisfies the field', () => {
+    const match = rule({ status: ['ready', 'blocked'] })
+    for (const status of ['ready', 'blocked']) expect(failures(match, ticket({ status })).failed).toEqual([])
+    expect(failures(match, ticket({ status: 'draft' })).failed).toEqual(['status'])
+    expect(failures(rule({ type: ['bug', 'chore'] }), ticket({ type: 'chore' })).failed).toEqual([])
+    expect(failures(rule({ parent: ['TKT-1', 'TKT-2'] }), ticket({ parent: 'TKT-2' })).failed).toEqual([])
+  })
+
+  it('conjoins labels within the field and conjoins the fields with each other', () => {
+    const labels = rule({ labels: ['ui', 'bug'] })
+    expect(failures(labels, ticket({ labels: ['ui'] }))).toEqual({ missingLabels: ['bug'], failed: ['labels'] })
+    expect(failures(labels, ticket({ labels: ['bug', 'ui', 'extra'] })).failed).toEqual([])
+    const both = rule({ labels: ['ui'], status: ['ready'], type: ['bug'], parent: ['TKT-1'] })
+    expect(failures(both, ticket({ labels: ['ui'], status: 'ready', type: 'bug', parent: 'TKT-1' })).failed).toEqual([])
+    // Every field is reported, in the order labels, status, type, parent.
+    expect(failures(both, ticket({ labels: [], status: 'draft', type: 'task', parent: 'TKT-2' }))).toEqual({
+      missingLabels: ['ui'], failed: ['labels', 'status', 'type', 'parent'],
+    })
   })
 })

@@ -12,7 +12,8 @@ function ticket(id: string, labels: string[], status = 'ready'): Ticket {
   return { id, short: id, title: id, status, type: 'task', priority: 'normal', labels, assignees: [], dependencies: [],
     blocksOn: 'none', references: [], updatedAt: '2026-09-20T00:00:00Z' } as unknown as Ticket
 }
-const pen = { title: 'Frontend', x: 0, y: 0, w: 1000, h: 300, color: '#759bcc', pin: { x: 0, y: 0 }, requiredLabels: ['frontend'] }
+const pen = { title: 'Frontend', x: 0, y: 0, w: 1000, h: 300, color: '#759bcc', pin: { x: 0, y: 0 },
+  match: { labels: ['frontend'], status: [], type: [], parent: [] } }
 
 function show(over: Partial<CanvasProps>) {
   vi.stubGlobal('ResizeObserver', class { observe() {}; unobserve() {}; disconnect() {} })

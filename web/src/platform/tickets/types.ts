@@ -31,9 +31,14 @@ export interface Frame { title: string; x: number; y: number; w: number; h: numb
 export type Frames = Record<string, Frame>
 export type FrameChanges = Record<string, Frame | null>
 export interface Point { x: number; y: number }
+/** A pen's rule at layout schema 4. Every field is optional in the file and
+ * present on the wire, where an empty one is a field the rule does not test.
+ * `labels` conjoins; `status`, `type` and `parent` each disjoin within
+ * themselves, because a ticket carries many labels and one of the others. */
+export interface Match { labels: string[]; status: string[]; type: string[]; parent: string[] }
 export interface Pen {
   title: string; x: number; y: number; w: number; h: number; color: string
-  pin: Point; requiredLabels: string[]
+  pin: Point; match: Match
 }
 export type Pens = Record<string, Pen>
 export interface Routing { pens: Pens; ruleOrder: string[]; inbox: Point }

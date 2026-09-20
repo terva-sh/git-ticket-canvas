@@ -1,12 +1,16 @@
 import { autoPlace, LANE_GAP, LANE_W, ROW_PITCH, type PinnedPositions, type PlacementItem, type Point } from './geometry'
-import type { Pens } from '../tickets/types'
+import type { Match, Pens } from '../tickets/types'
 
 /** Placement by rule, per docs/board-organization-design-v1.md. This is the
  * one function that decides where a card nobody placed by hand goes, and the
  * CLI's `git ticket canvas explain` reads the same rule the same way in Go, so
  * the two must keep giving one answer: a card with a saved position is pinned
- * and no rule places it; otherwise the first pen in `ruleOrder` whose
- * `requiredLabels` the ticket all carries; otherwise the inbox.
+ * and no rule places it; otherwise the first pen in `ruleOrder` whose `match`
+ * the ticket satisfies; otherwise the inbox.
+ *
+ * A ticket satisfies a `match` when it satisfies every field the rule names:
+ * it carries all of `labels`, and its status, type and parent are each among
+ * the values that field lists. An empty field tests nothing.
  *
  * A board with no pens is handed to `autoPlace` untouched, so a store nobody
  * has organized looks exactly as it did before pens existed.
@@ -21,17 +25,33 @@ export interface RoutingInput {
   readonly ruleOrder: readonly string[]
   readonly inbox: Point
 }
+/** What routing needs to know about a ticket. An absent type or parent is a
+ * ticket that has none: it satisfies a rule that does not test that field and
+ * no rule that does, as an empty string does in Go. */
 export interface RuleTicket extends PlacementItem {
   readonly labels: readonly string[]
+  readonly type?: string
+  readonly parent?: string
   readonly priority?: string
 }
 export type Destination = { readonly kind: 'pen'; readonly id: string } | { readonly kind: 'inbox' }
-export type Outcome = 'winner' | 'missing-labels' | 'later-rule'
+/** Why one rule did or did not take a ticket. `no-match` rather than
+ * `missing-labels`, because a rule can fail on a field holding no labels. */
+export type Outcome = 'winner' | 'no-match' | 'later-rule'
 export interface Candidate {
   readonly pen: string
   /** Zero-based index in `ruleOrder`. */
   readonly order: number
-  readonly missing: readonly string[]
+  /** The pen's whole rule, so a reader comparing it to the ticket needs
+   * nothing else from the board. */
+  readonly match: Match
+  /** The labels of `match.labels` the ticket lacks, in the rule's order.
+   * Labels is the one field worth reporting per value: the other three hold
+   * one value on a ticket, and `match` already says what each wanted. */
+  readonly missingLabels: readonly string[]
+  /** The fields the ticket did not satisfy, among labels, status, type and
+   * parent, in that order. Empty on a rule the ticket matched. */
+  readonly failed: readonly string[]
   readonly outcome: Outcome
 }
 export interface Explanation {
@@ -66,10 +86,25 @@ export interface Resolution {
 
 const compare = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0
 
-/** Which of a pen's labels the ticket lacks, in the rule's order. Empty is a match. */
-export function missingLabels(required: readonly string[], labels: readonly string[]): string[] {
-  const have = new Set(labels)
-  return required.filter(label => !have.has(label))
+/** How one rule met one ticket: the labels it lacks and the fields it failed,
+ * the same two answers `layout.Match.Failures` gives in Go. Two empty results
+ * are a match. */
+export function failures(match: Match, ticket: RuleTicket): { missingLabels: string[]; failed: string[] } {
+  const have = new Set(ticket.labels)
+  // Labels conjoin: the ticket carries all of them or the field fails, and
+  // which ones it lacks is the part worth naming.
+  const missingLabels = match.labels.filter(label => !have.has(label))
+  const failed: string[] = []
+  if (missingLabels.length) failed.push('labels')
+  // The other three disjoin, because a ticket holds one of each: a rule
+  // listing none of them tests nothing and matches every ticket.
+  const held: readonly [string, readonly string[], string][] = [
+    ['status', match.status, ticket.status],
+    ['type', match.type, ticket.type ?? ''],
+    ['parent', match.parent, ticket.parent ?? ''],
+  ]
+  for (const [name, wants, has] of held) if (wants.length && !wants.includes(has)) failed.push(name)
+  return { missingLabels, failed }
 }
 
 export function explain(routing: RoutingInput, ticket: RuleTicket, pinned: boolean): Explanation {
@@ -78,10 +113,10 @@ export function explain(routing: RoutingInput, ticket: RuleTicket, pinned: boole
   routing.ruleOrder.forEach((pen, order) => {
     const rule = routing.pens[pen]
     if (!rule) return
-    const missing = missingLabels(rule.requiredLabels, ticket.labels)
-    const outcome: Outcome = missing.length ? 'missing-labels' : winner ? 'later-rule' : 'winner'
+    const { missingLabels, failed } = failures(rule.match, ticket)
+    const outcome: Outcome = failed.length ? 'no-match' : winner ? 'later-rule' : 'winner'
     if (outcome === 'winner') winner = pen
-    candidates.push({ pen, order, missing, outcome })
+    candidates.push({ pen, order, match: rule.match, missingLabels, failed, outcome })
   })
   return { id: ticket.id, pinned, destination: winner ? { kind: 'pen', id: winner } : { kind: 'inbox' }, candidates }
 }
