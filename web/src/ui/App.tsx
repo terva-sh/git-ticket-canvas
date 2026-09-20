@@ -257,14 +257,22 @@ export function App() {
     }
   }
   const acceptedRouting = (): Routing => ({ pens: store.state.pens ?? {}, ruleOrder: store.state.ruleOrder ?? [], inbox: store.state.inbox ?? { x: 0, y: 0 } })
+  // Opening brings back the draft that was there, if one was: the toolbar
+  // button is not a way to lose edits. A fresh draft begins only when there
+  // is none, and Cancel is the one control that discards one.
   function openPens() {
     closeFrames()
     setUI(current => ({ ...current, composer: null }))
-    const base = acceptedRouting()
-    setPensUI({ open: true, base, draft: cloneRouting(base), previewed: null, conflict: '', pending: false })
+    setPensUI(current => {
+      if (current.draft && current.base) return { ...current, open: true }
+      const base = acceptedRouting()
+      return { open: true, base, draft: cloneRouting(base), previewed: null, conflict: '', pending: false }
+    })
   }
-  // Closing keeps a pending Apply running; the toast reports how it ended.
-  const closePens = () => setPensUI(current => ({ ...current, open: false, draft: null, previewed: null, conflict: '' }))
+  // Closing keeps the draft for next time and a pending Apply running; the
+  // toast reports how that ended. The preview is withdrawn, because a
+  // preview nobody can see should not keep drawing the board or locking it.
+  const closePens = () => setPensUI(current => ({ ...current, open: false, previewed: null }))
   // An edit after a preview withdraws the preview: what Apply would write is
   // exactly what was previewed, and that is no longer the draft.
   const pensDraft = (next: Routing) => setPensUI(current => ({ ...current, draft: next, previewed: null }))
