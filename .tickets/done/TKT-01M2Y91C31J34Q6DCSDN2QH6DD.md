@@ -21,7 +21,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-20T02:06:34Z
-updated_at: 2026-09-20T18:40:26Z
+updated_at: 2026-09-20T18:48:13Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -70,6 +70,10 @@ Two archived tickets recorded references to files this ticket deleted, which mad
 There is no just ci recipe in this justfile. The gate that exists is just check, which runs web-build, web-test, tooling-test, fmt-check, vet, test and tickets-check. It was run on the committed tree and exited 0, as did just dist-verify.
 
 docs/readability-v1.md had one paragraph describing the collision-search allocator as the pen placement path; it now describes resolveBoard. Its Verification section still says five opt-in measurement tests were skipped, which is a dated record of a run on 2026-09-10 and was left as written.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T18:48:13Z
+
+Terva could not read PR 18: the run at 087a53c53a42 failed at context_limit in 2 s. This time the bundle is not the cause; web/dist moved by about 1 KB, because the trial was tree-shaken out of it already, and the 40 changed source files are 260 KB of deletions against a 256 KB cap. The reviewer was checked out at the exclude-paths head and the exclusion applied. A PR that is mostly deleted code is the maintainer's to read; the tests that ran are the evidence.
 
 ## Summary
 
