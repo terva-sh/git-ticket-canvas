@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M30BQ1X0MS52X2DDJ31FKY08
 title: Author pen rules in the browser with Preview, Apply and Cancel
 type: task
-status: draft
+status: in-progress
 status_reason: null
 priority: normal
 due_on: null
@@ -18,10 +18,17 @@ dependencies:
   - TKT-01M30BQ1V3AGKTQX2ZHKS8NZN0
 blocks_on: none
 references: []
-claim: null
+claim:
+  actor: agent:claude/t3code-a6d0ff31
+  branch: t3code/pen-authoring
+  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-a6d0ff31
+  commit: 5163b4f8be18d0805a94b1924af646b0ee52d7f9
+  session: null
+  claimed_at: 2026-09-20T22:11:10Z
+  expires_at: null
 archive: null
 created_at: 2026-09-20T21:31:50Z
-updated_at: 2026-09-20T21:31:50Z
+updated_at: 2026-09-20T22:11:10Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
