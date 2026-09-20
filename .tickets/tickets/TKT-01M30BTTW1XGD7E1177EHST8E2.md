@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-20T21:33:54Z
-updated_at: 2026-09-20T21:38:21Z
+updated_at: 2026-09-20T21:44:10Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -60,3 +60,7 @@ Removed the server's capture handling. Deleted internal/api/capture.go, capture_
 Kept deliberately: internal/api/snapshot.go comments about the 'captured image' and 'captured tickets', the live.go comment about the clock being 'captured' once per build, live_test.go's 'captured readiness' message, conditional_test.go's 'captured evaluation time' comment, and internal/auth/logging_test.go's captured() log helper. All are the ordinary English word, not the capture feature. web/src keeps captureMembers/CaptureCard in platform/canvas/frames.ts and the pointer-capture calls in ui/Canvas.tsx, which are frame membership and DOM pointer capture. docs/ untouched per the ticket, including the reference code:capture-snapshot to snapshot.go, which still exists.
 
 Cleared three stale reference paths on archived TKT-01M2441T0PTXRFK6VC4FM1PET7 (code:server-capture, test:pen-server-capture, test:capture-token-regressions) to null, keeping the ref names, the same way TKT-01M2Y91C31 handled its removals in 86e8763; git ticket check --strict failed on them otherwise. just check is green end to end and web/dist is unchanged.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T21:44:10Z
+
+PR 21 at e831572: CI (embedded frontend and Go parity) passed in 3m23s; Terva review run ed23d7cb (profile code, request capture-21-1) came back clean with no findings, noting that requests carrying frames, expectations or routing still take the transactional path. Merge is the human's call.
