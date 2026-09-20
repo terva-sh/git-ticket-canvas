@@ -31,7 +31,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T15:23:31Z
-updated_at: 2026-09-19T23:46:00Z
+updated_at: 2026-09-20T00:00:32Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -90,3 +90,7 @@ Settled with the user on 2026-09-19 before code: the command is git ticket canva
 **agent:claude/t3code-a6d0ff31** at 2026-09-19T23:45:49Z
 
 Implemented in git-ticket on branch t3code/canvas-read as PR 211 (https://git.local.sothr.com/terva-sh/git-ticket/pulls/211), under its ticket TKT-01M2Y0H9YDK3325C55QHYNM4K4. layout.Route is the one routing implementation; the CLI answers canvas-board and canvas-explain with applied:false until the canvas places by rules. Tried against this repository's board, which has no pens, and every card reports to the inbox. Closes on the git-ticket release that carries it.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T00:00:32Z
+
+git-ticket PR 211 went through five Terva reviews (43 to 47). Accepted: missingLabels null on a match; exists learned from a stat after Load; the pens page form listing tickets it did not need; two wording contradictions about pinned cards and the one-line missing-file answer. Declined with evidence: trailing --board (parseFlags reads flags on either side of positionals) and board-name traversal (layout.Load applies the name grammar first). Gate passed on 7d37233; final head dc1a035 is a comment-only change. Awaiting the maintainer's merge, then the v0.21.0 release closes this.
