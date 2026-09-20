@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2Y9YXMRRAD5GP0953VY9AKC
 title: Keep the built bundle out of what a PR review reads
 type: task
-status: in-progress
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -17,17 +17,10 @@ origin: null
 dependencies: []
 blocks_on: none
 references: []
-claim:
-  actor: agent:claude/t3code-a6d0ff31
-  branch: t3code/board-rules
-  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-a6d0ff31
-  commit: bb63f0eb667d3a0006eb15ca6129dffc6917bdd3
-  session: null
-  claimed_at: 2026-09-20T18:23:58Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-20T02:22:42Z
-updated_at: 2026-09-20T19:39:56Z
+updated_at: 2026-09-20T19:45:14Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -43,8 +36,8 @@ The Terva review of canvas PR 16 failed with context_limit before reading a line
 
 ## Acceptance criteria
 
-- [ ] A canvas PR that rebuilds web/dist gets a Terva review of its source
-- [ ] The parity gate still holds dist to source on main
+- [x] A canvas PR that rebuilds web/dist gets a Terva review of its source
+- [x] The parity gate still holds dist to source on main
 
 ## Notes
 
@@ -57,3 +50,11 @@ First live use of the input, on canvas PR 18 from the branch's own workflow: the
 The workflow pin moved from 7de7990570c5, the exclude-paths head of the action's PR 13, to 3dab5f86e2a4c31628e81729bfbd2166fd7613c8, where that PR merged on terva-sh/terva-action-code-review. exclude-paths: web/dist/** is unchanged beside it.
 
 The criteria stay unticked on purpose. The proof is a PR that changes source and rebuilds the bundle getting a review of its source, and that PR is the one this branch becomes: it carries the match record's canvas half, roughly 400 lines of source, with web/dist rebuilt in its own commit. Tick both when Terva reviews it: the first when a review lands and reads source rather than ending at context_limit, the second because the same branch keeps the parity gate green, which just check and scripts/verify-dist.mjs already show locally.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T19:45:14Z
+
+Terva reviewed canvas PR 19 at ddeb1e45dd66 with one finding and at 7b4be7127a90 clean, both runs through the workflow that pins the action's merge commit 3dab5f86 and excludes web/dist/**, on a PR that rebuilds the bundle. One caveat for the record: the bundle moved by under 1 KB on this PR, so the review shows the input is wired end to end and does not by itself show a 300 KB bundle being kept out; the action's own runner test holds that case, and the parity gate still holds dist to source on main, as the second criterion asks.
+
+## Summary
+
+Solved in the action: terva-action-code-review PR 13 added an exclude-paths input that drops matching diff sections before the 256 KiB context check and tells the model what was left out. This repository's terva-review workflow pins that change's merge commit 3dab5f86 and excludes web/dist/**. Canvas PR 19, which rebuilds the bundle, was reviewed twice through it. The rejected options are in the description; the chosen one keeps the parity gate untouched.
