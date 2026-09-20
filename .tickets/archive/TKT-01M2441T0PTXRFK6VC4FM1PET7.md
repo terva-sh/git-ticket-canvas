@@ -104,7 +104,7 @@ references:
   - ref: test:pen-store-capture
     path: null
   - ref: test:pen-server-capture
-    path: internal/api/capture_test.go
+    path: null
   - ref: evidence:pen-consumer-contracts
     path: docs/pen-consumer-contract-tests.md
   - ref: code:pen-consumer-scene
@@ -120,11 +120,11 @@ references:
   - ref: evidence:pen-local-capture
     path: docs/pen-local-capture-implementation.md
   - ref: code:server-capture
-    path: internal/api/capture.go
+    path: null
   - ref: code:capture-snapshot
     path: internal/api/snapshot.go
   - ref: test:capture-token-regressions
-    path: internal/api/capture_token_test.go
+    path: null
   - ref: test:store-capture-regressions
     path: null
   - ref: evidence:capture-transport
