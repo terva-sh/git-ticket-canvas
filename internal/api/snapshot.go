@@ -370,11 +370,6 @@ func (s *snapshot) representation(name string) (representation, error) {
 	if out.Board == nil {
 		out.Board = layout.Empty(name)
 	}
-	token, err := captureToken(out.Board, out.Tickets, out.Config)
-	if err != nil {
-		return representation{}, err
-	}
-	out.CaptureToken = token
 	data, err := json.Marshal(out)
 	if err != nil {
 		return representation{}, err

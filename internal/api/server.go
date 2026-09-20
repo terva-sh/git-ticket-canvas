@@ -231,13 +231,12 @@ func decode(r *http.Request, v any) error {
 // --- board -------------------------------------------------------------
 
 type boardResponse struct {
-	CaptureToken string        `json:"captureToken"`
-	Board        *layout.Board `json:"layout"`
-	Boards       []string      `json:"boards"`
-	Tickets      []Ticket      `json:"tickets"`
-	Config       schemaBody    `json:"config"`
-	StorePath    string        `json:"storePath"`
-	ReadOnly     bool          `json:"readOnly"`
+	Board     *layout.Board `json:"layout"`
+	Boards    []string      `json:"boards"`
+	Tickets   []Ticket      `json:"tickets"`
+	Config    schemaBody    `json:"config"`
+	StorePath string        `json:"storePath"`
+	ReadOnly  bool          `json:"readOnly"`
 }
 
 func (s *Server) handleBoard(w http.ResponseWriter, r *http.Request) {
@@ -623,7 +622,6 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 // --- layout ------------------------------------------------------------
 
 type layoutRequest struct {
-	Capture json.RawMessage          `json:"capture,omitempty"`
 	Routing json.RawMessage          `json:"routing,omitempty"`
 	Board   string                   `json:"board"`
 	Cards   map[string]*layout.Card  `json:"cards"`
@@ -655,22 +653,7 @@ func (s *Server) handleLayout(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if req.Capture != nil {
-		token, guardErr := parseCapture(req.Capture)
-		if guardErr != nil {
-			writeJSON(w, http.StatusBadRequest, errBody{Code: "bad_request", Message: guardErr.Error()})
-			return
-		}
-		if guardErr = s.validateCapture(req.Board, token); guardErr != nil {
-			if errors.Is(guardErr, layout.ErrConflict) {
-				writeJSON(w, http.StatusConflict, errBody{Code: "layout_conflict", Message: guardErr.Error()})
-			} else {
-				writeJSON(w, http.StatusBadRequest, errBody{Code: "invalid_board", Message: guardErr.Error()})
-			}
-			return
-		}
-	}
-	if req.Frames != nil || req.Expect != nil || routing != nil || req.Capture != nil {
+	if req.Frames != nil || req.Expect != nil || routing != nil {
 		b, err = s.layout.RoutingTransaction(req.Board, req.Cards, req.Frames, routing, req.Expect, func() error {
 			return s.validateFrameTickets(r.Context(), req)
 		})
