@@ -39,8 +39,8 @@ describe('resolveBoard', () => {
   it('lands a card matching no pen at the inbox, one below the other', () => {
     const r = resolveBoard([t('b', ['docs']), t('a', [])], board(), {}, statuses, priorities)
     expect(r.explanations.get('a')?.destination).toEqual({ kind: 'inbox' })
-    expect(r.positions.get('a')).toEqual({ x: -400, y: 0 })
-    expect(r.positions.get('b')).toEqual({ x: -400, y: ROW_PITCH })
+    expect(r.positions.get('a')).toEqual({ x: -400, y: LANE_GAP })
+    expect(r.positions.get('b')).toEqual({ x: -400, y: LANE_GAP + ROW_PITCH })
     expect(r.inbox).toBe(2)
   })
 

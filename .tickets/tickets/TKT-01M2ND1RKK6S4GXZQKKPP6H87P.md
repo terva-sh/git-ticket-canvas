@@ -28,7 +28,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T15:23:31Z
-updated_at: 2026-09-20T02:12:53Z
+updated_at: 2026-09-20T02:15:42Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -84,3 +84,7 @@ Planned on 2026-09-20 with two decisions from the maintainer. Engine: a new pure
 **agent:claude/t3code-a6d0ff31** at 2026-09-20T02:12:53Z
 
 Built. web/src/platform/canvas/resolve.ts is the one placement function; Canvas.tsx calls it from positions() and arrange(), draws a pen layer under the frames with each pen at the height its cards needed and an inbox marker, and CardView marks an automatic card the inbox caught as Unhoused. Packing order within a pen: status index, then the more urgent first, then ID; urgent first is a judgment, the design fixes only the keys. Frame previews do not carry routing, so the Canvas reads pens, ruleOrder and inbox from the snapshot rather than the previewed state. just check passes; 612 web tests including resolve.test.ts and canvas-pens.test.tsx. Two ACs rest on the CLI: explain's 'grows and says so' is the pen title on the board, and the CLI's explain still says routing is not applied until git-ticket flips the flag, which is the follow-on named in the plan.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T02:15:42Z
+
+Ran the desk canvas against a throwaway store with two pens and eight tickets and screenshotted it with Playwright: both pens drawn, Frontend grown to 560 for six cards with a dashed lower edge and 'grown to fit' on its title, cards packed draft row then ready row with urgent first, the docs ticket at the inbox dashed and labelled Unhoused. One defect found only by looking: inbox cards started at the inbox point, under the marker's title; they now inset by the lane gap as pens do. Canvas PR 16.

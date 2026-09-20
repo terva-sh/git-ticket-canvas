@@ -43,7 +43,7 @@ it('draws each pen, grown to hold its cards, and marks the card no rule caught',
   const stray = root.querySelector<HTMLElement>('.card[data-id="stray"]')!
   expect(stray.classList.contains('unhoused')).toBe(true)
   expect(stray.querySelector('.card-placement')?.textContent).toBe('Unhoused')
-  expect(stray.style.transform).toContain('translate(-400px, 0px)')
+  expect(stray.style.transform).toContain('translate(-400px, 22px)')
   // A pinned card that matches nothing is not unhoused: somebody placed it.
   const held = root.querySelector<HTMLElement>('.card[data-id="held"]')!
   expect(held.classList.contains('unhoused')).toBe(false)

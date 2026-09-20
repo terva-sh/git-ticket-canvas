@@ -141,6 +141,8 @@ export function resolveBoard(
     const height = Math.max(pen.h, cards.length ? penHeight(pen.w, cards.length) : 0)
     pens.set(id, { count: cards.length, height, overflow: height > pen.h })
   }
-  unhoused.sort(order).forEach((ticket, i) => positions.set(ticket.id, { x: routing.inbox.x, y: routing.inbox.y + i * ROW_PITCH }))
+  // Inset by the same gap as a pen, so the inbox marker and its title sit
+  // above the first card rather than under it.
+  unhoused.sort(order).forEach((ticket, i) => positions.set(ticket.id, { x: routing.inbox.x, y: routing.inbox.y + LANE_GAP + i * ROW_PITCH }))
   return { positions, explanations, pens, inbox: unhoused.length, ruled: true }
 }
