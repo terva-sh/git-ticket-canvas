@@ -15,6 +15,19 @@ function cli(root: string, ...args: string[]) {
     ['canvas', ...args, '--actor', 'agent:playwright/baseline'], { cwd: root, env: commandEnvironment(), encoding: 'utf8' })
 }
 
+/** The server reconciles an outside write after a settling interval and
+ * serves the previous image until then, so a file the CLI just wrote is not
+ * always what the next request returns. A test that opens the panel over the
+ * old image begins its draft over old rules, and Apply is then rightly
+ * refused. Wait until the served board shows the CLI's write before loading
+ * the page. */
+async function served(app: { url: string }, request: import('@playwright/test').APIRequestContext, ready: (layout: { ruleOrder: string[]; inbox: { x: number; y: number } }) => boolean) {
+  await expect.poll(async () => {
+    const response = await request.get(`${app.url}/api/board?board=default`)
+    return ready((await response.json()).layout)
+  }, { timeout: 15_000 }).toBe(true)
+}
+
 async function addPenInBrowser(page: Page, title: string, label: string) {
   await page.locator('#btnAddPen').click()
   await page.getByLabel('Title').fill(title)
@@ -28,13 +41,14 @@ async function addPenInBrowser(page: Page, title: string, label: string) {
 // The browser and the CLI write one file. A pen authored here, applied, and
 // then authored again by the CLI from the same starting file has to come out
 // byte for byte the same, or the two are not writing the same board.
-test('a pen authored in the browser is the pen the CLI would have written', async ({ page, app }) => {
+test('a pen authored in the browser is the pen the CLI would have written', async ({ page, app, request }) => {
   const ui = await app.create('Interface work')
   await app.patch(ui, [{ op: 'addLabel', label: 'ui' }])
   await app.create('Something else')
   // Start from a board the CLI has written, so both sides begin at one file.
   cli(app.root, 'inbox', '--at', '-400,0')
   const before = await readFile(layoutFile(app.root), 'utf8')
+  await served(app, request, layout => layout.inbox.x === -400)
 
   await page.goto(app.url)
   await page.locator('#btnPens').click()
@@ -69,10 +83,11 @@ test('a pen authored in the browser is the pen the CLI would have written', asyn
 // changes them underneath, Apply is refused and the preview withdrawn, and
 // so is the draft: a rules write replaces the whole record, and a draft begun
 // over the old rules would drop what the CLI added.
-test('Apply after a CLI write to the same board is refused with layout_conflict', async ({ page, app }) => {
+test('Apply after a CLI write to the same board is refused with layout_conflict', async ({ page, app, request }) => {
   const t = await app.create('Interface work')
   await app.patch(t, [{ op: 'addLabel', label: 'ui' }])
   cli(app.root, 'inbox', '--at', '-400,0')
+  await served(app, request, layout => layout.inbox.x === -400)
   await page.goto(app.url)
   await page.locator('#btnPens').click()
   await addPenInBrowser(page, 'Interface', 'ui')
@@ -102,9 +117,10 @@ test('Apply after a CLI write to the same board is refused with layout_conflict'
   expect(cli(app.root, 'pens')).toMatch(/1\s+docs[\s\S]*2\s+interface/)
 })
 
-test('rules can be reordered and removed as one draft, and Cancel returns to the board', async ({ page, app }) => {
+test('rules can be reordered and removed as one draft, and Cancel returns to the board', async ({ page, app, request }) => {
   cli(app.root, 'pen', 'add', 'fe', '--title', 'Frontend', '--label', 'frontend', '--at', '0,0', '--size', '1000,300')
   cli(app.root, 'pen', 'add', 'bugs', '--title', 'Bugs', '--label', 'bug', '--at', '0,400', '--size', '1000,300')
+  await served(app, request, layout => layout.ruleOrder.length === 2)
   await page.goto(app.url)
   await page.locator('#btnPens').click()
   await expect(rules(page)).toHaveCount(2)
