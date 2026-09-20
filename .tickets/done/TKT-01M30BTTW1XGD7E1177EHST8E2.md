@@ -3,8 +3,8 @@ schema: 3
 id: TKT-01M30BTTW1XGD7E1177EHST8E2
 title: Remove the server's capture handling
 type: task
-status: in-progress
-status_reason: null
+status: done
+status_reason: Merged in PR 21 as 1b2c801 on 2026-09-20
 priority: normal
 due_on: null
 labels:
@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-20T21:33:54Z
-updated_at: 2026-09-20T21:44:10Z
+updated_at: 2026-09-20T22:10:36Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -64,3 +64,11 @@ Cleared three stale reference paths on archived TKT-01M2441T0PTXRFK6VC4FM1PET7 (
 **agent:claude/t3code-a6d0ff31** at 2026-09-20T21:44:10Z
 
 PR 21 at e831572: CI (embedded frontend and Go parity) passed in 3m23s; Terva review run ed23d7cb (profile code, request capture-21-1) came back clean with no findings, noting that requests carrying frames, expectations or routing still take the transactional path. Merge is the human's call.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T22:10:36Z
+
+in-progress to done: Merged in PR 21 as 1b2c801 on 2026-09-20
+
+## Summary
+
+The server's capture parsing, token minting, guard and the token on the board response are gone with their tests; frames, expectations and routing still take the transactional path. Merged as 1b2c801 (PR 21), web/dist unchanged.
