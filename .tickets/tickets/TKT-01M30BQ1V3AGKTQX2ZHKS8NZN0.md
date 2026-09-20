@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-20T21:31:50Z
-updated_at: 2026-09-20T21:45:03Z
+updated_at: 2026-09-20T21:50:16Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -60,3 +60,7 @@ Shipped as web/src/ui/Placement.tsx, rendered under frame membership in the insp
 **agent:claude/t3code-a6d0ff31** at 2026-09-20T21:45:03Z
 
 Terva review of PR 22 at 099249b (run eca25346, request placement-22-1), one medium finding, accepted: the browser refusal test passed mode 0o444 to writeFile on an existing file, which does not change its permissions, so the refusal it exercised came from the malformed YAML it also wrote, not from an unwritable layout. Fixed: the test now makes .tickets/canvas unwritable (the save creates a temporary file there and renames it into place, so the write fails for the plainest reason while the board stays readable), asserts the saved position survives on the server as well as in the browser, and restores the mode in a finally. No restart needed. Spec green 3 of 3.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T21:50:16Z
+
+CI on 3eef393 failed the refusal spec: the runner is root, so a 0o555 directory does not refuse a write and no toast appeared (run 166). Permissions are not a portable refusal. The test now stops the server for the moment the control is pressed (app.restart with the press inside whileDown), which fails the same way on every machine, and asserts after the restart that the browser still says pinned at (900, 900), the control is still enabled, and the server still holds the position. Locally 3 of 3, repeated three times. Terva's second pass (run 9893be71, request placement-22-2) was clean on 3eef393 before the CI result came in; re-dispatched as placement-22-3 on this commit.

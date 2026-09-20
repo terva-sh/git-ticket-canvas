@@ -1,4 +1,4 @@
-import { chmod, mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Page } from '@playwright/test'
 import { test, expect } from './fixtures'
@@ -51,27 +51,24 @@ test('the inspector explains placement and returns a pinned card to the rules', 
   await expect(control(page)).toBeDisabled()
 })
 
-// A refused removal leaves the card where it was and says why. The save
-// writes a temporary file beside the layout and renames it into place, so a
-// directory nobody can write to refuses the write for the plainest reason,
-// with the board still readable underneath.
+// A refused removal leaves the card where it was and says why. The write is
+// refused by taking the server away for the moment the control is pressed:
+// the one failure that is the same on every machine, where a permission
+// denied is not (CI runs as root and a read-only directory does not stop it).
 test('a refused return keeps the card pinned and reports the reason', async ({ page, app }) => {
   const held = await app.create('Placed by hand')
   await rules(app.root, { [held.id]: { x: 900, y: 900 } })
   await page.goto(app.url)
   await card(page, held.id).click()
   await expect(control(page)).toBeEnabled()
-  const dir = join(app.root, '.tickets', 'canvas')
-  await chmod(dir, 0o555)
-  try {
+  await app.restart(async () => {
     await control(page).click()
     await expect(page.locator('#toast')).toContainText('Could not save board default')
     await expect(card(page, held.id)).not.toHaveClass(/unpinned/)
-    await expect(section(page)).toContainText('pinned at (900, 900); routing does not apply')
-    expect((await app.board()).layout.cards[held.id]).toEqual({ x: 900, y: 900 })
-  } finally {
-    await chmod(dir, 0o755)
-  }
+  })
+  await expect(section(page)).toContainText('pinned at (900, 900); routing does not apply')
+  await expect(control(page)).toBeEnabled()
+  expect((await app.board()).layout.cards[held.id]).toEqual({ x: 900, y: 900 })
 })
 
 // A read-only canvas shows the same explanation with the control off.
