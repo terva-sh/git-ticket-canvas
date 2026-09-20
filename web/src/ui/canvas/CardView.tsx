@@ -19,24 +19,23 @@ interface CardViewProps {
   frameMember?: boolean
   /** How much of the ticket to show. Defaults to the full presentation. */
   density?: Density
-  incarnation?: symbol
   /** Hands this card back to automatic placement. Absent on a read-only
    * canvas, which is why an absent prop renders a plain label rather than a
    * disabled button. */
   onRelease?: (id: string) => void
-  register: (id: string, element: HTMLDivElement, incarnation?: symbol) => (() => void)
+  register: (id: string, element: HTMLDivElement) => (() => void)
 }
 
 // Memoization keeps metadata out of the per-frame pan and link updates.
-export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, unhoused = false, selected, dimmed, target, frameTitle, frameMember, density = 'full', incarnation, onRelease, register }: CardViewProps) {
+export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, unhoused = false, selected, dimmed, target, frameTitle, frameMember, density = 'full', onRelease, register }: CardViewProps) {
   const compact = density === 'compact'
   const element = useRef<HTMLDivElement>(null)
   // Refresh regression diagnostic; unlike DOM mutation counts this sees renders.
   const renders = useRef(0)
   renders.current++
   useLayoutEffect(() => {
-    if (element.current) return register(t.id, element.current, incarnation)
-  }, [t.id, register, incarnation])
+    if (element.current) return register(t.id, element.current)
+  }, [t.id, register])
   const [labelsOpen, setLabelsOpen] = useState(false)
   const labels = t.labels || []
   const blockers = (t.readiness?.blocking || []).length + (t.readiness?.blockingChildren || []).length

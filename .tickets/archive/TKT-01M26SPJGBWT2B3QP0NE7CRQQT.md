@@ -20,18 +20,18 @@ references:
   - ref: spec:committed-sampling
     path: docs/pen-committed-sampling-scope-v1.md
   - ref: code:committed-sampling
-    path: web/src/ui/canvas/committedSampling.ts
+    path: null
   - ref: code:control-measurements
-    path: web/src/ui/canvas/controlMeasurements.ts
+    path: null
   - ref: code:sampled-frame
-    path: web/src/ui/canvas/SampledFrame.tsx
+    path: null
 claim: null
 archive:
   archived_at: 2026-09-19T08:34:33Z
   from_status: draft
   reason: "Superseded on 2026-09-19 with its parent TKT-01M2441T0PTXRFK6VC4FM1PET7: the adopted contract in docs/board-organization-design-v1.md places cards through one resolver shared with the CLI, so the opt-in trial route this verified is not the one being built. Evidence and scope documents stay as records."
 created_at: 2026-09-10T23:15:59Z
-updated_at: 2026-09-19T08:34:33Z
+updated_at: 2026-09-20T18:38:35Z
 created_by:
   id: agent:terva/mieli
   name: Mieli

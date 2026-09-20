@@ -14,8 +14,6 @@ import { Edges } from './canvas/Edges'
 import type { Placement } from './canvas/Edges'
 import { drawGrid } from './canvas/grid'
 import { useMeasurements } from './canvas/useMeasurements'
-import { ControlMeasurements } from './canvas/controlMeasurements'
-import { SampledFrame } from './canvas/SampledFrame'
 
 const empty: LabelFilters = new Map()
 
@@ -24,12 +22,6 @@ export interface CanvasProps {
    * component can see it change. Called per motion frame during a drag, so a
    * listener that does more than compare must debounce. */
   onView?(view: View): void
-  samplingProbe?: import('./canvas/committedSampling').CommittedSampling
-  samplingPublication?: import('./canvas/committedSampling').SamplingPublication | null
-  samplingReady?: () => boolean
-  publicationBridge?: import('../platform/canvas/publications').PublicationBridge
-  publication?: import('../platform/canvas/publications').Publication | null
-  publicationReady?: () => boolean
   board: string
   tickets: ReadonlyMap<string, Ticket>
   cards: Cards
@@ -154,36 +146,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     redraw()
   }
   const measurements = useMeasurements(stage)
-  const [controls] = useState(() => new ControlMeasurements())
-  const controlsChanged = useCallback(() => { if (local.mounted) setRevision(n => n + 1) }, [local])
   const placementCalculations = useRef(0)
-
-  // Sample this committed publication only. Busy(false) is earlier than drop
-  // preview installation and must never flush diagnostic placement itself.
-  useLayoutEffect(() => {
-    const bridge = props.publicationBridge, publication = props.publication
-    const ready = () => local.mounted && !local.gesture && !local.previews.size
-      && !latest.current.layoutBusy && !!latest.current.publicationReady?.()
-    if (!bridge || !publication || !ready()) return
-    const request = bridge.request(publication)
-    if (!request) return
-    const sample = measurements.sample(request)
-    if (sample) bridge.report(request, sample, ready())
-  }, [props.publicationBridge, props.publication, measurements.sizes, !!local.gesture, local.previews.size, props.layoutBusy])
-
-  useLayoutEffect(() => {
-    const probe = props.samplingProbe, publication = props.samplingPublication
-    const ready = () => local.mounted && !local.gesture && !local.previews.size
-      && !latest.current.layoutBusy && latest.current.samplingPublication === publication && !!latest.current.samplingReady?.()
-    if (!probe || !publication || !ready()) return
-    const source = () => {
-      const cards = measurements.sampleCards()
-      if (!cards || cards.some(card => !card.incarnation)) return null
-      return { cards: cards as import('./canvas/committedSampling').SampleCard[], controls: controls.sample() }
-    }
-    const request = probe.request(publication, source)
-    if (request) probe.sample(request, source, ready)
-  })
 
   /** The rules as the resolver reads them. Empty when the caller passed none. */
   const routing = (p: CanvasProps) => ({ pens: p.pens ?? {}, ruleOrder: p.ruleOrder ?? [], inbox: p.inbox ?? { x: 0, y: 0 } })
@@ -664,9 +627,6 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       <div id="frameLayer">{Object.entries(props.frames || {}).map(([id, accepted]) => {
         const frame = (gesture?.kind === 'frame-move' || gesture?.kind === 'frame-resize') && gesture.id === id ? gesture.next : accepted
         const dimmed = frame.members.filter(member => props.tickets.has(member) && !matching.has(member)).length
-        if (props.samplingProbe) return <SampledFrame key={id} id={id} frame={frame} dimmed={dimmed}
-          selected={props.selectedFrame === id} readOnly={props.readOnly} busy={props.layoutBusy}
-          controls={controls} changed={controlsChanged} onSelect={props.onSelectFrame} />
         return <div key={id} class={`canvas-frame ${props.selectedFrame === id ? 'selected' : ''}`} data-frame-id={id}
           style={{ transform: `translate(${frame.x}px, ${frame.y}px)`, width: `${frame.w}px`, height: `${frame.h}px`, '--frame-color': frame.color }}>
           <button class="canvas-frame-title" data-frame-id={id} data-frame-gesture="move"
@@ -686,8 +646,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
           frameTitle={Object.values(props.frames || {}).find(frame => frame.members.includes(ticket.id))?.title}
           frameMember={!!props.selectedFrame && !!props.frames?.[props.selectedFrame]?.members.includes(ticket.id)}
           target={gesture?.kind === 'link' && gesture.to === ticket.id} register={measurements.register}
-          density={props.density} onRelease={props.readOnly ? undefined : releaseCard}
-          incarnation={props.samplingPublication?.tickets.find(item => item.id === ticket.id)?.incarnation} />
+          density={props.density} onRelease={props.readOnly ? undefined : releaseCard} />
       })}</div>
     </div>
     {props.frameCreating && <div id="frameDrawHint" role="status">Draw on empty canvas to capture card centers, or enter bounds in the frame panel. Escape cancels.</div>}

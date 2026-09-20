@@ -7,7 +7,7 @@ export interface MeasurementSnapshot {
   /** Element-registration lifetimes, not ticket incarnations or board baselines. */
   readonly registrations: ReadonlyMap<string, symbol>
 }
-interface Registration { id: string; element: HTMLDivElement; owner: symbol; incarnation?: symbol }
+interface Registration { id: string; element: HTMLDivElement; owner: symbol }
 
 // Frozen facades prevent mutation, including through forEach's third argument.
 // Snapshots wrap copies; imperative consumers wrap the live maps instead.
@@ -26,7 +26,7 @@ function same<K, V>(a: ReadonlyMap<K, V>, b: ReadonlyMap<K, V>): boolean {
 
 /** One observer reads current border-box heights in scene units, never zoomed bounds.
  * Size publications and viewport redraws share a RAF, not a revision. Rendering
- * reads cached data only; current fit/focus/capture consumers retain live views.
+ * reads cached data only; fit, focus and frame capture retain live views.
  */
 export function useMeasurements(stage: RefObject<HTMLDivElement>) {
   const [data] = useState(() => {
@@ -69,25 +69,11 @@ export function useMeasurements(stage: RefObject<HTMLDivElement>) {
     else data.heights.set(registration.id, next)
     schedule()
   }, [data, schedule])
-  // Call only after commit. Equal values still come from a fresh DOM read.
-  const sample = useCallback(<T,>(token: T) => {
-    if (!mounted.current || disposed.current) return null
-    for (const registration of data.registrations.values()) measure(registration)
-    return Object.freeze({ token, heights: view(new Map(data.heights)),
-      registrations: view(new Map([...data.registrations].map(([id, registration]) => [id, registration.owner]))) })
-  }, [data, measure])
-  const sampleCards = useCallback(() => {
-    if (!mounted.current || disposed.current) return null
-    return [...data.registrations.values()].map(registration => ({
-      id: registration.id, incarnation: registration.incarnation, owner: registration.owner,
-      height: registration.element.offsetHeight, connected: registration.element.isConnected,
-    }))
-  }, [data])
-  const register = useCallback((id: string, element: HTMLDivElement, incarnation?: symbol): (() => void) => {
+  const register = useCallback((id: string, element: HTMLDivElement): (() => void) => {
     if (disposed.current) return () => {}
     const previous = data.registrations.get(id)
     if (previous) { observer.current?.unobserve(previous.element); data.targets.delete(previous.element) }
-    const registration: Registration = { id, element, owner: Symbol(id), incarnation }
+    const registration: Registration = { id, element, owner: Symbol(id) }
     data.registrations.set(id, registration); data.targets.set(element, registration); data.elements.set(id, element)
     measure(registration)
     observer.current?.observe(element, { box: 'border-box' })
@@ -138,5 +124,5 @@ export function useMeasurements(stage: RefObject<HTMLDivElement>) {
     }
   }, [stage, data, measure, schedule])
 
-  return { heights: data.heightView, elements: data.elementView, register, sample, sampleCards, sizes: state.sizes, viewportRevision: state.viewportRevision }
+  return { heights: data.heightView, elements: data.elementView, register, sizes: state.sizes, viewportRevision: state.viewportRevision }
 }

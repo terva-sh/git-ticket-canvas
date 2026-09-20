@@ -14,11 +14,11 @@ export interface PersistedState extends Routing {
   /** The store being shown, or null on a canvas that serves only one. */
   store: string | null
   board: string; tickets: Map<string, Ticket>; cards: Cards; frames: Frames; boards: string[]
-  config: Schema | null; storePath: string; readOnly: boolean; layoutSchema: number | null; captureToken: string | null
+  config: Schema | null; storePath: string; readOnly: boolean; layoutSchema: number | null
 }
 export class TicketStore {
   state: PersistedState = {
-    store: null, captureToken: null, board: 'default', tickets: new Map(), cards: {}, frames: {}, ...emptyRouting(), boards: [], config: null, storePath: '', readOnly: false, layoutSchema: null,
+    store: null, board: 'default', tickets: new Map(), cards: {}, frames: {}, ...emptyRouting(), boards: [], config: null, storePath: '', readOnly: false, layoutSchema: null,
   }
   sync: SyncMetadata | undefined
   onWriteSettled?: () => void
@@ -41,8 +41,8 @@ export class TicketStore {
    *  keyed by ticket ID, and reconcileTickets reuses an entry whose ID it
    *  recognizes, so an ID that exists in both stores would survive the switch
    *  and show the previous store's title. The schema, the board list, the
-   *  validator, the sync metadata, and the capture token are all equally the
-   *  previous store's, and the epoch and generation counters are bumped so a
+   *  validator and the sync metadata are all equally the previous store's,
+   *  and the epoch and generation counters are bumped so a
    *  read already in flight is rejected when it returns.
    */
   selectStore(store: string, client: TicketClient) {
@@ -54,7 +54,7 @@ export class TicketStore {
     this.sync = undefined
     this.state = {
       store, board: 'default', tickets: new Map(), cards: {}, frames: {}, ...emptyRouting(),
-      boards: [], config: null, storePath: '', readOnly: false, layoutSchema: null, captureToken: null,
+      boards: [], config: null, storePath: '', readOnly: false, layoutSchema: null,
     }
   }
 
@@ -64,7 +64,7 @@ export class TicketStore {
     this.read++
     this.validator = undefined
     this.sync = undefined
-    this.state = { ...this.state, board, cards: {}, frames: {}, ...emptyRouting(), layoutSchema: null, captureToken: null }
+    this.state = { ...this.state, board, cards: {}, frames: {}, ...emptyRouting(), layoutSchema: null }
   }
 
   async load(): Promise<boolean> {
@@ -89,14 +89,12 @@ export class TicketStore {
         ...laidOut, board, tickets: reconcileTickets(previous.tickets, response.tickets),
         boards: reuse(previous.boards, response.boards), config: reuse(previous.config, response.config),
         storePath: response.storePath, readOnly: response.readOnly, layoutSchema: response.layout.schema,
-        captureToken: typeof response.captureToken === 'string' && response.captureToken.length > 0 ? response.captureToken : null,
       }
       this.sync = reuse(this.sync, result.sync)
       this.validator = result.etag || undefined
       if (laidOut === previous && next.tickets === previous.tickets && next.boards === previous.boards
         && next.config === previous.config && next.storePath === previous.storePath
-        && next.readOnly === previous.readOnly && next.layoutSchema === previous.layoutSchema
-        && next.captureToken === previous.captureToken) return false
+        && next.readOnly === previous.readOnly && next.layoutSchema === previous.layoutSchema) return false
       this.state = next
       return true
     } catch (error) {
@@ -121,8 +119,6 @@ export class TicketStore {
   private write<T>(run: () => Promise<T>): Promise<T> {
     this.epoch++
     this.validator = undefined
-    // A queued write may change any capture input, even when its response is partial.
-    if (this.state.captureToken !== null) this.state = { ...this.state, captureToken: null }
     this.writes++
     const result = this.tail.then(run)
     const settled = result.finally(() => {
@@ -215,8 +211,7 @@ export class TicketStore {
     const generation = this.generation
     try {
       // Do not forward FrameOperation.label or other client-only metadata.
-      const request = { board, cards: transaction.cards, frames: transaction.frames,
-        ...(Object.hasOwn(transaction, 'capture') ? { capture: transaction.capture } : {}) }
+      const request = { board, cards: transaction.cards, frames: transaction.frames }
       return await this.saveBoardLayout('routing' in transaction
         ? { ...request, routing: transaction.routing, expect: transaction.expect }
         : { ...request, expect: transaction.expect })

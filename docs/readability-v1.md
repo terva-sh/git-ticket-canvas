@@ -253,13 +253,12 @@ What an even board does lose is the empty-lane gap, since a store with every
 status occupied has no empty lanes. Its width comes from occupied lanes, and
 only a narrower card or a narrower lane would move it.
 
-Lane wrapping and the pen placement path in `placement.ts` do not interact. Pens
-allocate positions inside label-matching regions through `allocatePlacement` and
-`PlacementSnapshots`, and nothing in that chain imports `autoPlace` or the lane
-constants. `CARD_WIDTH` is the only symbol they share, and no UI module calls the
-pen path in production. Two systems that both decide where an automatic card goes
-will need a stated relationship on the day pens are switched on. That day is not
-this one.
+Lane wrapping and pen placement no longer sit apart. `resolveBoard` decides
+where every unpinned card goes: a card whose labels match a rule sits in that
+pen, a card that matches none sits in the inbox, and a board with no pens is
+handed to `autoPlace`, which is where the lane constants still apply. The
+collision-search allocator this section described was removed on 2026-09-20
+with the rest of the opt-in placement trial.
 
 The gates for this are split. `readability.test.tsx` covers the row subset and the
 chip counts at both densities. The dense-scene browser suite toggles density and

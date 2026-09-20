@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2Y9YXMRRAD5GP0953VY9AKC
 title: Keep the built bundle out of what a PR review reads
 type: task
-status: draft
+status: in-progress
 status_reason: null
 priority: normal
 due_on: null
@@ -17,10 +17,17 @@ origin: null
 dependencies: []
 blocks_on: none
 references: []
-claim: null
+claim:
+  actor: agent:claude/t3code-a6d0ff31
+  branch: t3code/board-rules
+  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-a6d0ff31
+  commit: bb63f0eb667d3a0006eb15ca6129dffc6917bdd3
+  session: null
+  claimed_at: 2026-09-20T18:23:58Z
+  expires_at: null
 archive: null
 created_at: 2026-09-20T02:22:42Z
-updated_at: 2026-09-20T02:22:42Z
+updated_at: 2026-09-20T18:48:13Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -38,3 +45,9 @@ The Terva review of canvas PR 16 failed with context_limit before reading a line
 
 - [ ] A canvas PR that rebuilds web/dist gets a Terva review of its source
 - [ ] The parity gate still holds dist to source on main
+
+## Notes
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T18:48:13Z
+
+First live use of the input, on canvas PR 18 from the branch's own workflow: the run's checkout step fetched 7de7990570c5, the exclude-paths head of the action's PR 13, and the review step still ended at context_limit, because that PR deletes 260 KB of source with the bundle already out. So the input is wired and reached the action, and the case that proves it end to end is a PR that changes source and rebuilds the bundle, which the match record's canvas half will be. The workflow pin moves to PR 13's merge commit when it lands.

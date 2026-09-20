@@ -35,7 +35,7 @@ jobs:
         uses: Actions-Mirrors/forgejo-actions-checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           repository: terva-sh/terva-action-code-review
-          ref: c8730fee5650346b17c61babd5da8fdd9982c5d3
+          ref: 7de7990570c5c0fe5a8a724661c82f34c11fbe4d
           token: ${{ secrets.BOT_TOKEN }}
           path: .terva-review-action
           persist-credentials: false
@@ -61,3 +61,8 @@ jobs:
           profile: code
           publication-policy: summary
           fail-severity: medium
+          # The built bundle is verified against source by the parity gate,
+          # not read by the reviewer: at 300 KB it alone overran the action's
+          # context, so every frontend PR was unreviewable, per
+          # TKT-01M2Y9YXMRRAD5GP0953VY9AKC.
+          exclude-paths: web/dist/**

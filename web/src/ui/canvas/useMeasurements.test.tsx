@@ -62,29 +62,6 @@ beforeEach(() => {
 })
 afterEach(() => { act(() => render(null, root)); root.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
-describe('Committed card sampling', () => {
-  it('binds fresh heights to registration incarnation and rejects detached cards', () => {
-    mount(); const element = card(180), incarnation = Symbol('incarnation')
-    const cleanup = api.register('a', element, incarnation)
-    const first = api.sampleCards()!
-    expect(first[0]).toMatchObject({ id: 'a', incarnation, height: 180, connected: true })
-    heights.set(element, 230)
-    expect(api.sampleCards()![0]!.height).toBe(230)
-    expect(first[0]!.height).toBe(180)
-    element.remove()
-    expect(api.sampleCards()![0]!.connected).toBe(false)
-    cleanup()
-    expect(api.sampleCards()).toEqual([])
-  })
-  it('keeps replacement owner and incarnation after stale cleanup', () => {
-    mount(); const old = api.register('a', card(), Symbol('old')), incarnation = Symbol('new')
-    api.register('a', card(210), incarnation)
-    const owner = api.sampleCards()![0]!.owner
-    old()
-    expect(api.sampleCards()![0]).toMatchObject({ incarnation, owner, height: 210 })
-  })
-})
-
 describe('Measurement publications', () => {
   it('captures child registrations before parent mount and measures border boxes in scene units', () => {
     mount([ticket])
@@ -147,55 +124,6 @@ describe('Measurement publications', () => {
     mount(); const { element } = register(), old = api.sizes
     act(() => { heights.set(element, 170); window.dispatchEvent(new Event('resize')) }); flush()
     expect(api.sizes.heights.get('a')).toBe(170); expect(api.sizes.revision).toBe(old.revision + 1)
-  })
-})
-
-describe('Explicit committed sampling', () => {
-  it('rereads equal heights for each token without publishing or scheduling work', () => {
-    mount(); const { element } = register(), old = api.sizes, viewport = api.viewportRevision, count = renders
-    const read = vi.fn(() => 100)
-    Object.defineProperty(element, 'offsetHeight', { get: read })
-    const token = Object.freeze({ baseline: 'new' }), first = api.sample(token)!, second = api.sample(token)!
-    expect(read).toHaveBeenCalledTimes(2)
-    expect(first.token).toBe(token); expect(second).not.toBe(first)
-    expect([...first.heights]).toEqual([['a', 100]])
-    expect(first.registrations.get('a')).toBe(old.registrations.get('a'))
-    expect(frames.size).toBe(0); flush()
-    expect(api.sizes).toBe(old); expect(api.viewportRevision).toBe(viewport); expect(renders).toBe(count)
-  })
-  it('copies fresh changed measurements while retaining coalesced semantic publication', () => {
-    mount(); const { element } = register(), old = api.sizes, viewport = api.viewportRevision
-    heights.set(element, 170)
-    const first = api.sample('first')!
-    heights.set(element, 190)
-    const second = api.sample('second')!
-    expect(first.heights.get('a')).toBe(170); expect(second.heights.get('a')).toBe(190)
-    expect(api.sizes).toBe(old); expect(frames.size).toBe(1)
-    expect(Object.isFrozen(first)).toBe(true); expect('set' in first.heights).toBe(false)
-    first.registrations.forEach((_owner, _id, map) => expect(map).toBe(first.registrations))
-    expect('clear' in first.registrations).toBe(false)
-    flush(); expect(api.sizes.revision).toBe(old.revision + 1)
-    expect(api.sizes.heights.get('a')).toBe(190); expect(api.viewportRevision).toBe(viewport)
-    expect(old.heights.get('a')).toBe(100); expect(first.heights.get('a')).toBe(170)
-  })
-  it.each([0, -1, NaN, Infinity])('omits freshly invalid height %s without omitting registration', height => {
-    mount(); const { element } = register()
-    heights.set(element, height)
-    const sampled = api.sample('invalid')!
-    expect(sampled.heights.has('a')).toBe(false); expect(sampled.registrations.has('a')).toBe(true)
-    flush(); expect(api.sizes.heights.has('a')).toBe(false)
-  })
-  it('samples current owners, ignores old cleanup, and refuses sampling after unmount', () => {
-    mount(); const old = register(), first = api.sample('first')!
-    const newer = register('a', 220); old.cleanup()
-    const next = api.sample('next')!
-    expect(next.heights.get('a')).toBe(220)
-    expect(next.registrations.get('a')).not.toBe(first.registrations.get('a'))
-    newer.cleanup(); expect(api.sample('removed')!.registrations.size).toBe(0)
-    const sample = api.sample
-    act(() => render(null, root))
-    expect(sample('disposed')).toBeNull(); expect(frames.size).toBe(0)
-    expect(first.heights.get('a')).toBe(100)
   })
 })
 
