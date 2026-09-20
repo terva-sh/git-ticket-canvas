@@ -28,7 +28,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T15:23:31Z
-updated_at: 2026-09-20T02:15:42Z
+updated_at: 2026-09-20T02:22:42Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -88,3 +88,7 @@ Built. web/src/platform/canvas/resolve.ts is the one placement function; Canvas.
 **agent:claude/t3code-a6d0ff31** at 2026-09-20T02:15:42Z
 
 Ran the desk canvas against a throwaway store with two pens and eight tickets and screenshotted it with Playwright: both pens drawn, Frontend grown to 560 for six cards with a dashed lower edge and 'grown to fit' on its title, cards packed draft row then ready row with urgent first, the docs ticket at the inbox dashed and labelled Unhoused. One defect found only by looking: inbox cards started at the inbox point, under the marker's title; they now inset by the lane gap as pens do. Canvas PR 16.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T02:22:42Z
+
+Terva could not review PR 16: every run failed in seconds with context_limit, because the action reads /pulls/16.diff and caps its context at 256 KB, and the rebuilt web/dist is 297 KB of a 347 KB diff. Read from the run log in the Forgejo UI; the API has no jobs endpoint on this version. web/dist is now -diff in .gitattributes for local diffs; Forgejo ignores it. Filed TKT-01M2Y9YXMRRAD5GP0953VY9AKC for the mechanism. This PR is for the maintainer's own review.
