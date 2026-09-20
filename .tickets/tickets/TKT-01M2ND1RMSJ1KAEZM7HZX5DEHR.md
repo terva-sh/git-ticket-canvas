@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR
 title: Write board rules from the command line
 type: task
-status: draft
+status: in-progress
 status_reason: null
 priority: normal
 due_on: null
@@ -19,15 +19,22 @@ dependencies:
   - TKT-01M2ND1RKK6S4GXZQKKPP6H87P
 blocks_on: none
 references: []
-claim: null
+claim:
+  actor: agent:claude/t3code-a6d0ff31
+  branch: t3code/board-rules
+  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-a6d0ff31
+  commit: 1d16016188935089c162336c99851fc11825acf9
+  session: null
+  claimed_at: 2026-09-20T18:12:34Z
+  expires_at: null
 archive: null
 created_at: 2026-09-16T15:23:31Z
-updated_at: 2026-09-16T20:45:17Z
+updated_at: 2026-09-20T18:12:34Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/t3code
+  id: agent:claude/t3code-a6d0ff31
   name: ""
 extensions: {}
 ---
