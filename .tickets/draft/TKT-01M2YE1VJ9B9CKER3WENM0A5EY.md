@@ -19,7 +19,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-20T03:34:12Z
-updated_at: 2026-09-20T03:43:42Z
+updated_at: 2026-09-20T05:36:43Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -75,3 +75,7 @@ Published: https://github.com/terva-sh/git-ticket-canvas/releases/tag/v0.5.0 at 
 **agent:claude/t3code-a6d0ff31** at 2026-09-20T03:43:42Z
 
 Installer: install.sh from raw.githubusercontent.com main, --prefix into a temporary directory, --version v0.5.0: the installed binary reports the release identity and its SHA-256 equals the archive's (85b3a250…). Go proxy: v0.5.0.info served with the tag's hash; GOBIN install of both the root module and cmd/git-ticket-canvas-server at v0.5.0 built and each reports version v0.5.0 with commit unknown, which is what a module install reports. GHCR: not verified from this machine, which has no docker or podman; left unticked.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T05:36:43Z
+
+git-ticket v0.22.0, tagged on bb0f4e9 the same day, is the CLI half of this release: git ticket canvas show and explain now say the canvas places by rule and answer applied:true. A v0.21.0 CLI against a v0.5.0 canvas still reads the same board; only its wording lags.
