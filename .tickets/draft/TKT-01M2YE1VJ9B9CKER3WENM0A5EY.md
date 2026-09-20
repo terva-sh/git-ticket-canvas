@@ -19,7 +19,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-20T03:34:12Z
-updated_at: 2026-09-20T03:36:31Z
+updated_at: 2026-09-20T03:43:42Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -48,11 +48,11 @@ The release commit is 8f63cf9, the merge of PR 16, already green on Forgejo. Thi
 - [x] origin main carries the release commit and its CI result was read, not assumed
 - [x] github main carries the same commit and the Windows lane passed
 - [x] An annotated v0.5.0 tag is on that exact commit on both forges
-- [ ] github published five archives plus checksums.txt, verified by SHA-256 and by --version --json
-- [ ] The real download installer works into a temporary prefix
-- [ ] The published module resolves through the Go proxy for a clean Go-only install
+- [x] github published five archives plus checksums.txt, verified by SHA-256 and by --version --json
+- [x] The real download installer works into a temporary prefix
+- [x] The published module resolves through the Go proxy for a clean Go-only install
 - [ ] The GHCR image pulls anonymously and reports the right version
-- [ ] Forgejo tag-verify passed on the tag
+- [x] Forgejo tag-verify passed on the tag
 
 ## Notes
 
@@ -67,3 +67,11 @@ Forgejo CI on 8f63cf9 (Embedded frontend and Go parity, pull_request on PR 16): 
 **agent:claude/t3code-a6d0ff31** at 2026-09-20T03:36:30Z
 
 Version chosen by the maintainer: v0.5.0, minor, on 2026-09-20. Annotated tag created on 8f63cf9a40eda162f853adb58c365bffea169568 and pushed to origin, then to github, each by name. git tag --contains 8f63cf9 answers v0.5.0.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T03:43:42Z
+
+Published: https://github.com/terva-sh/git-ticket-canvas/releases/tag/v0.5.0 at 2026-09-20T03:42:15Z, not a draft and not a prerelease, GitHub release run 35486999452 green. Five archives plus checksums.txt, sha256sum -c over the downloaded bytes: all five OK. The linux amd64 archive carries both commands, LICENSE, THIRD_PARTY_LICENSES and README-release.md; both report {version v0.5.0, commit 8f63cf9a40eda162f853adb58c365bffea169568, go1.25.0, modified false}. The desk canvas refuses -addr 0.0.0.0:7999 and names the server; the server refuses to start with no identity provider and names the flags. Their SHA-256 differ (85b3a250…, fd6ce01d…). Forgejo tag-verify run 140 on v0.5.0: success.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T03:43:42Z
+
+Installer: install.sh from raw.githubusercontent.com main, --prefix into a temporary directory, --version v0.5.0: the installed binary reports the release identity and its SHA-256 equals the archive's (85b3a250…). Go proxy: v0.5.0.info served with the tag's hash; GOBIN install of both the root module and cmd/git-ticket-canvas-server at v0.5.0 built and each reports version v0.5.0 with commit unknown, which is what a module install reports. GHCR: not verified from this machine, which has no docker or podman; left unticked.
