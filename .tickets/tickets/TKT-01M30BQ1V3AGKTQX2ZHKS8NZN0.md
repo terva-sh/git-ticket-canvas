@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-20T21:31:50Z
-updated_at: 2026-09-20T21:50:16Z
+updated_at: 2026-09-20T21:54:11Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -64,3 +64,7 @@ Terva review of PR 22 at 099249b (run eca25346, request placement-22-1), one med
 **agent:claude/t3code-a6d0ff31** at 2026-09-20T21:50:16Z
 
 CI on 3eef393 failed the refusal spec: the runner is root, so a 0o555 directory does not refuse a write and no toast appeared (run 166). Permissions are not a portable refusal. The test now stops the server for the moment the control is pressed (app.restart with the press inside whileDown), which fails the same way on every machine, and asserts after the restart that the browser still says pinned at (900, 900), the control is still enabled, and the server still holds the position. Locally 3 of 3, repeated three times. Terva's second pass (run 9893be71, request placement-22-2) was clean on 3eef393 before the CI result came in; re-dispatched as placement-22-3 on this commit.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T21:54:11Z
+
+CI on d41384f (run 169): all three placement specs passed on the runner, including the refusal. The job failed on refresh-regressions.spec.ts 'unchanged refresh preserves focused inspector drafts', unrelated to this change: one bodyless 304 was recorded with decodedPayloadBytes null because Chromium's ERR_ABORTED for the discarded body arrived before the row had its response bytes, the ordering race the harness's loadingFailed handler in tests/browser/refresh-support.ts guards only when wireResponseBytes is already set (docs/conditional-board-reads.md describes the ERR_ABORTED behaviour). Terva's third pass (request placement-22-3) is clean on d41384f. Re-ran the job rather than pushing a no-op commit; the harness race is worth its own ticket if it recurs.
