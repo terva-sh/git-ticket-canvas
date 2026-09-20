@@ -180,7 +180,7 @@ So a board is text, one line per card or frame, sorted by ID:
 
 ```yaml
 # .tickets/canvas/default.yml
-schema: 3
+schema: 4
 board: "default"
 cards:
   "TKT-01M23FCNEN7TRTAXZCD9388946": {x: 0, y: -280}
@@ -217,8 +217,10 @@ removes its line from the file.
 
 Where an automatic card goes depends on whether the board has rules. A board
 with no pens places every automatic card in status lanes, sorted by ID. A board
-with pens places it by the first pen in `ruleOrder` whose `requiredLabels` it
-carries, packed inside the pen by status, then priority, then ID; a card no pen
+with pens places it by the first pen in `ruleOrder` whose `match` the ticket
+satisfies: it carries all of the pen's `labels`, and its `status`, `type` and
+`parent` are each among the values that field lists, where an empty field
+tests nothing. It is packed inside the pen by status, then priority, then ID; a card no pen
 matches waits at the `inbox` point, drawn with a dashed border and labelled
 **Unhoused**, because it is a question for whoever wrote the rules. A pen whose
 cards do not fit grows downward and says so on its title. `git ticket canvas
@@ -380,9 +382,9 @@ Solid arrows are dependencies (gating), faint dashed lines are parent edges
   stacking.
 - Pens are drawn and place cards, but nothing in the canvas authors one: a
   rule is written to the layout file by hand or by `git ticket canvas`, whose
-  write commands are TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR (Write board rules from
-  the command line). A pen's rule is a label conjunction; the wider `match`
-  record is TKT-01M2Y91C17YTE0W0P3RBHTF50Y.
+  write commands shipped in git-ticket v0.23.0. A pen's rule is a `match`
+  record naming `labels`, `status`, `type` and `parent`, which the canvas
+  reads and no control in it writes.
 - Cross-branch reads (`Filter.CrossBranch`) are not surfaced; the canvas shows
   the working tree.
 

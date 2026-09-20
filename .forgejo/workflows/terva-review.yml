@@ -35,7 +35,7 @@ jobs:
         uses: Actions-Mirrors/forgejo-actions-checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           repository: terva-sh/terva-action-code-review
-          ref: 7de7990570c5c0fe5a8a724661c82f34c11fbe4d
+          ref: 3dab5f86e2a4c31628e81729bfbd2166fd7613c8
           token: ${{ secrets.BOT_TOKEN }}
           path: .terva-review-action
           persist-credentials: false

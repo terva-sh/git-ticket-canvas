@@ -15,7 +15,7 @@ import (
 	"github.com/terva-sh/git-ticket/layout"
 )
 
-// Schema-3 wire contract, asserted independently of production routing types:
+// Schema-4 wire contract, asserted independently of production routing types:
 // PUT /api/layout has routing:{pens,ruleOrder,inbox} and expect.routing contains
 // the COMPLETE accepted configuration. Board responses expose its fields at top
 // level. A null/partial preimage is not an unconditional replacement request.
@@ -23,16 +23,32 @@ type penPointWire struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 }
-type penWire struct {
-	Title          string       `json:"title"`
-	X              float64      `json:"x"`
-	Y              float64      `json:"y"`
-	W              float64      `json:"w"`
-	H              float64      `json:"h"`
-	Color          string       `json:"color"`
-	Pin            penPointWire `json:"pin"`
-	RequiredLabels []string     `json:"requiredLabels"`
+
+// A pen's rule since layout schema 4. Every field is an array on the wire,
+// never null, whatever the board file spells, per git-ticket plan 10.10.
+type penMatchWire struct {
+	Labels []string `json:"labels"`
+	Status []string `json:"status"`
+	Type   []string `json:"type"`
+	Parent []string `json:"parent"`
 }
+type penWire struct {
+	Title string       `json:"title"`
+	X     float64      `json:"x"`
+	Y     float64      `json:"y"`
+	W     float64      `json:"w"`
+	H     float64      `json:"h"`
+	Color string       `json:"color"`
+	Pin   penPointWire `json:"pin"`
+	Match penMatchWire `json:"match"`
+}
+
+// penLabels is the rule a labels-only pen carries: the schema 3 requiredLabels
+// in its schema 4 spelling, with the three fields it does not test empty.
+func penLabels(labels ...string) penMatchWire {
+	return penMatchWire{Labels: labels, Status: []string{}, Type: []string{}, Parent: []string{}}
+}
+
 type penRoutingWire struct {
 	Pens      map[string]penWire `json:"pens"`
 	RuleOrder []string           `json:"ruleOrder"`
@@ -51,8 +67,12 @@ type penEnvelopeWire struct {
 
 func apiPenRouting() penRoutingWire {
 	return penRoutingWire{Pens: map[string]penWire{
-		"bugs":   {Title: "Frontend bugs", X: 20, Y: 40, W: 620, H: 420, Color: "#759bcc", Pin: penPointWire{40, 80}, RequiredLabels: []string{"frontend", "bug"}},
-		"urgent": {Title: "Frontend urgent", X: 800, Y: 40, W: 620, H: 420, Color: "#759bcc", Pin: penPointWire{820, 80}, RequiredLabels: []string{"frontend", "urgent"}},
+		"bugs": {Title: "Frontend bugs", X: 20, Y: 40, W: 620, H: 420, Color: "#759bcc", Pin: penPointWire{40, 80}, Match: penLabels("frontend", "bug")},
+		// One pen names all four fields, so the wire carries a whole match
+		// record rather than only the half a schema 3 board could spell.
+		"urgent": {Title: "Frontend urgent", X: 800, Y: 40, W: 620, H: 420, Color: "#759bcc", Pin: penPointWire{820, 80},
+			Match: penMatchWire{Labels: []string{"frontend", "urgent"}, Status: []string{"ready", "blocked"}, Type: []string{"bug"},
+				Parent: []string{"TKT-01M23GK35VA8XWACJ3VBT8QRMH"}}},
 	}, RuleOrder: []string{"bugs", "urgent"}, Inbox: &penPointWire{-400, 20}}
 }
 func penReadBoard(t *testing.T, server *httptest.Server) penBoardWire {
@@ -67,7 +87,7 @@ func penInstall(t *testing.T, server *httptest.Server) penBoardWire {
 	t.Helper()
 	before := penReadBoard(t, server)
 	if before.Inbox == nil || before.Pens == nil || before.RuleOrder == nil {
-		t.Fatal("board response must normalize schema-3 routing before a conditional edit")
+		t.Fatal("board response must normalize routing before a conditional edit")
 	}
 	return decodeResponse[penBoardWire](t, request(t, server, "PUT", "/api/layout", penPutBody(t, apiPenRouting(), before.penRoutingWire), 200))
 }
@@ -81,7 +101,7 @@ func penDisk(t *testing.T, path string) []byte {
 }
 func assertPenRouting(t *testing.T, got penBoardWire, want penRoutingWire) {
 	t.Helper()
-	if got.Schema != 3 || !reflect.DeepEqual(got.penRoutingWire, want) {
+	if got.Schema != 4 || !reflect.DeepEqual(got.penRoutingWire, want) {
 		t.Fatalf("routing response mismatch: got %+v, want %+v", got, want)
 	}
 }
@@ -170,7 +190,7 @@ func TestPenAPIInvalidRoutingRejectsWithoutWrites(t *testing.T) {
 	server := startTestServer(t, st, false)
 	initial := penInstall(t, server)
 	before := penDisk(t, st.Path())
-	for _, variant := range []string{"empty labels", "null labels", "blank labels", "missing order", "duplicate order", "unknown order", "null Inbox", "missing expectation", "partial expectation", "null expectation", "unknown pen field", "null routing", "partial Inbox", "partial pin", "null coordinate", "partial pen expectation", "unknown pin field"} {
+	for _, variant := range []string{"empty labels", "null labels", "blank labels", "empty match", "null match", "unknown match field", "invalid parent", "legacy spelling", "missing order", "duplicate order", "unknown order", "null Inbox", "missing expectation", "partial expectation", "null expectation", "unknown pen field", "null routing", "partial Inbox", "partial pin", "null coordinate", "partial pen expectation", "unknown pin field"} {
 		t.Run(variant, func(t *testing.T) {
 			next := apiPenRouting()
 			var body map[string]any
@@ -194,11 +214,24 @@ func TestPenAPIInvalidRoutingRejectsWithoutWrites(t *testing.T) {
 				expected := body["expect"].(map[string]any)["routing"].(map[string]any)
 				delete(expected["pens"].(map[string]any)["bugs"].(map[string]any), "x")
 			case "empty labels":
-				bugs["requiredLabels"] = []string{}
+				// The rule tested nothing else, so an empty labels list is a
+				// pen that would catch the whole store.
+				bugs["match"].(map[string]any)["labels"] = []string{}
 			case "null labels":
-				bugs["requiredLabels"] = nil
+				bugs["match"].(map[string]any)["labels"] = nil
 			case "blank labels":
-				bugs["requiredLabels"] = []string{" "}
+				bugs["match"].(map[string]any)["labels"] = []string{" "}
+			case "empty match":
+				bugs["match"] = map[string]any{}
+			case "null match":
+				bugs["match"] = nil
+			case "unknown match field":
+				bugs["match"].(map[string]any)["future"] = []string{"x"}
+			case "invalid parent":
+				bugs["match"].(map[string]any)["parent"] = []string{"not-a-ticket-id"}
+			case "legacy spelling":
+				delete(bugs, "match")
+				bugs["requiredLabels"] = []string{"frontend"}
 			case "missing order":
 				routing["ruleOrder"] = []string{"bugs"}
 			case "duplicate order":
@@ -233,12 +266,14 @@ func TestPenAPINormalizesWritesAndAcceptsReturnedPreimage(t *testing.T) {
 	bugs := next.Pens["bugs"]
 	bugs.X = 20.1234
 	bugs.Pin.X = 40.1234
-	bugs.RequiredLabels = []string{"Frontend", "frontend", "frontend", "two words", "comma,label", "unused-label"}
+	bugs.Match = penLabels("Frontend", "frontend", "frontend", "two words", "comma,label", "unused-label")
+	bugs.Match.Status = []string{"ready", "ready"}
 	next.Pens["bugs"] = bugs
 	next.Inbox.X = -400.1234
 	out := decodeResponse[penBoardWire](t, request(t, server, "PUT", "/api/layout", penPutBody(t, next, initial.penRoutingWire), 200))
 	bugs.X, bugs.Pin.X = 20.12, 40.12
-	bugs.RequiredLabels = []string{"Frontend", "frontend", "two words", "comma,label", "unused-label"}
+	bugs.Match = penLabels("Frontend", "frontend", "two words", "comma,label", "unused-label")
+	bugs.Match.Status = []string{"ready"}
 	next.Pens["bugs"] = bugs
 	next.Inbox.X = -400.12
 	assertPenRouting(t, out, next)

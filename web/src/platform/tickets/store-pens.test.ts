@@ -9,7 +9,8 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 function routing(): Routing {
-  const pen = { title: 'Frontend', x: 0, y: 0, w: 500, h: 300, color: '#759bcc', pin: { x: 20, y: 30 }, requiredLabels: ['UI', 'has spaces', 'a,b', 'unused'] }
+  const pen = { title: 'Frontend', x: 0, y: 0, w: 500, h: 300, color: '#759bcc', pin: { x: 20, y: 30 },
+    match: { labels: ['UI', 'has spaces', 'a,b', 'unused'], status: [], type: [], parent: [] } }
   return { pens: { p: pen, q: { ...structuredClone(pen), title: 'Other' } }, ruleOrder: ['q', 'p'], inbox: { x: -500, y: 40 } }
 }
 function data(): BoardResponse {
@@ -17,7 +18,7 @@ function data(): BoardResponse {
     labels: ['UI'], assignees: [], dependencies: [], blocksOn: 'none', references: [], archived: false,
     createdAt: '', updatedAt: '', body: { description: '', plan: '', summary: '', acceptanceCriteria: [], definitionOfDone: [], notes: [], comments: [] },
     readiness: { ready: false, blocked: false } }],
-  layout: { schema: 3, board: 'default', cards: { 'TKT-1': { x: 1, y: 2 } }, frames: {
+  layout: { schema: 4, board: 'default', cards: { 'TKT-1': { x: 1, y: 2 } }, frames: {
     f: { title: 'Frame', x: 0, y: 0, w: 100, h: 100, color: '#759bcc', members: ['TKT-1'] },
   }, ...routing() }, boards: ['default'], storePath: '/repo', readOnly: false,
   config: { statuses: ['draft'], openStatuses: ['draft'], terminalStatuses: [], types: ['task'], priorities: ['normal'], blocksOn: ['none'], labels: [],
@@ -46,7 +47,7 @@ function wireContract() {
 }
 void wireContract
 
-describe('TicketStore schema-3 routing', () => {
+describe('TicketStore routing', () => {
   it.each([1, 2])('normalizes legacy schema %s without writes and resets board-local routing', async schema => {
     const { client, read, store } = setup(), legacy = data()
     legacy.layout = { schema, board: 'default', cards: {} }
@@ -80,25 +81,38 @@ describe('TicketStore schema-3 routing', () => {
   it('loads distinct board-local routing and accepts schema-3 boards with no pens', async () => {
     const { store, read } = setup(); await store.load()
     store.selectBoard('other')
-    const other = data(); other.layout = { schema: 3, board: 'other', cards: {}, frames: {}, ...emptyRouting, inbox: { x: 80, y: 90 } }
+    const other = data(); other.layout = { schema: 4, board: 'other', cards: {}, frames: {}, ...emptyRouting, inbox: { x: 80, y: 90 } }
     read.mockResolvedValueOnce(response(other)); await store.load()
     expect(pick(store.state)).toEqual({ ...emptyRouting, inbox: { x: 80, y: 90 } })
     store.selectBoard('default'); await store.load(); expect(pick(store.state)).toEqual(routing())
   })
+  it('reads a legacy schema-3 response, whose requiredLabels is match.labels', async () => {
+    const { store, read } = setup(), legacy = data()
+    const { match, ...rest } = legacy.layout.pens!.p
+    legacy.layout = { ...legacy.layout, schema: 3, pens: { p: { ...rest, requiredLabels: match.labels } as never } , ruleOrder: ['p'] }
+    read.mockResolvedValueOnce(response(legacy)); await store.load()
+    expect(store.state.pens.p.match).toEqual({ labels: ['UI', 'has spaces', 'a,b', 'unused'], status: [], type: [], parent: [] })
+  })
+  it('refuses match on a schema-3 response, where the rule is spelled requiredLabels', async () => {
+    const { store, read } = setup(), bad = data()
+    bad.layout = { ...bad.layout, schema: 3 }
+    read.mockResolvedValueOnce(response(bad))
+    await expect(store.load()).rejects.toMatchObject({ code: 'invalid_response' })
+  })
   it('preserves Go-valid Unicode format labels and unrounded read geometry', async () => {
     const { store, read } = setup(), next = data()
-    next.layout.pens!.p.requiredLabels = ['\uFEFF', ' 😀 ', 'a\u200Bb']
+    next.layout.pens!.p.match.labels = ['\uFEFF', ' 😀 ', 'a\u200Bb']
     next.layout.pens!.p.pin.x = 12.51234
     read.mockResolvedValueOnce(response(next)); await store.load()
-    expect(store.state.pens.p.requiredLabels).toEqual(['\uFEFF', ' 😀 ', 'a\u200Bb'])
+    expect(store.state.pens.p.match.labels).toEqual(['\uFEFF', ' 😀 ', 'a\u200Bb'])
     expect(store.state.pens.p.pin.x).toBe(12.51234)
   })
   it('deduplicates exact requirements without trimming, splitting, or folding case', async () => {
     const { store, read } = setup(), next = data()
-    next.layout.pens!.p.requiredLabels = ['UI', 'ui', ' a,b ', 'a b', 'UI']
+    next.layout.pens!.p.match.labels = ['UI', 'ui', ' a,b ', 'a b', 'UI']
     read.mockResolvedValueOnce(response(next)); await store.load()
-    expect(store.state.pens.p.requiredLabels).toEqual(['UI', 'ui', ' a,b ', 'a b'])
-    expect(next.layout.pens!.p.requiredLabels).toHaveLength(5)
+    expect(store.state.pens.p.match.labels).toEqual(['UI', 'ui', ' a,b ', 'a b'])
+    expect(next.layout.pens!.p.match.labels).toHaveLength(5)
   })
   it.each(['save', 'frame', 'routing', 'create'] as const)('reconciles routing in %s responses', async path => {
     const { store, client } = setup(); await store.load()
@@ -133,15 +147,22 @@ describe('TicketStore schema-3 routing', () => {
     expect(store.state.frames.f.members).toEqual(layoutError ? ['TKT-1'] : [])
   })
   const invalid = [
-    (b: Board) => { b.schema = 4 },
+    (b: Board) => { b.schema = 5 },
     (b: Board) => { b.schema = 1.5 },
     (b: Board) => { delete b.pens },
     (b: Board) => { delete b.ruleOrder },
     (b: Board) => { b.inbox = null as never },
     (b: Board) => { b.schema = 2 },
-    (b: Board) => { b.pens!.p.requiredLabels = [] },
-    (b: Board) => { b.pens!.p.requiredLabels = [' '] },
-    (b: Board) => { b.pens!.p.requiredLabels = null as never },
+    (b: Board) => { b.pens!.p.match = { labels: [], status: [], type: [], parent: [] } },
+    (b: Board) => { b.pens!.p.match.labels = [' '] },
+    (b: Board) => { b.pens!.p.match.labels = null as never },
+    (b: Board) => { b.pens!.p.match = null as never },
+    (b: Board) => { Object.assign(b.pens!.p.match, { future: ['x'] }) },
+    // The two spellings of one rule, both at once and neither at all.
+    (b: Board) => { Object.assign(b.pens!.p, { requiredLabels: ['UI'] }) },
+    (b: Board) => { delete (b.pens!.p as { match?: unknown }).match },
+    // requiredLabels is the schema 3 spelling; this board says schema 4.
+    (b: Board) => { delete (b.pens!.p as { match?: unknown }).match; Object.assign(b.pens!.p, { requiredLabels: ['UI'] }) },
     (b: Board) => { b.ruleOrder = ['p', 'p'] },
     (b: Board) => { b.ruleOrder = ['p', 'missing'] },
     (b: Board) => { b.ruleOrder = ['p'] },
@@ -214,7 +235,7 @@ describe('Conditional routing writes', () => {
     const send = vi.spyOn(client, 'layout').mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
     const a = store.saveLayout('default', {}), op = { ...transaction(), label: 'client only' }, sent = structuredClone(transaction())
     const b = store.saveRoutingLayout('default', op)
-    op.routing.ruleOrder.reverse(); op.expect.routing.pens.p.pin.x = 999; op.routing.pens.p.requiredLabels.push('later')
+    op.routing.ruleOrder.reverse(); op.expect.routing.pens.p.pin.x = 999; op.routing.pens.p.match.labels.push('later')
     await Promise.resolve(); expect(send).toHaveBeenCalledTimes(1)
     const before = store.state; expect(await store.load()).toBe(false); expect(store.state).toBe(before)
     first.resolve(data().layout); await a; await Promise.resolve()
@@ -289,7 +310,7 @@ describe('Conditional routing writes', () => {
     await expect(store.saveRoutingLayout('default', missing)).rejects.toMatchObject({ code: 'invalid_layout' })
     const partial = transaction(); delete partial.expect.cards['TKT-1']
     await expect(store.saveRoutingLayout('default', partial)).rejects.toMatchObject({ code: 'invalid_layout' })
-    const empty = transaction(); empty.routing.pens.p.requiredLabels = []
+    const empty = transaction(); empty.routing.pens.p.match = { labels: [], status: [], type: [], parent: [] }
     await expect(store.saveRoutingLayout('default', empty)).rejects.toMatchObject({ code: 'invalid_layout' })
     store.state = { ...store.state, readOnly: true }
     await expect(store.saveRoutingLayout('default', transaction())).rejects.toMatchObject({ code: 'read_only' })
