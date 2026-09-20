@@ -19,6 +19,8 @@ import { DisplayDialog } from './DisplayDialog'
 import { useDisplay } from './useDisplay'
 import type { RelationshipMode } from './canvas/Edges'
 import { Inspector } from './Inspector'
+import { PlacementSection } from './Placement'
+import { explain } from '../platform/canvas/resolve'
 import { Composer, type ComposerPosition } from './Composer'
 import { FeedbackMessage, type Feedback } from './Feedback'
 
@@ -564,6 +566,10 @@ export function App() {
     : kind === 'labels' ? { ...current, labelFilters: new Map() }
       : kind === 'statuses' ? { ...current, filters: new Set<string>() }
         : { ...current, query: '' })
+  // The inspector explains the selected card by the same resolver the pen layer
+  // places it with, so the panel cannot disagree with the board.
+  const selectedTicket = snapshot.tickets.get(ui.selected || '') || null
+  const routing = { pens: snapshot.pens ?? {}, ruleOrder: snapshot.ruleOrder ?? [], inbox: snapshot.inbox ?? { x: 0, y: 0 } }
   return <>
     <div id="syncStatus" role="status" class="sync-status" hidden={!syncMessage}
       data-connection={sync.connection} data-stale={sync.stale} data-degraded={sync.degraded}>{syncMessage}</div>
@@ -633,6 +639,9 @@ export function App() {
           {ui.selected && <FrameMembership ticketId={ui.selected} frames={snapshot.frames} readOnly={snapshot.readOnly}
             pending={!!framePreview} onSelectFrame={selectFrame}
             onChange={target => performFrame(setMembership(frameState(), [ui.selected!], target))} />}
+          {selectedTicket && <PlacementSection ticket={selectedTicket} pinned={snapshot.cards[selectedTicket.id] ?? null}
+            explanation={explain(routing, selectedTicket, !!snapshot.cards[selectedTicket.id])} pens={routing.pens} inbox={routing.inbox}
+            readOnly={snapshot.readOnly} pending={!!framePreview} onRelease={id => canvas.current?.release([id])} />}
         </Inspector>
         {ui.composer && <Composer key={ui.composerKey} position={ui.composer} readOnly={snapshot.readOnly}
           onCreate={create} onClose={() => closeComposer(ui.composer)} />}
