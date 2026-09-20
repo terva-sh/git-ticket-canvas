@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M26SQB4JWTW8FPSVHYZKFKCR
 title: Show and author pens in the browser after the CLI
 type: task
-status: draft
+status: archived
 status_reason: null
 priority: normal
 due_on: null
@@ -26,9 +26,12 @@ references:
   - ref: proposal:activation-gate
     path: docs/pen-position-consumers-proposal-v1.md
 claim: null
-archive: null
+archive:
+  archived_at: 2026-09-20T21:31:50Z
+  from_status: draft
+  reason: Split on 2026-09-20 into TKT-01M30BQ1V3AGKTQX2ZHKS8NZN0, TKT-01M30BQ1X0MS52X2DDJ31FKY08 and TKT-01M30BQ1YS6R2VDRN204NJ851S under the same epic, after the pen layer and inbox shipped in v0.5.0
 created_at: 2026-09-10T23:16:24Z
-updated_at: 2026-09-19T08:14:48Z
+updated_at: 2026-09-20T21:31:50Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
@@ -98,3 +101,7 @@ Terva review 28 on PR 13 (head 1a2c8f9a62a9d996828e98376818f956c7c944a5) found t
 **agent:claude/t3code-a6d0ff31** at 2026-09-19T08:10:28Z
 
 Terva review 29 on PR 13 (head ba2a6e7f12ba68767be9677061d961376f6868e3): the dependency on TKT-01M26SPW8XM5Q3M73536W5X0F1 (the opt-in trial) contradicted the adopted sequence. Accepted and removed; this ticket now waits only on TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR (Write board rules from the command line). Whether the trial ticket is archived is still a person's call and no longer gates this one.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T21:31:50Z
+
+archived from draft: Split on 2026-09-20 into TKT-01M30BQ1V3AGKTQX2ZHKS8NZN0, TKT-01M30BQ1X0MS52X2DDJ31FKY08 and TKT-01M30BQ1YS6R2VDRN204NJ851S under the same epic, after the pen layer and inbox shipped in v0.5.0

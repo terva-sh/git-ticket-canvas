@@ -99,3 +99,27 @@ it('offers no control and refuses the key on a read-only canvas', () => {
   expect(save).not.toHaveBeenCalled()
   expect(onError).toHaveBeenCalledWith('read-only')
 })
+
+// The inspector's control names one card rather than the selection, because
+// it is showing one card. Same write, same preview, same refusal path.
+it('releases the named cards from the handle, whatever is selected', () => {
+  const { save, handle } = mount({ selection: new Set(['TKT-B']) })
+  act(() => handle.current!.release(['TKT-A']))
+  expect(save).toHaveBeenCalledWith('default', { 'TKT-A': null })
+})
+
+// A refused removal is a card that stays where it was: the preview that
+// moved it by the rules is withdrawn, the saved position still stands, and
+// the reason reaches the person who pressed the control.
+it('keeps a card pinned and reports the reason when the removal is refused', async () => {
+  const onError = vi.fn()
+  const save = vi.fn().mockRejectedValue(new Error('layout_conflict: the board changed'))
+  const { handle } = mount({ onLayout: save, onError })
+  const before = card('TKT-A').style.transform
+  act(() => handle.current!.release(['TKT-A']))
+  expect(card('TKT-A').classList.contains('unpinned')).toBe(true)
+  await act(async () => { await Promise.resolve(); await Promise.resolve() })
+  expect(card('TKT-A').classList.contains('unpinned')).toBe(false)
+  expect(card('TKT-A').style.transform).toBe(before)
+  expect(onError).toHaveBeenCalledWith('Could not save board default: layout_conflict: the board changed')
+})

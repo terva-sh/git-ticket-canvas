@@ -74,6 +74,9 @@ export interface CanvasHandle {
   fit(): void
   /** Hand every selected card back to automatic placement. */
   releaseSelected(): void
+  /** Hand these cards back, whatever is selected: what the inspector's
+   * control does for the one card it is showing. */
+  release(ids: readonly string[]): void
   /** Put the board back at an exact view. */
   setView(view: View): void
   /** Multiply the magnification, about the centre of the viewport. */
@@ -318,6 +321,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     // has. A board read at compact is exactly the large one somebody most
     // needs to undo a drag on, so the keyboard reaches it too.
     releaseSelected() { releaseCards([...latest.current.selection]) },
+    release(ids: readonly string[]) { releaseCards(ids) },
     // Used to put somebody back where they left a board they are already
     // looking at. Coming back to a board this component was not mounted for
     // goes through initialView instead, which nothing can race.
