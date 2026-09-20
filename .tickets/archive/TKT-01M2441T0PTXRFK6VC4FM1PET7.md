@@ -54,25 +54,25 @@ references:
   - ref: code:pen-wire
     path: web/src/platform/tickets/types.ts
   - ref: code:pen-evaluation
-    path: web/src/platform/canvas/pens.ts
+    path: null
   - ref: code:pen-normalization
     path: web/src/platform/tickets/layout.ts
   - ref: test:pen-store
     path: web/src/platform/tickets/store-pens.test.ts
   - ref: test:pen-evaluation
-    path: web/src/platform/canvas/pens.test.ts
+    path: null
   - ref: evidence:pen-typescript-foundation
     path: docs/pen-typescript-foundation.md
   - ref: spec:pen-placement-snapshot-v1
     path: docs/pen-placement-snapshot-scope-v1.md
   - ref: code:pen-placement
-    path: web/src/platform/canvas/placement.ts
+    path: null
   - ref: test:pen-placement
-    path: web/src/platform/canvas/placement.test.ts
+    path: null
   - ref: code:pen-snapshots
-    path: web/src/platform/canvas/snapshots.ts
+    path: null
   - ref: test:pen-snapshots
-    path: web/src/platform/canvas/snapshots.test.ts
+    path: null
   - ref: evidence:pen-placement-snapshots
     path: docs/pen-placement-snapshots.md
   - ref: spec:pen-measurement-v1
@@ -88,35 +88,35 @@ references:
   - ref: spec:pen-publication-bridge-v1
     path: docs/pen-publication-bridge-scope-v1.md
   - ref: code:pen-publication-bridge
-    path: web/src/platform/canvas/publications.ts
+    path: null
   - ref: test:pen-publication-adapter
-    path: web/src/platform/canvas/publications.test.ts
+    path: null
   - ref: test:pen-publication-app
-    path: web/src/ui/publications.test.tsx
+    path: null
   - ref: evidence:pen-publication-bridge
     path: docs/pen-publication-bridge-implementation.md
   - ref: proposal:pen-position-consumers-v1
     path: docs/pen-position-consumers-proposal-v1.md
   - ref: test:pen-consumer-scene
-    path: web/src/platform/canvas/scene.test.ts
+    path: null
   - ref: test:pen-local-capture
-    path: web/src/platform/canvas/capture.test.ts
+    path: null
   - ref: test:pen-store-capture
-    path: web/src/platform/tickets/store-capture.test.ts
+    path: null
   - ref: test:pen-server-capture
     path: internal/api/capture_test.go
   - ref: evidence:pen-consumer-contracts
     path: docs/pen-consumer-contract-tests.md
   - ref: code:pen-consumer-scene
-    path: web/src/platform/canvas/scene.ts
+    path: null
   - ref: test:pen-scene-regressions
-    path: web/src/platform/canvas/scene-regressions.test.ts
+    path: null
   - ref: evidence:pen-scene-coordinator
     path: docs/pen-scene-coordinator-implementation.md
   - ref: code:pen-local-capture
-    path: web/src/platform/canvas/capture.ts
+    path: null
   - ref: test:pen-capture-regressions
-    path: web/src/platform/canvas/capture-regressions.test.ts
+    path: null
   - ref: evidence:pen-local-capture
     path: docs/pen-local-capture-implementation.md
   - ref: code:server-capture
@@ -126,7 +126,7 @@ references:
   - ref: test:capture-token-regressions
     path: internal/api/capture_token_test.go
   - ref: test:store-capture-regressions
-    path: web/src/platform/tickets/store-capture-regressions.test.ts
+    path: null
   - ref: evidence:capture-transport
     path: docs/pen-capture-transport-implementation.md
   - ref: spec:pen-committed-sampling-v1
@@ -151,7 +151,7 @@ archive:
   from_status: blocked
   reason: Superseded by TKT-01M2ND0S8N5Y8V0HQFRCBKMXE3 under the contract adopted on 2026-09-19; end-to-end criteria never met, so archived rather than done.
 created_at: 2026-09-09T22:19:10Z
-updated_at: 2026-09-19T18:06:22Z
+updated_at: 2026-09-20T18:38:35Z
 created_by:
   id: agent:terva/mieli
   name: Mieli
