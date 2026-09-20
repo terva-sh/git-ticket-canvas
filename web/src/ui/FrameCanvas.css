@@ -30,3 +30,18 @@ html[data-targets="coarse"] .canvas-frame-resize { width: 40px; height: 40px; bo
   #stage:has(#framePanel.open) #frameHistory { max-width: 95%; top: 4px; left: 4px; }
   #frameDrawHint { max-width: calc(100% - 24px); font-size: 11px; }
 }
+
+/* Pens are drawn like frames and are not draggable: a rule is edited as
+   text, through git ticket canvas, not by hand. The layer sits under the
+   frames so a frame drawn over a pen still reads as the thing on top. */
+#penLayer { position: absolute; top: 0; left: 0; }
+.canvas-pen { position: absolute; top: 0; left: 0; border: 2px solid var(--pen-color); border-radius: 10px; background: color-mix(in srgb, var(--pen-color) 5%, transparent); pointer-events: none; }
+/* A pen that grew past its authored height says so with a dashed lower half:
+   the board is asking for a bigger pen, not hiding a card. */
+.canvas-pen.overflow { border-bottom-style: dashed; }
+.canvas-pen .canvas-pen-title, .canvas-inbox .canvas-pen-title { position: absolute; top: -18px; left: 10px; max-width: calc(100% - 20px); background: var(--panel); color: var(--ink); border: 1px solid var(--pen-color, var(--line)); border-radius: 5px; padding: 5px 9px; pointer-events: none; font: 12px/1.4 var(--sans); white-space: nowrap; }
+.canvas-pen-order { color: var(--ink-dim); font-family: var(--mono); margin-right: 4px; }
+.canvas-pen-count { color: var(--ink-dim); margin-left: 6px; }
+.canvas-inbox { position: absolute; top: 0; left: 0; width: var(--card-w); height: 0; border-top: 2px dashed var(--ink-faint); pointer-events: none; }
+/* An unhoused card is the board's open question, so it is drawn as one. */
+.card.unhoused { border-style: dashed; border-color: var(--ink-faint); }

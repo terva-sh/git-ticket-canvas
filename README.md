@@ -209,11 +209,21 @@ boards and private boards are the same feature with a different gitignore.
 
 ### Pinned vs unpinned
 
-A ticket filed from the CLI has no card. It gets an auto-placed position in
-status lanes, drawn with a dashed border, and **that guess is never written**.
-Dragging it is what pins it. Otherwise every `git-ticket create` would churn
-the layout file and claim a placement nobody chose. Press `u` on a selection to
-hand it back to automatic placement, which removes its line from the file.
+A ticket filed from the CLI has no card. It gets an automatic position, and
+**that guess is never written**. Dragging it is what pins it. Otherwise every
+`git-ticket create` would churn the layout file and claim a placement nobody
+chose. Press `u` on a selection to hand it back to automatic placement, which
+removes its line from the file.
+
+Where an automatic card goes depends on whether the board has rules. A board
+with no pens places every automatic card in status lanes, sorted by ID. A board
+with pens places it by the first pen in `ruleOrder` whose `requiredLabels` it
+carries, packed inside the pen by status, then priority, then ID; a card no pen
+matches waits at the `inbox` point, drawn with a dashed border and labelled
+**Unhoused**, because it is a question for whoever wrote the rules. A pen whose
+cards do not fit grows downward and says so on its title. `git ticket canvas
+explain ID` answers where a card went and which rules it beat or missed, with
+no canvas running. Rules are written as text; see the git-ticket README.
 
 ### Frames
 
@@ -347,8 +357,8 @@ transitions need a reason and prompts for one.
 
 The toolbar also switches boards and creates one, filters by text, status
 chips, and label chips with a match mode, chooses which relationships to draw
-and how dense the cards are, creates frames, lays every unpinned card out in
-status lanes with **Arrange**, and zooms or fits.
+and how dense the cards are, creates frames, pins every card where the rules
+or the lanes would put it with **Arrange**, and zooms or fits.
 
 Solid arrows are dependencies (gating), faint dashed lines are parent edges
 (grouping) — different meanings, so an epic never looks like a blocker.
@@ -368,12 +378,11 @@ Solid arrows are dependencies (gating), faint dashed lines are parent edges
 - The layout schema carries `w` and `collapsed` on a card, and the API accepts
   and preserves them, but no shipped control sets either. `z` is read for
   stacking.
-- The layout schema also carries routing: pens with required labels, a rule
-  order, and an inbox pin. The API validates them and `web/src/platform/canvas`
-  evaluates them, but the shipped canvas does not wire that evaluation into
-  placement, so automatic cards still land in status lanes and nothing authors
-  a pen. TKT-01M2441T0PTXRFK6VC4FM1PET7 (Route automatic tickets to
-  label-matching canvas pens) is where that lands.
+- Pens are drawn and place cards, but nothing in the canvas authors one: a
+  rule is written to the layout file by hand or by `git ticket canvas`, whose
+  write commands are TKT-01M2ND1RMSJ1KAEZM7HZX5DEHR (Write board rules from
+  the command line). A pen's rule is a label conjunction; the wider `match`
+  record is TKT-01M2Y91C17YTE0W0P3RBHTF50Y.
 - Cross-branch reads (`Filter.CrossBranch`) are not surfaced; the canvas shows
   the working tree.
 

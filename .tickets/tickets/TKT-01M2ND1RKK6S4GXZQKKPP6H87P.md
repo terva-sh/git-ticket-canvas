@@ -28,7 +28,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T15:23:31Z
-updated_at: 2026-09-20T02:07:58Z
+updated_at: 2026-09-20T02:12:53Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -58,12 +58,12 @@ Two things that must hold. An unmatched card lands in the inbox and looks unhous
 
 ## Acceptance criteria
 
-- [ ] An unpinned card is placed by the first pen in ruleOrder whose match it satisfies
-- [ ] A pinned card keeps its saved position regardless of any rule
-- [ ] A card matching no pen lands at the inbox and is visibly unhoused
-- [ ] A board with no pens places cards exactly as it does today
-- [ ] A pen whose cards do not fit grows rather than clipping or overlapping, and explain says so
-- [ ] Filing a ticket inserts into a pen without reshuffling the cards already in it
+- [x] An unpinned card is placed by the first pen in ruleOrder whose match it satisfies
+- [x] A pinned card keeps its saved position regardless of any rule
+- [x] A card matching no pen lands at the inbox and is visibly unhoused
+- [x] A board with no pens places cards exactly as it does today
+- [x] A pen whose cards do not fit grows rather than clipping or overlapping, and explain says so
+- [x] Filing a ticket inserts into a pen without reshuffling the cards already in it
 
 ## Implementation plan
 
@@ -80,3 +80,7 @@ Docs: README-git-ticket-canvas.md and docs/README.md say a board with pens place
 **agent:claude/t3code-a6d0ff31** at 2026-09-20T02:07:05Z
 
 Planned on 2026-09-20 with two decisions from the maintainer. Engine: a new pure resolve, per the design's 'placement is one function', not the archived trial's allocator, which ranks by specificity and contradicts first-match; the trial's removal is TKT-01M2Y91C31J34Q6DCSDN2QH6DD. Scope: schema 4's match record is split out as TKT-01M2Y91C17YTE0W0P3RBHTF50Y, so this ticket routes on requiredLabels, the rule git ticket canvas explain already resolves; the AC 'Schema 3 requiredLabels opens and reads as match.labels' moved with it. Facts that shaped the plan: nothing draws pens on the board today; autoPlace places on a fixed row pitch with no measured heights, and the resolver will too, so switching density leaves cards where they are.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T02:12:53Z
+
+Built. web/src/platform/canvas/resolve.ts is the one placement function; Canvas.tsx calls it from positions() and arrange(), draws a pen layer under the frames with each pen at the height its cards needed and an inbox marker, and CardView marks an automatic card the inbox caught as Unhoused. Packing order within a pen: status index, then the more urgent first, then ID; urgent first is a judgment, the design fixes only the keys. Frame previews do not carry routing, so the Canvas reads pens, ruleOrder and inbox from the snapshot rather than the previewed state. just check passes; 612 web tests including resolve.test.ts and canvas-pens.test.tsx. Two ACs rest on the CLI: explain's 'grows and says so' is the pen title on the board, and the CLI's explain still says routing is not applied until git-ticket flips the flag, which is the follow-on named in the plan.

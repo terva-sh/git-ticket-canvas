@@ -1,10 +1,11 @@
 import type { ComponentChildren } from 'preact'
 import { forwardRef } from 'preact/compat'
 import { useCallback, useImperativeHandle, useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { autoPlace, cardWidthFor, DEFAULT_ZOOM, fitView, posOf, toScene, zoomAt, zoomTo } from '../platform/canvas/geometry'
+import { cardWidthFor, DEFAULT_ZOOM, fitView, posOf, toScene, zoomAt, zoomTo } from '../platform/canvas/geometry'
+import { resolveBoard } from '../platform/canvas/resolve'
 import { captureMembers } from '../platform/canvas/frames'
 import type { Density, Point, View } from '../platform/canvas/geometry'
-import type { Card, CardChanges, Cards, Frame, Frames, Ticket } from '../platform/tickets/types'
+import type { Card, CardChanges, Cards, Frame, Frames, Pens, Ticket } from '../platform/tickets/types'
 import './FrameCanvas.css'
 import { matchesTicket } from '../platform/tickets/filters'
 import type { LabelFilters, LabelMatch } from '../platform/tickets/filters'
@@ -41,6 +42,13 @@ export interface CanvasProps {
   onFrameMove?: (id: string, before: Frame, dx: number, dy: number, positions: ReadonlyMap<string, Point>, cards: Cards) => Promise<unknown>
   onFrameResize?: (id: string, before: Frame, next: Frame) => Promise<unknown>
   statuses: readonly string[]
+  /** The board's rules, from the layout file. A board with no pens, or a
+   * caller that passes none, places cards in status lanes as it always has. */
+  pens?: Pens
+  ruleOrder?: readonly string[]
+  inbox?: Point
+  /** The store's priority order, least urgent first, for packing a pen. */
+  priorities?: readonly string[]
   selection: ReadonlySet<string>
   relationships?: import('./canvas/Edges').RelationshipMode
   /** How much of a card to show. Defaults to the full presentation. */
@@ -177,6 +185,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     if (request) probe.sample(request, source, ready)
   })
 
+  /** The rules as the resolver reads them. Empty when the caller passed none. */
+  const routing = (p: CanvasProps) => ({ pens: p.pens ?? {}, ruleOrder: p.ruleOrder ?? [], inbox: p.inbox ?? { x: 0, y: 0 } })
+
   function positions(): Map<string, Placement> {
     placementCalculations.current++
     const p = latest.current
@@ -188,11 +199,15 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       if (card) pinned[id] = card
       else delete pinned[id]
     }
-    const automatic = autoPlace(p.tickets.values(), pinned, p.statuses)
+    const resolved = resolveBoard(p.tickets.values(), routing(p), pinned, p.statuses, p.priorities)
+    const automatic = resolved.positions
     const result = new Map<string, Placement>()
     for (const id of p.tickets.keys()) {
       const frozen = local.gesture?.positions.get(id)
-      const placement = frozen ?? { ...posOf(id, pinned, automatic), pinned: !!pinned[id], z: pinned[id]?.z || 1 }
+      // Unhoused is a fact about an automatic card the rules could not place;
+      // a pinned card is where somebody put it, whatever the rules say.
+      const unhoused = !pinned[id] && resolved.explanations.get(id)?.destination.kind === 'inbox'
+      const placement = frozen ?? { ...posOf(id, pinned, automatic), pinned: !!pinned[id], z: pinned[id]?.z || 1, unhoused }
       const gesture = local.gesture
       if (gesture?.kind === 'card' && gesture.moved && !gesture.readOnly && gesture.ids.includes(id)) {
         result.set(id, { ...placement, x: placement.x + gesture.delta.x, y: placement.y + gesture.delta.y })
@@ -392,7 +407,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       if (latest.current.readOnly || latest.current.layoutBusy) return
       cancel()
       // Confirmation belongs to the toolbar's parent, not the canvas.
-      save(Object.fromEntries(autoPlace(latest.current.tickets.values(), {}, latest.current.statuses)))
+      const p = latest.current
+      save(Object.fromEntries(resolveBoard(p.tickets.values(), routing(p), {}, p.statuses, p.priorities).positions))
       fit()
     },
     composeCentre() {
@@ -606,6 +622,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   }, [view, measurements.viewportRevision])
 
   const placed = positions()
+  // The pens' extents for the layer below; the same call positions() made,
+  // without the previews, because a pen's outline follows the accepted board.
+  const ruled = resolveBoard(props.tickets.values(), routing(props), props.cards, props.statuses, props.priorities)
   // The same predicate the toolbar counts with, so a dimmed card and the count
   // can never disagree about what the filters mean.
   const matching = new Set([...props.tickets.values()].filter(ticket => matchesTicket(ticket,
@@ -626,6 +645,22 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     <canvas id="grid" ref={grid} />
     <div id="scene" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})`,
       '--card-w': `${cardWidth}px` }}>
+      {ruled.ruled && <div id="penLayer">{(props.ruleOrder ?? []).map((id, order) => {
+        const pen = props.pens?.[id], extent = ruled.pens.get(id)
+        if (!pen || !extent) return null
+        // Drawn at the height the cards needed, so an overfull pen grows
+        // downward and shows it rather than clipping or hiding a card.
+        return <div key={id} class={`canvas-pen ${extent.overflow ? 'overflow' : ''}`} data-pen-id={id} data-pen-count={extent.count}
+          style={{ transform: `translate(${pen.x}px, ${pen.y}px)`, width: `${pen.w}px`, height: `${extent.height}px`, '--pen-color': pen.color }}>
+          <div class="canvas-pen-title"><span class="canvas-pen-order">{order + 1}</span> {pen.title}
+            <span class="canvas-pen-count">{extent.count}{extent.overflow ? ', grown to fit' : ''}</span></div>
+        </div>
+      })}
+        <div class="canvas-inbox" data-inbox-count={ruled.inbox}
+          style={{ transform: `translate(${(props.inbox ?? { x: 0 }).x}px, ${(props.inbox ?? { y: 0 }).y}px)` }}>
+          <div class="canvas-pen-title">Inbox <span class="canvas-pen-count">{ruled.inbox}{ruled.inbox ? ', matched no rule' : ''}</span></div>
+        </div>
+      </div>}
       <div id="frameLayer">{Object.entries(props.frames || {}).map(([id, accepted]) => {
         const frame = (gesture?.kind === 'frame-move' || gesture?.kind === 'frame-resize') && gesture.id === id ? gesture.next : accepted
         const dimmed = frame.members.filter(member => props.tickets.has(member) && !matching.has(member)).length
@@ -646,7 +681,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
         mode={props.relationships} selection={props.selection} cardWidth={cardWidth} />
       <div id="cards">{[...props.tickets.values()].map(ticket => {
         const point = placed.get(ticket.id)!
-        return <CardView key={ticket.id} ticket={ticket} x={point.x} y={point.y} z={point.z} pinned={point.pinned}
+        return <CardView key={ticket.id} ticket={ticket} x={point.x} y={point.y} z={point.z} pinned={point.pinned} unhoused={!!point.unhoused}
           selected={props.selection.has(ticket.id)} dimmed={!matching.has(ticket.id)}
           frameTitle={Object.values(props.frames || {}).find(frame => frame.members.includes(ticket.id))?.title}
           frameMember={!!props.selectedFrame && !!props.frames?.[props.selectedFrame]?.members.includes(ticket.id)}
