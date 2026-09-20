@@ -28,7 +28,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T15:23:31Z
-updated_at: 2026-09-20T02:07:05Z
+updated_at: 2026-09-20T02:07:58Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -64,6 +64,16 @@ Two things that must hold. An unmatched card lands in the inbox and looks unhous
 - [ ] A board with no pens places cards exactly as it does today
 - [ ] A pen whose cards do not fit grows rather than clipping or overlapping, and explain says so
 - [ ] Filing a ticket inserts into a pen without reshuffling the cards already in it
+
+## Implementation plan
+
+One pure function, web/src/platform/canvas/resolve.ts: resolveBoard(tickets, routing, pinned, statuses, priorities) returns positions for every unpinned card, an explanation per card (pen id or inbox, and the candidates it beat or missed), and each pen's grown height. A board with no pens returns autoPlace's answer unchanged, so an unorganized store is untouched. Otherwise: a pinned card is skipped; the first pen in ruleOrder whose requiredLabels the ticket all carries takes it; the inbox takes the rest. Within a pen, cards sort by status index, then priority index, then ID, and pack row-major on the same LANE_W, LANE_GAP and ROW_PITCH autoPlace uses, from the pen's top-left inset by the gap, as many columns as the pen's width holds. Row-major so that a pen too small for its cards grows downward, and the resolver reports the height it needed; the canvas draws the pen at that height and marks it overflowing. The inbox packs one column downward from its point. No measured heights, as autoPlace, so a density switch leaves every automatic card where it is.
+
+Canvas.tsx: positions() calls resolveBoard instead of autoPlace; arrange() pins what the resolver answers. A new pen layer draws each pen like a frame, read-only, with its title and its grown outline, and an inbox marker at the inbox point when the board has pens. CardView gains an unhoused flag, set for an automatic card the inbox caught, and the stylesheet gives it a dashed border and the placement label reads Unhoused. Props: pens, ruleOrder, inbox from the store state that already carries them, and priorities from config.
+
+Tests: resolve.test.ts holds each acceptance criterion against numbers; a Canvas render test shows a pen drawn and an unhoused card marked; the no-pen case asserts equality with autoPlace on a board of mixed statuses.
+
+Docs: README-git-ticket-canvas.md and docs/README.md say a board with pens places cards by rule and points at git ticket canvas explain. Follow-on in git-ticket, not here: flip the applied flag and the 'not applied' wording in canvas explain once the canvas release that reads rules ships, and release it.
 
 ## Notes
 
