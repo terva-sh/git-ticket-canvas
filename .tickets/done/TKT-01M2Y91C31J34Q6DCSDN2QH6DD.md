@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2Y91C31J34Q6DCSDN2QH6DD
 title: Remove the opt-in pen placement trial engine
 type: task
-status: in-progress
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -18,17 +18,10 @@ dependencies:
   - TKT-01M2ND1RKK6S4GXZQKKPP6H87P
 blocks_on: none
 references: []
-claim:
-  actor: agent:claude/t3code-a6d0ff31
-  branch: t3code/board-rules
-  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-a6d0ff31
-  commit: 9a4ca246150ab480fc659b45b42e0e355f3887d2
-  session: null
-  claimed_at: 2026-09-20T18:30:08Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-20T02:06:34Z
-updated_at: 2026-09-20T18:36:55Z
+updated_at: 2026-09-20T18:40:26Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -44,9 +37,9 @@ web/src/platform/canvas/placement.ts, pens.ts, snapshots.ts, publications.ts, th
 
 ## Acceptance criteria
 
-- [ ] No module in web/src resolves a pen by specificity
-- [ ] The PublicationBridge and committed sampling props are gone from App and Canvas
-- [ ] The web test suite and just ci pass with the trial removed
+- [x] No module in web/src resolves a pen by specificity
+- [x] The PublicationBridge and committed sampling props are gone from App and Canvas
+- [x] The web test suite and just ci pass with the trial removed
 
 ## Implementation plan
 
@@ -61,3 +54,25 @@ Web-side capture transport went too, because the sampling probe was its only rea
 Kept on purpose. resolve.ts and frames.ts are the live path. useMeasurements keeps heights, elements, register, sizes and viewportRevision, which Canvas uses for real card heights, edge anchors and frame capture; only sample, sampleCards and the per-registration incarnation went, with the CardView incarnation prop that fed them. The publications counter and the data-store-publications attribute on App stay: they count store publications for the refresh diagnostics, not bridge publications, and tests/browser/refresh-regressions.spec.ts asserts on that attribute. The Go server capture handling in internal/api stays untouched, as the ticket says.
 
 Gate: npm run typecheck, npm run test:unit, then just check (this justfile has no ci recipe), with web/dist rebuilt and committed on its own so verify-dist parity holds.
+
+## Notes
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T18:40:26Z
+
+What the next person needs to know about this removal.
+
+The Go server keeps its capture handling. internal/api/capture.go, snapshot.go, capture_test.go and capture_token_test.go are untouched, and server.go still issues a captureToken and still accepts a capture precondition on a layout write. The web side no longer reads or sends either, so that code is now unreached from this client. Deciding its fate is separate work and is not done here.
+
+Deliberately kept. web/src/platform/canvas/resolve.ts and frames.ts are the live path. useMeasurements keeps heights, elements, register, sizes and viewportRevision: Canvas reads elements and heights for real card heights, the edge layer anchors on them, and the sizes publication is what rerenders the canvas when a card changes height. Only sample, sampleCards and the per-registration incarnation went. The publications counter and the data-store-publications attribute on App stay, because they count store publications for the refresh diagnostics rather than bridge publications, and tests/browser/refresh-regressions.spec.ts asserts on that attribute. The pen documents under docs/, including pen-position-consumers-proposal-v1.md, are untouched.
+
+Two archived tickets recorded references to files this ticket deleted, which made git ticket check --strict fail with 20 reference_path_unresolved warnings. The paths on those 20 references were cleared to null on TKT-01M2441T0PTXRFK6VC4FM1PET7 and TKT-01M26SPJGBWT2B3QP0NE7CRQQT. The reference names stay, which is what those tickets already did for other refs with no path, so the record of what that work produced survives.
+
+There is no just ci recipe in this justfile. The gate that exists is just check, which runs web-build, web-test, tooling-test, fmt-check, vet, test and tickets-check. It was run on the committed tree and exited 0, as did just dist-verify.
+
+docs/readability-v1.md had one paragraph describing the collision-search allocator as the pen placement path; it now describes resolveBoard. Its Verification section still says five opt-in measurement tests were skipped, which is a dated record of a run on 2026-09-10 and was left as written.
+
+## Summary
+
+The opt-in placement trial is gone from web/src. Removed placement.ts, pens.ts, snapshots.ts, publications.ts, capture.ts and scene.ts with their eight tests, the committedSampling, controlMeasurements and SampledFrame modules with theirs, ui/publications.test.tsx, and the two store-capture test files. App and Canvas no longer carry the PublicationBridge or committed sampling props, and no module in web/src resolves a pen by specificity: resolveBoard, which takes the first match in ruleOrder, is the only route to placement. The web side of the capture transport went with the probe that was its only reader, while the server keeps its own, which a note records as follow-up work.
+
+Verified on the committed tree: just dist-verify exited 0 with the locked rebuild matching HEAD byte for byte, and just check exited 0 with 423 vitest tests in 36 files, 78 tooling tests, Go vet and race tests, and a clean ticket store. This justfile has no ci recipe; just check is its gate.
