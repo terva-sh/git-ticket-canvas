@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-20T02:22:42Z
-updated_at: 2026-09-20T18:48:13Z
+updated_at: 2026-09-20T19:39:56Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -51,3 +51,9 @@ The Terva review of canvas PR 16 failed with context_limit before reading a line
 **agent:claude/t3code-a6d0ff31** at 2026-09-20T18:48:13Z
 
 First live use of the input, on canvas PR 18 from the branch's own workflow: the run's checkout step fetched 7de7990570c5, the exclude-paths head of the action's PR 13, and the review step still ended at context_limit, because that PR deletes 260 KB of source with the bundle already out. So the input is wired and reached the action, and the case that proves it end to end is a PR that changes source and rebuilds the bundle, which the match record's canvas half will be. The workflow pin moves to PR 13's merge commit when it lands.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T19:39:56Z
+
+The workflow pin moved from 7de7990570c5, the exclude-paths head of the action's PR 13, to 3dab5f86e2a4c31628e81729bfbd2166fd7613c8, where that PR merged on terva-sh/terva-action-code-review. exclude-paths: web/dist/** is unchanged beside it.
+
+The criteria stay unticked on purpose. The proof is a PR that changes source and rebuilds the bundle getting a review of its source, and that PR is the one this branch becomes: it carries the match record's canvas half, roughly 400 lines of source, with web/dist rebuilt in its own commit. Tick both when Terva reviews it: the first when a review lands and reads source rather than ending at context_limit, the second because the same branch keeps the parity gate green, which just check and scripts/verify-dist.mjs already show locally.
