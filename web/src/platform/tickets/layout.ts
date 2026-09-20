@@ -43,6 +43,8 @@ function values(rule: Record<string, unknown>, name: string): string[] {
  * was, so a legacy response routes exactly as it did. A pen carrying both
  * spellings, or neither, is two readings of one rule or none at all, and the
  * backend refuses each; so does this, per git-ticket layout/pens.go. */
+const TICKET_ID = /^[A-Z][A-Z0-9]{1,7}-[0-9A-HJKMNP-TV-Z]{26}$/
+
 function match(pen: Record<string, unknown>, schema: number): Match {
   const wide = Object.hasOwn(pen, 'match'), legacy = Object.hasOwn(pen, 'requiredLabels')
   if (wide === legacy) throw new Error('A pen carries exactly one of match and requiredLabels')
@@ -53,7 +55,14 @@ function match(pen: Record<string, unknown>, schema: number): Match {
     : (() => {
       const m = record(pen.match, 'match')
       fields(m, [], ['labels', 'status', 'type', 'parent'])
-      return { labels: values(m, 'labels'), status: values(m, 'status'), type: values(m, 'type'), parent: values(m, 'parent') }
+      const parent = values(m, 'parent')
+      // A parent is a ticket ID, the grammar of git-ticket plan 5.6: a series
+      // of two to eight uppercase letters and digits, a hyphen, and 26
+      // characters of Crockford base32. The backend refuses anything else,
+      // and a response that carried one would route by a rule no ticket can
+      // satisfy, so this refuses it too rather than accepting it silently.
+      if (!parent.every(id => TICKET_ID.test(id))) throw new Error('Pen match parent values must be ticket IDs')
+      return { labels: values(m, 'labels'), status: values(m, 'status'), type: values(m, 'type'), parent }
     })()
   if (!rule.labels.length && !rule.status.length && !rule.type.length && !rule.parent.length) {
     throw new Error('Pen rules require a nonempty rule: labels, status, type or parent')

@@ -20,9 +20,9 @@ describe('normalizeRouting', () => {
   })
 
   it('reads all four fields and deduplicates each without trimming or folding case', () => {
-    const match = { labels: ['ui', 'UI', 'ui'], status: ['ready', 'blocked'], type: ['bug'], parent: ['TKT-1', 'TKT-1'] }
+    const match = { labels: ['ui', 'UI', 'ui'], status: ['ready', 'blocked'], type: ['bug'], parent: ['TKT-01K3ZZ2JH000GHB4EE6SNRE6MD', 'TKT-01K3ZZ2JH000GHB4EE6SNRE6MD'] }
     const routing = normalizeRouting({ pens: { p: wide({ match }) }, ruleOrder: ['p'], inbox: { x: 0, y: 0 } })
-    expect(routing.pens.p.match).toEqual({ labels: ['ui', 'UI'], status: ['ready', 'blocked'], type: ['bug'], parent: ['TKT-1'] })
+    expect(routing.pens.p.match).toEqual({ labels: ['ui', 'UI'], status: ['ready', 'blocked'], type: ['bug'], parent: ['TKT-01K3ZZ2JH000GHB4EE6SNRE6MD'] })
   })
 
   it('reads a schema 3 requiredLabels as match.labels', () => {
@@ -42,6 +42,8 @@ describe('normalizeRouting', () => {
     ['a blank value', SCHEMA, wide({ match: { status: [' '] } })],
     ['a field that is not a list', SCHEMA, wide({ match: { type: 'bug' } })],
     ['an unknown match field', SCHEMA, wide({ match: { labels: ['ui'], future: ['x'] } })],
+    ['a parent that is not a ticket ID', SCHEMA, wide({ match: { parent: ['not-a-ticket-id'] } })],
+    ['a parent with a lowercase series', SCHEMA, wide({ match: { parent: ['tkt-01K3ZZ2JH000GHB4EE6SNRE6MD'] } })],
   ])('refuses %s', (_name, schema, pen) => {
     expect(() => normalizeRouting({ pens: { p: pen }, ruleOrder: ['p'], inbox: { x: 0, y: 0 } }, schema)).toThrow()
   })

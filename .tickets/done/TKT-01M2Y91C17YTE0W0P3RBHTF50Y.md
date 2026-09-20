@@ -21,7 +21,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-20T02:06:34Z
-updated_at: 2026-09-20T19:39:56Z
+updated_at: 2026-09-20T19:44:18Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -67,6 +67,10 @@ The two resolvers are held together by inspection and by mirrored tests, not by 
 Nothing in the canvas prints a pen's rule today. The pen layer draws the title, the order number and the count, so widening what a rule can say added no rendering, and a control that shows or edits a match is still unwritten work.
 
 `git ticket canvas explain` is git-ticket's command, not this repository's, so criterion four is ticked on the v0.23.0 release: layout.Candidate carries Failed, and plan 10.10 publishes it in the canvas-explain envelope.
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T19:44:18Z
+
+Terva review 59 reviewed ddeb1e45dd66: one medium finding, accepted. The normaliser took any non-blank string as a parent match value where the backend refuses anything but a ticket ID; it now holds parent values to the ID grammar of git-ticket plan 5.6 and refuses the rest as invalid_response, with two cases in the invalid table.
 
 ## Summary
 
