@@ -4,7 +4,7 @@ import type { Ticket } from '../../platform/tickets/types'
 
 export { CARD_WIDTH }
 export type RelationshipMode = 'all' | 'selected' | 'none'
-export interface Placement extends Point { pinned: boolean; z: number }
+export interface Placement extends Point { pinned: boolean; z: number; /** An automatic card no rule caught. */ unhoused?: boolean }
 interface Box extends Point { height: number }
 
 /** The width is the active density's, not `CARD_WIDTH`. Every anchor here sits

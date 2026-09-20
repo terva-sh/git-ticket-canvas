@@ -9,6 +9,9 @@ interface CardViewProps {
   y: number
   z: number
   pinned: boolean
+  /** An automatic card the board's rules could not place, sitting at the
+   * inbox. A question for whoever wrote the rules, so it must look like one. */
+  unhoused?: boolean
   selected: boolean
   dimmed: boolean
   target: boolean
@@ -25,7 +28,7 @@ interface CardViewProps {
 }
 
 // Memoization keeps metadata out of the per-frame pan and link updates.
-export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, selected, dimmed, target, frameTitle, frameMember, density = 'full', incarnation, onRelease, register }: CardViewProps) {
+export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, unhoused = false, selected, dimmed, target, frameTitle, frameMember, density = 'full', incarnation, onRelease, register }: CardViewProps) {
   const compact = density === 'compact'
   const element = useRef<HTMLDivElement>(null)
   // Refresh regression diagnostic; unlike DOM mutation counts this sees renders.
@@ -58,7 +61,7 @@ export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, sel
   const startable = !settled && !blocked && !!t.readiness?.ready
   // A claim is advisory and reserves nothing, so an expired one is not a claim.
   const heldBy = !settled && t.claim && !t.claim.expired ? t.claim.actor : ''
-  const classes = ['card', compact && 'compact', !pinned && 'unpinned', selected && 'selected', dimmed && 'dimmed',
+  const classes = ['card', compact && 'compact', !pinned && 'unpinned', unhoused && 'unhoused', selected && 'selected', dimmed && 'dimmed',
     frameMember && 'frame-member', target && 'link-target', t.status === 'done' && 'done', t.status === 'archived' && 'archived',
     blocked && 'blocked-card', startable && 'startable', heldBy && 'claimed'].filter(Boolean).join(' ')
   return <div ref={element} class={classes} data-id={t.id} data-render-count={renders.current}
@@ -103,7 +106,7 @@ export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, sel
           title="Placed by hand. Press to hand it back to automatic placement."
           aria-label={`Hand ${t.short || t.id} back to automatic placement`}
           onClick={() => onRelease(t.id)}>Manual</button>
-        : <span class="card-placement">{pinned ? 'Manual' : 'Automatic'}</span>}</div>}
+        : <span class="card-placement" title={unhoused ? 'No rule on this board matches it, so it waits at the inbox.' : undefined}>{pinned ? 'Manual' : unhoused ? 'Unhoused' : 'Automatic'}</span>}</div>}
     <div class="handle" title="Drag to another card to make that ticket depend on this one" />
   </div>
 })

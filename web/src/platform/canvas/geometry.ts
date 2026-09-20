@@ -55,8 +55,8 @@ export type Density = 'full' | 'compact';
 export function cardWidthFor(density: Density): number {
   return density === 'compact' ? COMPACT_CARD_WIDTH : CARD_WIDTH;
 }
-const LANE_W = 300;
-const LANE_GAP = 22;
+export const LANE_W = 300;
+export const LANE_GAP = 22;
 
 /**
  * What a status with no tickets occupies, against the 322 px an occupied lane
@@ -88,7 +88,7 @@ const EMPTY_LANE_GAP = 80;
  * check in `canvas-arrange.spec.ts` is what stands between that and a board
  * nobody can read, and it first fires at a pitch of 230 on this board.
  */
-const ROW_PITCH = 269;
+export const ROW_PITCH = 269;
 
 /**
  * How deep one column of a status lane goes before the next ticket starts a

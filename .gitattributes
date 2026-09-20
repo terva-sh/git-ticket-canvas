@@ -1,2 +1,9 @@
 .tickets/**/*.md text eol=lf
 .tickets/**/*.md merge=gitticket
+# Built output, committed so the Go binary can embed it and verified against
+# the source by scripts/verify-dist.mjs. Nobody reads a minified diff, so git
+# reports these as binary in a local diff or log. Forgejo does not honour this
+# in the diff it serves for a pull request, because a bare repository reads no
+# attributes, so a PR that rebuilds the bundle still carries it; see
+# TKT-01M2Y9YXMRRAD5GP0953VY9AKC (Keep the built bundle out of what a PR review reads).
+web/dist/** -diff

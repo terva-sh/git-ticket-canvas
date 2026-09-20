@@ -633,7 +633,8 @@ export function App({ publicationBridge, samplingProbe }: RenderableProps<{ publ
       publicationReady={() => mounted.current && !busy.current && !frameRequest.current && published.current === store.state}
       frames={displayed.frames} selectedFrame={frameUI.selected} frameCreating={!!frameUI.draft} layoutBusy={!!framePreview}
       onSelectFrame={selectFrame} onNewFrame={newFrameDraft} onFrameMove={frameMove} onFrameResize={frameResize}
-      statuses={snapshot.config?.statuses || []} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters} labelMatch={ui.labelMatch}
+      statuses={snapshot.config?.statuses || []} priorities={snapshot.config?.priorities || []}
+      pens={snapshot.pens} ruleOrder={snapshot.ruleOrder} inbox={snapshot.inbox} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters} labelMatch={ui.labelMatch}
       onView={viewChanged}
       relationships={relationships} density={density} fitFloor={display.floor} inspector={display.settings.inspector} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>
