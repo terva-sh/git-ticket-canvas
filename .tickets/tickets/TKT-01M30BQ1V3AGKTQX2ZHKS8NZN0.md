@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M30BQ1V3AGKTQX2ZHKS8NZN0
 title: Explain a card's placement in the inspector and return it to automatic
 type: task
-status: draft
+status: in-progress
 status_reason: null
 priority: normal
 due_on: null
@@ -17,10 +17,17 @@ origin: null
 dependencies: []
 blocks_on: none
 references: []
-claim: null
+claim:
+  actor: agent:claude/t3code-a6d0ff31
+  branch: t3code/next
+  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-a6d0ff31
+  commit: e0afa70cd6134e73cc6a5dc584a9933603286bc0
+  session: null
+  claimed_at: 2026-09-20T21:35:21Z
+  expires_at: null
 archive: null
 created_at: 2026-09-20T21:31:50Z
-updated_at: 2026-09-20T21:31:50Z
+updated_at: 2026-09-20T21:35:21Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
