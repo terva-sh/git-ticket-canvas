@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-20T21:31:50Z
-updated_at: 2026-09-20T21:43:17Z
+updated_at: 2026-09-20T21:45:03Z
 created_by:
   id: agent:claude/t3code-a6d0ff31
   name: ""
@@ -56,3 +56,7 @@ The read side of pens in the browser, split from TKT-01M26SQB4JWTW8FPSVHYZKFKCR 
 **agent:claude/t3code-a6d0ff31** at 2026-09-20T21:43:17Z
 
 Shipped as web/src/ui/Placement.tsx, rendered under frame membership in the inspector. The words are the CLI's: ruleText and failureText are ported line for line from cli/canvas.go in git-ticket, and placementLines mirrors writeCanvasExplain, so the panel and git ticket canvas explain can be compared word for word. The explanation comes from explain() in resolve.ts, the function the pen layer places by, computed in App from the snapshot's pens, ruleOrder, inbox and cards. Return to automatic is a new release(ids) on CanvasHandle over the existing releaseCards, so the write, the by-the-rules preview and the refusal path are the ones the card's own control and the u key use; a refused write withdraws the preview, leaves the saved position standing and reports the reason through the toast (canvas-release.test.tsx covers it, and tests/browser/placement.spec.ts drives it against a real server by making the layout file unwritable). Verification: placement.test.tsx (6), canvas-release.test.tsx (+2), placement.spec.ts (3, through just browser-test) and just check all green. AC 3 is left unchecked: the harness starts only git-ticket-canvas, and git-ticket-canvas-server refuses to start without an https OpenID Connect issuer, so the read-only verification ran on the desk command with -read-only. What makes that evidence carry: docs/canvas-parity.json and its two drift tests declare read-only as a flag axis shared by both commands and the inspector as common chrome, so the served canvas runs this same bundle with readOnly true. Alternatives considered: a fake issuer for the harness (a real piece of work, filed as follow-up rather than done here); reading the explanation from a new server route (rejected: the browser already holds the board and the resolver, and a route would be a second source that could disagree).
+
+**agent:claude/t3code-a6d0ff31** at 2026-09-20T21:45:03Z
+
+Terva review of PR 22 at 099249b (run eca25346, request placement-22-1), one medium finding, accepted: the browser refusal test passed mode 0o444 to writeFile on an existing file, which does not change its permissions, so the refusal it exercised came from the malformed YAML it also wrote, not from an unwritable layout. Fixed: the test now makes .tickets/canvas unwritable (the save creates a temporary file there and renames it into place, so the write fails for the plainest reason while the board stays readable), asserts the saved position survives on the server as well as in the browser, and restores the mode in a finally. No restart needed. Spec green 3 of 3.

@@ -1,4 +1,4 @@
-import { writeFile, mkdir } from 'node:fs/promises'
+import { chmod, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Page } from '@playwright/test'
 import { test, expect } from './fixtures'
@@ -51,19 +51,27 @@ test('the inspector explains placement and returns a pinned card to the rules', 
   await expect(control(page)).toBeDisabled()
 })
 
-// A refused removal leaves the card where it was and says why. The board is
-// made stale under the browser by an outside write to the same file.
+// A refused removal leaves the card where it was and says why. The save
+// writes a temporary file beside the layout and renames it into place, so a
+// directory nobody can write to refuses the write for the plainest reason,
+// with the board still readable underneath.
 test('a refused return keeps the card pinned and reports the reason', async ({ page, app }) => {
   const held = await app.create('Placed by hand')
   await rules(app.root, { [held.id]: { x: 900, y: 900 } })
   await page.goto(app.url)
   await card(page, held.id).click()
   await expect(control(page)).toBeEnabled()
-  // Make the write fail: the store becomes read-only on disk.
-  await app.restart(async () => { await writeFile(join(app.root, '.tickets', 'canvas', 'default.yml'), 'schema: 4\nboard: "default"\ncards: {\n', { mode: 0o444 }) })
-  await control(page).click()
-  await expect(page.locator('#toast')).toContainText('Could not save board default')
-  await expect(card(page, held.id)).not.toHaveClass(/unpinned/)
+  const dir = join(app.root, '.tickets', 'canvas')
+  await chmod(dir, 0o555)
+  try {
+    await control(page).click()
+    await expect(page.locator('#toast')).toContainText('Could not save board default')
+    await expect(card(page, held.id)).not.toHaveClass(/unpinned/)
+    await expect(section(page)).toContainText('pinned at (900, 900); routing does not apply')
+    expect((await app.board()).layout.cards[held.id]).toEqual({ x: 900, y: 900 })
+  } finally {
+    await chmod(dir, 0o755)
+  }
 })
 
 // A read-only canvas shows the same explanation with the control off.
