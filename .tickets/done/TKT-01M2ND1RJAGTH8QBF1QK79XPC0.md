@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M2ND1RJAGTH8QBF1QK79XPC0
 title: Read the board from the command line
 type: task
-status: in-progress
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -31,7 +31,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-16T15:23:31Z
-updated_at: 2026-09-20T00:00:32Z
+updated_at: 2026-09-20T01:42:40Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -94,3 +94,7 @@ Implemented in git-ticket on branch t3code/canvas-read as PR 211 (https://git.lo
 **agent:claude/t3code-a6d0ff31** at 2026-09-20T00:00:32Z
 
 git-ticket PR 211 went through five Terva reviews (43 to 47). Accepted: missingLabels null on a match; exists learned from a stat after Load; the pens page form listing tickets it did not need; two wording contradictions about pinned cards and the one-line missing-file answer. Declined with evidence: trailing --board (parseFlags reads flags on either side of positionals) and board-name traversal (layout.Load applies the name grammar first). Gate passed on 7d37233; final head dc1a035 is a comment-only change. Awaiting the maintainer's merge, then the v0.21.0 release closes this.
+
+## Summary
+
+Delivered in git-ticket v0.21.0: git ticket canvas show, pens, and explain ID read a board with no canvas running, with kinds canvas-board and canvas-explain and routing resolved by layout.Route, first match in ruleOrder after pins. The canvas does not place by rules yet; every answer says so via applied:false. Next in sequence is TKT-01M2ND1RK.
