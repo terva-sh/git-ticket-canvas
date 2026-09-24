@@ -15,6 +15,8 @@ interface CardViewProps {
   selected: boolean
   dimmed: boolean
   target: boolean
+  /** Under a link that would close a cycle, so the drop would be refused. */
+  refused?: boolean
   frameTitle?: string
   frameMember?: boolean
   /** How much of the ticket to show. Defaults to the full presentation. */
@@ -27,7 +29,7 @@ interface CardViewProps {
 }
 
 // Memoization keeps metadata out of the per-frame pan and link updates.
-export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, unhoused = false, selected, dimmed, target, frameTitle, frameMember, density = 'full', onRelease, register }: CardViewProps) {
+export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, unhoused = false, selected, dimmed, target, refused = false, frameTitle, frameMember, density = 'full', onRelease, register }: CardViewProps) {
   const compact = density === 'compact'
   const element = useRef<HTMLDivElement>(null)
   // Refresh regression diagnostic; unlike DOM mutation counts this sees renders.
@@ -61,7 +63,7 @@ export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, unh
   // A claim is advisory and reserves nothing, so an expired one is not a claim.
   const heldBy = !settled && t.claim && !t.claim.expired ? t.claim.actor : ''
   const classes = ['card', compact && 'compact', !pinned && 'unpinned', unhoused && 'unhoused', selected && 'selected', dimmed && 'dimmed',
-    frameMember && 'frame-member', target && 'link-target', t.status === 'done' && 'done', t.status === 'archived' && 'archived',
+    frameMember && 'frame-member', target && 'link-target', refused && 'link-refused', t.status === 'done' && 'done', t.status === 'archived' && 'archived',
     blocked && 'blocked-card', startable && 'startable', heldBy && 'claimed'].filter(Boolean).join(' ')
   return <div ref={element} class={classes} data-id={t.id} data-render-count={renders.current}
     style={{ transform: `translate(${x}px, ${y}px)`, zIndex: z, '--status': `var(--s-${t.status})` }}>

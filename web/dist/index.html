@@ -312,6 +312,7 @@ input.tool, select.tool { color: var(--ink); }
 #stage { position: relative; overflow: hidden; cursor: grab; }
 #stage.panning { cursor: grabbing; }
 #stage.linking { cursor: crosshair; }
+#stage.linking.link-refused { cursor: not-allowed; }
 #grid { position: absolute; inset: 0; pointer-events: none; }
 #scene { position: absolute; top: 0; left: 0; transform-origin: 0 0; will-change: transform; }
 #edges { position: absolute; overflow: visible; pointer-events: none; left: 0; top: 0; width: 1px; height: 1px; }
@@ -343,6 +344,8 @@ input.tool, select.tool { color: var(--ink); }
 .card.compact .card-progress { margin-top: 8px; }
 .card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), 0 8px 22px -10px rgba(0,0,0,.6); }
 .card.link-target { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+/* A link dropped here would close a cycle, so the drop is refused. */
+.card.link-refused { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 30%, transparent); }
 /* Settled work recedes. Not hidden: the history is why a board is trustworthy,
    and a board that forgets what was finished cannot be read backwards. It just
    stops competing with work somebody could pick up. */
@@ -557,7 +560,7 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
 #composer .muted { margin-top: 6px; display: block; }
 [hidden] { display: none !important; }
 </style>
-  <script type="module" crossorigin src="./assets/index-wm4RHkGS.js"></script>
+  <script type="module" crossorigin src="./assets/index-Ds8rFDFF.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-DInyTZE2.css">
 </head>
 <body>

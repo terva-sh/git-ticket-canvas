@@ -64,6 +64,10 @@ export interface CanvasProps {
   onLayout: (board: string, cards: CardChanges) => Promise<unknown>
   /** The drop target waits on the source: onLink(prerequisite, dependent). */
   onLink: (from: string, to: string) => Promise<unknown>
+  /** Why a link from `from` dropped on `to` would be refused, or null when it
+   * would not. Asked once per card the link enters, so the card can show the
+   * refusal before the drop, and the drop can say why instead of writing. */
+  linkRefusal?: (from: string, to: string) => string | null
   onCompose: (point: { x: number; y: number; sceneX: number; sceneY: number }) => void
   onError: (message: string) => void
   onBusy: (busy: boolean) => void
@@ -108,7 +112,9 @@ interface GestureBase {
 type Gesture = GestureBase & (
   | { kind: 'pan' }
   | { kind: 'card'; ids: string[]; moved: boolean; delta: Point; readOnly: boolean }
-  | { kind: 'link'; from: string; to: string | null; point: Point }
+  // A refused card is never `to`: it gets no target highlight and the drop
+  // writes nothing, as over empty board, and `refused` says why.
+  | { kind: 'link'; from: string; to: string | null; refused: { id: string; message: string } | null; point: Point }
   | { kind: 'frame-move' | 'frame-resize'; id: string; before: Frame; next: Frame; cards: Cards; delta: Point; moved: boolean }
   | { kind: 'frame-draw'; start: Point; bounds: Frame }
 )
@@ -540,7 +546,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
         bounds: { title: 'New frame', ...start, w: 0, h: 0, color: '#759bcc', members: [] } }
     } else if (id && p.tickets.has(id)) {
       if (handle && !p.readOnly) {
-        gesture = { ...base, kind: 'link', from: id, to: null,
+        gesture = { ...base, kind: 'link', from: id, to: null, refused: null,
           point: toScene(pointer, local.view, element.getBoundingClientRect()) }
       } else {
         const ids = p.selection.has(id) || event.shiftKey ? new Set(p.selection) : new Set<string>()
@@ -586,7 +592,14 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     } else if (gesture.kind === 'link') {
       const target = document.elementFromPoint(point.x, point.y)?.closest<HTMLDivElement>('#cards .card')
       const id = target && element.contains(target) ? target.dataset.id : undefined
-      gesture.to = id && id !== gesture.from && latest.current.tickets.has(id) ? id : null
+      const candidate = id && id !== gesture.from && latest.current.tickets.has(id) ? id : null
+      // Asked when the pointer enters a card rather than on every frame: the
+      // answer walks the dependency graph.
+      if (candidate !== (gesture.to ?? gesture.refused?.id ?? null)) {
+        const message = candidate ? latest.current.linkRefusal?.(gesture.from, candidate) : null
+        gesture.to = message ? null : candidate
+        gesture.refused = candidate && message ? { id: candidate, message } : null
+      }
       gesture.point = toScene(point, gesture.view, element.getBoundingClientRect())
     }
   }
@@ -655,6 +668,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       }
       try { void p.onLink(gesture.from, gesture.to).catch(failed) }
       catch (error) { failed(error) }
+    } else if (gesture.kind === 'link' && gesture.refused) {
+      p.onError(gesture.refused.message)
     }
   }
 
@@ -741,13 +756,13 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   const matching = new Set([...props.tickets.values()].filter(ticket => matchesTicket(ticket,
     { statuses: props.filters, labels: props.labelFilters || empty, labelMatch: props.labelMatch, query: props.query })).map(t => t.id))
   const gesture = local.gesture
-  const ghost = gesture?.kind === 'link' ? { from: gesture.from, point: gesture.point } : null
+  const ghost = gesture?.kind === 'link' ? { from: gesture.from, point: gesture.point, refused: !!gesture.refused } : null
   // One width for this render. The stylesheet, the edge anchors and the fit
   // bounds all take it from here rather than choosing a constant themselves.
   const cardWidth = activeWidth()
   return <div id="stage" ref={stage} data-canvas-frame={local.frameCount}
     data-placement-calculations={placementCalculations.current}
-    class={gesture?.kind === 'pan' || local.pinch ? 'panning' : gesture?.kind === 'link' ? 'linking' : ''}
+    class={gesture?.kind === 'pan' || local.pinch ? 'panning' : gesture?.kind === 'link' ? `linking${gesture.refused ? ' link-refused' : ''}` : ''}
     style={{ touchAction: 'none' }}
     onDblClick={event => {
       const target = canvasTarget(event.target)
@@ -793,7 +808,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
           selected={props.selection.has(ticket.id)} dimmed={!matching.has(ticket.id)}
           frameTitle={Object.values(props.frames || {}).find(frame => frame.members.includes(ticket.id))?.title}
           frameMember={!!props.selectedFrame && !!props.frames?.[props.selectedFrame]?.members.includes(ticket.id)}
-          target={gesture?.kind === 'link' && gesture.to === ticket.id} register={measurements.register}
+          target={gesture?.kind === 'link' && gesture.to === ticket.id}
+          refused={gesture?.kind === 'link' && gesture.refused?.id === ticket.id} register={measurements.register}
           density={props.density} onRelease={props.readOnly ? undefined : releaseCard} />
       })}</div>
     </div>
