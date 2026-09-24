@@ -273,7 +273,7 @@ function Relation({ label, id, tickets, readOnly, onNavigate, onRemove }: {
   return <div class="linkline">
     <a title={id} onClick={() => { if (other) onNavigate(id) }}>{other ? other.short || id : id}</a>
     <span class="t">{other ? other.title : '(not in this store)'}</span>
-    {!readOnly && <button title={`remove ${label}`} onClick={onRemove}>×</button>}
+    {!readOnly && <button title={`remove ${label}`} aria-label={`Remove ${label} ${other?.short || id}`} onClick={onRemove}>×</button>}
   </div>
 }
 
@@ -576,7 +576,7 @@ export function Inspector({ ticket, config, tickets, readOnly, onPatch, onClose,
             body. Elsewhere the state summary below says the same. */}
         {ticket && <div class="insp-peek-state">{ticket.status}{ticket.archived ? ' · archived' : ''} · {ticket.priority}</div>}
       </div>
-      <button id="inspClose" class="tool" title="Close (Esc)" onClick={onClose}>×</button>
+      <button id="inspClose" class="tool" title="Close (Esc)" aria-label="Close" onClick={onClose}>×</button>
     </div>
     <div class="insp-body" id="inspBody">
       {ticket && config && <InspectorBody key={ticket.id} ticket={ticket} config={config} tickets={tickets}

@@ -751,7 +751,7 @@ export function App() {
       pens={shownRouting.pens} ruleOrder={shownRouting.ruleOrder} inbox={shownRouting.inbox} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters} labelMatch={ui.labelMatch}
       onView={viewChanged}
       relationships={relationships} density={density} fitFloor={display.floor} inspector={display.settings.inspector}
-      layout={display.settings.layout} tip={!display.tipClosed} onTipClosed={display.closeTip} readOnly={snapshot.readOnly} onSelect={select} selecting={ui.selecting} onHold={hold} onToggle={toggle}
+      layout={display.settings.layout} tip={!display.tipClosed} onTipClosed={display.closeTip} coarse={display.facts.coarse} readOnly={snapshot.readOnly} onSelect={select} selecting={ui.selecting} onHold={hold} onToggle={toggle}
       onSelectionDone={() => setUI(current => ({ ...current, selecting: false }))} onLayout={saveLayout} onLink={link} linkRefusal={linkRefusal} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>
       <div id="formsRoot">
