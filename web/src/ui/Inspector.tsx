@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { ChecklistItem, Entry, Op, Schema, Ticket } from '../platform/tickets/types'
+import { RelationPicker } from './RelationPicker'
 import './Inspector.css'
 
 export interface InspectorProps {
@@ -285,6 +286,7 @@ function InspectorBody({ ticket: t, config, tickets, readOnly, onPatch, onNaviga
   }
   const textProps = { ticket: t, readOnly, onPatch }
   const relationProps = { tickets, readOnly, onNavigate }
+  const pickerProps = { ticket: t, tickets, readOnly, onPatch }
   return <>
     <StateSummary ticket={t} />
     <Disclosure label="Edit status, priority, ownership and due date">
@@ -328,14 +330,16 @@ function InspectorBody({ ticket: t, config, tickets, readOnly, onPatch, onNaviga
       <Field label="Parent"><div>
         {t.parent ? <Relation {...relationProps} label="parent" id={t.parent}
           onRemove={() => commit({ op: 'setParent', parent: null })} /> : <div class="muted">no parent</div>}
+        <RelationPicker {...pickerProps} kind="parent" />
       </div></Field>
       <Field label="Depends on"><div>
         {t.dependencies.map(id => <Relation key={id} {...relationProps} label="dependency" id={id}
           onRemove={() => commit({ op: 'removeDependency', id })} />)}
-        {!t.dependencies.length && <div class="muted">none. Drag a card's right handle onto another to add one</div>}
+        {!t.dependencies.length && <div class="muted">none yet. Add one below, or drag a card's right handle onto another</div>}
         {!!t.readiness.missing?.length && <div class="muted" style={{ color: 'var(--danger)' }}>
           missing: {t.readiness.missing.join(', ')}
         </div>}
+        <RelationPicker {...pickerProps} kind="dependency" />
       </div></Field>
       {(t.type === 'epic' || t.blocksOn === 'children') && <Field label="Blocks on">
         <SelectControl value={t.blocksOn} options={config.blocksOn} readOnly={readOnly}
