@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import type { Density } from '../platform/canvas/geometry'
 import type { RelationshipMode } from './canvas/Edges'
 import { StorePicker } from './StorePicker'
-import { LabelFilter, SelectionMode, StatusFilters, Version, type ToolbarProps } from './Toolbar'
+import { LabelFilter, SelectionMode, StatusFilters, Version, ViewSwitch, type ToolbarProps } from './Toolbar'
 import './PhoneToolbar.css'
 
 type Sheet = 'store' | 'filters' | 'menu'
@@ -14,7 +14,8 @@ type Sheet = 'store' | 'filters' | 'menu'
  * The desk header wraps its two rows into six or more on a 390px screen and
  * takes over half of it. What stays in the row is what somebody needs to find
  * a ticket and to see that they cannot write: the store and board, the search,
- * the filters as one button, the read-only badge, and a menu. The rest moves
+ * the Board/List switch, the filters as one button, the read-only badge, and a
+ * menu. The rest moves
  * into the sheet its button opens:
  *
  *   store    brand, store path, build version, store picker, board select
@@ -82,6 +83,7 @@ export function PhoneToolbar(p: ToolbarProps) {
       {p.selecting ? <SelectionMode selecting={p.selecting} />
         : <input id="search" class="tool" type="search" placeholder="Search" autoComplete="off"
           value={p.query} onInput={e => p.onQuery(e.currentTarget.value)} />}
+      <ViewSwitch {...p} compact />
       {/* Stays in the row: somebody who cannot write needs to see that
           before they try, not after opening a sheet. */}
       <span class="badge warn" id="roBadge" hidden={!p.readOnly}>read-only</span>

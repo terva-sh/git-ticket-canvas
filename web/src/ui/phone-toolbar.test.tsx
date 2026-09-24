@@ -24,7 +24,7 @@ function props(extra: Partial<ToolbarProps> = {}): ToolbarProps {
     onArrange: vi.fn(), onFit: vi.fn(), onNew: vi.fn(),
     onNewFrame: vi.fn(), onUndoFrame: vi.fn(), onRedoFrame: vi.fn(), onPens: vi.fn(),
     zoom: 1, onZoomIn: vi.fn(), onZoomOut: vi.fn(), onZoomReset: vi.fn(),
-    onDisplay: vi.fn(),
+    onDisplay: vi.fn(), view: 'board', onView: vi.fn(),
     labels: ['infrastructure', 'ui'], labelFilters: new Map(), onLabelFilter: vi.fn(), onClearLabelFilters: vi.fn(),
     account: { name: 'Drew Short', onOpen: vi.fn() },
     stores: { stores: [
@@ -46,10 +46,10 @@ function row() {
   return [...root.querySelectorAll('#toolbar > .toolbar-row > [id]')].map(element => element.id)
 }
 
-it('keeps one row of store, search, read-only, filter and menu', () => {
+it('keeps one row of store, search, Board/List, read-only, filter and menu', () => {
   show(props())
   expect(root.querySelectorAll('.toolbar-row')).toHaveLength(1)
-  expect(row()).toEqual(['phoneStore', 'search', 'roBadge', 'phoneFilter', 'phoneMenu'])
+  expect(row()).toEqual(['phoneStore', 'search', 'viewSwitch', 'roBadge', 'phoneFilter', 'phoneMenu'])
   expect($('#roBadge')!.hidden).toBe(true)
   expect($('#phoneStore')!.textContent).toContain('default')
   expect($('#phoneStore')!.getAttribute('aria-label')).toBe('Store and board: ledger · default')
@@ -157,7 +157,7 @@ it('holds relationships, density, Fit, Display, account and New board in the men
 it('shows selection mode where the search was, and Done ends it', () => {
   const onDone = vi.fn()
   show(props({ query: 'ledger', selecting: { count: 3, onDone } }))
-  expect(row()).toEqual(['phoneStore', 'selectionMode', 'roBadge', 'phoneFilter', 'phoneMenu'])
+  expect(row()).toEqual(['phoneStore', 'selectionMode', 'viewSwitch', 'roBadge', 'phoneFilter', 'phoneMenu'])
   expect($('#selectionCount')!.textContent).toBe('3')
   tap('#selectionDone')
   expect(onDone).toHaveBeenCalledOnce()
@@ -169,4 +169,35 @@ it('adds selection mode to the tablet header and takes nothing away', () => {
   expect($('#search')).not.toBeNull()
   show(props({ layout: 'tablet' }))
   expect($('#selectionMode')).toBeNull()
+})
+
+// A phone has room for one word, so `List` is a toggle: pressed while the list
+// shows, and pressing it again asks for the board.
+it('toggles between the board and the list with one button, pressed while the list shows', () => {
+  const p = props()
+  show(p)
+  expect($('#viewBoard')).toBeNull()
+  expect($('#viewList')!.getAttribute('aria-pressed')).toBe('false')
+  tap('#viewList')
+  expect(p.onView).toHaveBeenLastCalledWith('list')
+  show({ ...p, view: 'list' })
+  expect($('#viewList')!.getAttribute('aria-pressed')).toBe('true')
+  tap('#viewList')
+  expect(p.onView).toHaveBeenLastCalledWith('board')
+})
+
+// A tablet and a desk have the room to name both, so the header says which
+// one is showing. Pressing the one already showing asks for nothing.
+it('offers Board and List as two buttons on a tablet', () => {
+  const p = props({ layout: 'tablet' })
+  show(p)
+  expect($('#viewBoard')!.getAttribute('aria-pressed')).toBe('true')
+  expect($('#viewList')!.getAttribute('aria-pressed')).toBe('false')
+  tap('#viewBoard')
+  expect(p.onView).not.toHaveBeenCalled()
+  tap('#viewList')
+  expect(p.onView).toHaveBeenCalledWith('list')
+  show(props({ layout: 'tablet', view: 'list' }))
+  expect($('#viewList')!.getAttribute('aria-pressed')).toBe('true')
+  expect($('#viewBoard')!.getAttribute('aria-pressed')).toBe('false')
 })

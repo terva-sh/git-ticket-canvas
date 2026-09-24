@@ -6,6 +6,8 @@ import { MAX_ZOOM, MIN_ZOOM } from '../platform/canvas/geometry'
 import type { RelationshipMode } from './canvas/Edges'
 import { StorePicker, type StorePickerProps } from './StorePicker'
 import { PhoneToolbar } from './PhoneToolbar'
+import type { View } from './displayPreferences'
+import './TicketList.css'
 
 export interface ToolbarProps {
   storePath: string; readOnly: boolean; boards: string[]; board: string; query: string
@@ -46,6 +48,34 @@ export interface ToolbarProps {
   /** Selection mode, entered by holding a card on a touch screen, and how many
    * cards it has selected. Absent while the mode is off. */
   selecting?: { count: number; onDone(): void }
+  /** The board or the list, and the switch between them. The switch is left
+   * out when nothing handles it. */
+  view?: View; onView?(view: View): void
+}
+
+/** Board or List, beside the search box, which is where the design says
+ * somebody who wants a list will look.
+ *
+ * Two buttons on a tablet and a desk, so the header says which one is showing
+ * without anybody having to read the stage behind it. A phone's row has no room
+ * for both: at the larger toolbar sizes the second word pushed the row past a
+ * 390px screen. There `List` alone is a toggle, pressed while the list shows,
+ * and pressing it again goes back to the board. `#viewList` means the same
+ * thing in both headers, so one test drives either. */
+export function ViewSwitch(p: ToolbarProps & { compact?: boolean }) {
+  if (!p.onView) return null
+  const view = p.view || 'board'
+  const list = view === 'list'
+  if (p.compact) return <div id="viewSwitch" class="view-switch" role="group" aria-label="View">
+    <button id="viewList" type="button" class="tool" aria-pressed={list}
+      onClick={() => p.onView?.(list ? 'board' : 'list')}>List</button>
+  </div>
+  const option = (value: View, id: string, text: string) =>
+    <button id={id} type="button" class="tool" aria-pressed={view === value}
+      onClick={() => { if (view !== value) p.onView?.(value) }}>{text}</button>
+  return <div id="viewSwitch" class="view-switch" role="group" aria-label="View">
+    {option('board', 'viewBoard', 'Board')}{option('list', 'viewList', 'List')}
+  </div>
 }
 
 /** Which mode the board is in, how many cards it holds, and the way out. A
@@ -191,6 +221,7 @@ export function Toolbar(p: ToolbarProps) {
 
     <div class="toolbar-row" data-row="working">
       <div class="toolbar-side">
+        <ViewSwitch {...p} />
         <input id="search" class="tool" type="search" placeholder="Filter  /" autoComplete="off" value={p.query} onInput={e => p.onQuery(e.currentTarget.value)} />
         <StatusFilters {...p} />
         <LabelFilter {...p} />

@@ -26,6 +26,7 @@ import { cloneRouting } from '../platform/canvas/pens'
 import { explain } from '../platform/canvas/resolve'
 import { Composer, type ComposerPosition } from './Composer'
 import { FeedbackMessage, type Feedback } from './Feedback'
+import { TicketList } from './TicketList'
 
 /** The store named in the address, which a reload and a shared link both keep. */
 function storeInAddress() {
@@ -724,6 +725,7 @@ export function App() {
       densityChosen={display.overrides.density !== undefined}
       onDensity={value => display.choose('density', value)}
       onDisplay={() => setDisplayOpen(true)}
+      view={display.view} onView={display.chooseView}
       zoom={zoom} onZoomIn={() => canvas.current?.zoomBy(1.25)}
       onZoomOut={() => canvas.current?.zoomBy(1 / 1.25)}
       onZoomReset={() => canvas.current?.resetZoom()}
@@ -765,6 +767,13 @@ export function App() {
       layout={display.settings.layout} tip={!display.tipClosed} onTipClosed={display.closeTip} coarse={display.facts.coarse} readOnly={snapshot.readOnly} onSelect={select} selecting={ui.selecting} onHold={hold} onToggle={toggle}
       onSelectionDone={() => setUI(current => ({ ...current, selecting: false }))} onLayout={saveLayout} onLink={link} linkRefusal={linkRefusal} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>
+      {/* Over the board rather than instead of it, so the inspector, the
+          sheet and the composer below serve a row exactly as they serve a
+          card, and the board keeps its view for when somebody switches back.
+          A row opens a ticket through `select`, the path a card tap takes. */}
+      {display.view === 'list' && <TicketList tickets={snapshot.tickets} filters={activeFilters}
+        statuses={snapshot.config?.statuses || []} priorities={snapshot.config?.priorities || []}
+        selected={ui.selected} onSelect={id => select(id)} />}
       <div id="formsRoot">
         <div id="frameHistory" role="status" hidden={!framePreview && !history.undoEntry?.blockedReason && !history.redoEntry?.blockedReason}>
           {framePreview && <div>Saving frame operation. The submitted save continues if you close this panel.</div>}

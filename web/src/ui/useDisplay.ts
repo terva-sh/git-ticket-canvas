@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks'
 import { applyOverrides, chooseDisplay, DEFAULT_TOOLBAR_SCALE, fitFloor } from '../platform/canvas/viewport'
 import type { DisplayChoices, DisplayOverrides, ToolbarScale, ViewportFacts } from '../platform/canvas/viewport'
 import { recall, remember } from './displayPreferences'
-import type { StoredDisplay } from './displayPreferences'
+import type { StoredDisplay, View } from './displayPreferences'
 
 /** A viewport nothing has measured yet. Server rendering and a test that never
  * touches a window both land here, and both want the settings a desk monitor
@@ -35,14 +35,19 @@ export interface Display {
   /** Whether the phone's first-visit tip has been closed. Not a display
    * choice, but remembered with them so it does not come back. */
   tipClosed: boolean
+  /** The board or the list. Per person and per browser, and the board until
+   * somebody chooses otherwise, on every layout. */
+  view: View
   /** How far the opening fit may shrink the board. */
   floor: number
   /** Set one setting, or hand it back to the viewport with null. */
   choose<K extends keyof DisplayChoices>(key: K, value: DisplayChoices[K] | null): void
   chooseToolbar(scale: ToolbarScale): void
   closeTip(): void
+  chooseView(view: View): void
   /** Hand every automatic setting back to the viewport. The toolbar size is
-   * not one of them and is left alone, and neither is a closed tip. */
+   * not one of them and is left alone, and neither is a closed tip or the
+   * choice of the list. */
   reset(): void
 }
 
@@ -77,7 +82,7 @@ export function useDisplay(): Display {
     }
   }, [])
 
-  const { toolbar, tipClosed, ...overrides } = stored
+  const { toolbar, tipClosed, view, ...overrides } = stored
   const automatic = chooseDisplay(facts)
   const settings = applyOverrides(automatic, overrides)
   const write = (next: StoredDisplay) => { remember(next); setStored(next) }
@@ -85,6 +90,7 @@ export function useDisplay(): Display {
     facts, automatic, overrides, settings,
     toolbar: toolbar ?? DEFAULT_TOOLBAR_SCALE,
     tipClosed: !!tipClosed,
+    view: view ?? 'board',
     floor: fitFloor(facts, settings),
     choose(key, value) {
       const next = { ...stored }
@@ -101,9 +107,15 @@ export function useDisplay(): Display {
       write(next)
     },
     closeTip() { if (!tipClosed) write({ ...stored, tipClosed: true }) },
+    chooseView(next) {
+      const record = { ...stored }
+      if (next === 'list') record.view = 'list'
+      else delete record.view
+      write(record)
+    },
     // Only the automatic choices. A toolbar size is not something the window
     // asked for, so there is nothing to hand back to it, and asking for the
     // automatic settings is not asking to see the tip again.
-    reset() { write({ ...(toolbar ? { toolbar } : {}), ...(tipClosed ? { tipClosed } : {}) }) },
+    reset() { write({ ...(toolbar ? { toolbar } : {}), ...(tipClosed ? { tipClosed } : {}), ...(view ? { view } : {}) }) },
   }
 }

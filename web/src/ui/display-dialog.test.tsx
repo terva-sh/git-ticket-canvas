@@ -219,3 +219,32 @@ it('does not count or clear a closed phone tip with the automatic settings', () 
   act(() => reset().click())
   expect(recall()).toEqual({ tipClosed: true })
 })
+
+// The Board/List choice lives in the same record and is not something the
+// window asked for, so handing the window's choices back leaves it alone.
+it('does not count or clear the list with the automatic settings', () => {
+  remember({ view: 'list' })
+  sizeWindow(1440, 900)
+  show()
+  const reset = () => root.querySelector<HTMLButtonElement>('#displayReset')!
+  expect(reset().disabled).toBe(true)
+  choose('density', 'compact')
+  expect(reset().textContent).toContain('1 set by hand')
+  act(() => reset().click())
+  expect(recall()).toEqual({ view: 'list' })
+})
+
+// Choosing the board again removes the record rather than writing `board`, so
+// somebody who tried the list and went back has nothing left behind.
+it('stores the list and forgets it again when the board is chosen', () => {
+  let display: ReturnType<typeof useDisplay> | undefined
+  function Probe() { display = useDisplay(); return null }
+  act(() => render(<Probe />, root))
+  expect(display!.view).toBe('board')
+  act(() => display!.chooseView('list'))
+  expect(display!.view).toBe('list')
+  expect(recall()).toEqual({ view: 'list' })
+  act(() => display!.chooseView('board'))
+  expect(display!.view).toBe('board')
+  expect(localStorage.getItem('git-ticket-canvas.display')).toBeNull()
+})

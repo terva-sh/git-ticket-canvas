@@ -82,3 +82,15 @@ it('keeps a closed tip across a reload, and drops anything else under its key', 
     expect(recall(), JSON.stringify(value)).toEqual({ density: 'compact' })
   }
 })
+
+// The list is a choice somebody makes and expects back after a reload. The
+// board is the absence of a record, so anything but `list` under the key reads
+// as the board rather than as a view this version does not have.
+it('keeps the list across a reload, and reads anything else under its key as the board', () => {
+  remember({ view: 'list' })
+  expect(recall()).toEqual({ view: 'list' })
+  for (const value of ['board', 'grid', true, null]) {
+    localStorage.setItem(KEY, JSON.stringify({ view: value, density: 'compact' }))
+    expect(recall(), JSON.stringify(value)).toEqual({ density: 'compact' })
+  }
+})

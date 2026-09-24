@@ -89,7 +89,26 @@ CANVAS_VISUAL=1 npx playwright test tests/browser/phone-header.spec.ts -g baseli
 compares against it, and adding `--update-snapshots` regenerates it. It has no
 metadata or history file, so that flag is safe here, unlike for
 `canvas-baseline.png`. Nothing in the row varies between runs: the store path,
-the version and the store name are in the sheets.
+the version and the store name are in the sheets. Regenerated for
+`TKT-01M38QP3ZNYRPN60GXQD4SCE6M` (List tickets by status as well as on the
+board), which added the `List` toggle to the row.
+
+## The phone list
+
+`phone-list.png` is the whole screen of an emulated 390 by 844 phone showing
+the list view, light, standard toolbar size, on a fresh store holding five
+tickets the spec files with fixed titles, statuses, priorities and labels. The
+spec replaces each row's ID with a fixed one before the shot, because a ULID
+changes every run. Added for `TKT-01M38QP3ZNYRPN60GXQD4SCE6M`.
+
+```sh
+CANVAS_VISUAL=1 npx playwright test tests/browser/list.spec.ts -g baseline
+```
+
+compares against it, and adding `--update-snapshots` regenerates it. Like the
+phone header it has no metadata or history file. Delete the image before
+regenerating it: `--update-snapshots` keeps an image whose difference falls
+under the comparison's tolerance.
 
 ## What is not here
 

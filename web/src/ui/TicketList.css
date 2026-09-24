@@ -1,0 +1,61 @@
+/* The Board/List switch, in the header on every layout. Joined like the zoom
+   buttons, so it reads as one control with two positions. */
+.view-switch { display: inline-flex; flex: none; }
+.view-switch > .tool:first-child:not(:last-child) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.view-switch > .tool:last-child:not(:first-child) { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
+/* On a phone the row has no width to spare. The one word takes the same side
+   padding as the controls around it, except at the larger toolbar size: there
+   this button pushed the read-only row 17px past a 390px screen with every
+   other control already at its floor, so it takes the space back from three
+   places: its own side padding, a pixel of each gap, and an em of the search
+   box's floor. The height is untouched; that is what a thumb needs.
+   PhoneToolbar.css sets the gap and the floor these override. */
+html[data-layout="phone"] #toolbar .view-switch > .tool { padding-left: .6em; padding-right: .6em; }
+html[data-layout="phone"][data-toolbar="larger"] #toolbar { --row-gap: 7px; }
+html[data-layout="phone"][data-toolbar="larger"] #toolbar .view-switch > .tool { padding-left: .25em; padding-right: .25em; }
+html[data-layout="phone"][data-toolbar="larger"] #toolbar #search { min-width: 3.5em; }
+
+/* The list covers the board inside the stage: over the hint and the tip (10),
+   under the inspector and the phone's sheet (15), the New ticket button (14),
+   and the frame, composer and toast panels above those. It scrolls on its own,
+   which is also what lets a finger scroll it under the stage's
+   `touch-action: none`. */
+#ticketList {
+  position: absolute; inset: 0; z-index: 12;
+  overflow-y: auto; overscroll-behavior: contain;
+  background: var(--bg); cursor: default;
+  padding: 12px 16px 40px;
+}
+/* A phone's New ticket button is fixed over the bottom right, so the last row
+   has to be able to scroll clear of it. */
+html[data-layout="phone"] #ticketList { padding: 8px 8px calc(96px + env(safe-area-inset-bottom, 0px)); }
+.list-group { max-width: 880px; margin-bottom: 18px; }
+.list-heading {
+  display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px; padding: 4px 2px;
+  font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--status);
+}
+.list-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.list-row {
+  display: grid; gap: 4px; width: 100%; text-align: left;
+  padding: 9px 12px; border-radius: 8px;
+  background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-left: 3px solid var(--status, var(--s-draft));
+}
+html[data-targets="coarse"] .list-row { padding: 12px 14px; }
+.list-row:hover { border-color: var(--ink-faint); border-left-color: var(--status, var(--s-draft)); }
+.list-row[aria-current="true"] { border-color: var(--accent); border-left-color: var(--status, var(--s-draft)); box-shadow: 0 0 0 2px var(--accent-soft); }
+.list-title { font-weight: 600; overflow-wrap: anywhere; }
+.list-meta { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; font-size: 11px; color: var(--ink-dim); }
+.list-id { font-family: var(--mono); font-size: 10px; }
+.list-priority.prio-high { color: var(--p-high); }
+.list-priority.prio-urgent { color: var(--p-urgent); }
+.list-meta .pill.label { max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-progress { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* The board under the list keeps its layout, so its view and measurements are
+   intact when somebody switches back, and stops being there for a keyboard or
+   a screen reader. Without this, Tab from the header walked through a pinned
+   card's Manual button, a card's label disclosure and every frame's title,
+   none of which anybody could see. `visibility` rather than `display`, which
+   would drop the cards' measured heights. */
+#stage:has(> #ticketList) > :is(#scene, #grid, #hint, #boardTip) { visibility: hidden; }
