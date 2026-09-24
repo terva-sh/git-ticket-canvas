@@ -41,7 +41,8 @@ matching, resolution order, lanes for a board with no pens, and authoring order)
 `canvas-organization-design.md`, `frame-specification-v1.md`,
 `pen-specification-v1.md`, `pen-rule-authoring-addendum-v1.md`,
 `pen-implementation-plan-v1.md`, `pen-position-consumers-proposal-v1.md`,
-`multi-store-design-v1.md`, `multiuser-design-v1.md`, `live-updates-design.md`.
+`multi-store-design-v1.md`, `multiuser-design-v1.md`, `live-updates-design.md`,
+`mobile-design-v1.md`.
 
 **Scope approvals for the pen work.** `pen-committed-sampling-scope-v1.md`,
 `pen-measurement-scope-v1.md`, `pen-placement-snapshot-scope-v1.md`,
