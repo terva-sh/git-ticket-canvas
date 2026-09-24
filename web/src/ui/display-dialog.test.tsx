@@ -49,11 +49,45 @@ it('names what the window is and what was chosen from it', () => {
   expect(control('density').querySelector('option')!.textContent).toBe('Automatic — Compact')
   expect(control('inspector').querySelector('option')!.textContent).toBe('Automatic — Along the bottom')
   expect(control('targets').querySelector('option')!.textContent).toBe('Automatic — Sized for a finger')
+  expect(control('layout').querySelector('option')!.textContent).toBe('Automatic — Phone')
+})
+
+// Turning a phone must not make it a desk, and the panel is where somebody
+// would go to check.
+it('calls a landscape phone a phone and a touch screen a tablet', () => {
+  sizeWindow(844, 390, true)
+  show()
+  expect(control('layout').querySelector('option')!.textContent).toBe('Automatic — Phone')
+  act(() => render(null, root))
+  sizeWindow(1180, 820, true)
+  show()
+  expect(control('layout').querySelector('option')!.textContent).toBe('Automatic — Tablet')
+})
+
+// The layout is a fourth row of the same kind as the other three, not a
+// section of its own like the toolbar size.
+it('lists the layout first among the automatic settings', () => {
+  sizeWindow(1440, 900)
+  show()
+  expect([...root.querySelectorAll<HTMLElement>('.display-choice')].map(row => row.dataset.setting))
+    .toEqual(['layout', 'density', 'inspector', 'targets'])
+})
+
+it('takes a layout override and still has it after a reload', () => {
+  sizeWindow(390, 844, true)
+  show()
+  choose('layout', 'tablet')
+  expect(recall()).toEqual({ layout: 'tablet' })
+  act(() => render(null, root))
+  show()
+  expect(control('layout').value).toBe('tablet')
+  expect(control('layout').querySelector('option')!.textContent).toBe('Automatic — Phone')
 })
 
 it('says what a desk monitor was given', () => {
   sizeWindow(2560, 1440)
   show()
+  expect(control('layout').querySelector('option')!.textContent).toBe('Automatic — Desk')
   expect(control('density').querySelector('option')!.textContent).toBe('Automatic — Full')
   expect(control('inspector').querySelector('option')!.textContent).toBe('Automatic — Beside the board')
   expect(control('targets').querySelector('option')!.textContent).toBe('Automatic — Sized for a mouse')

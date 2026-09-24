@@ -569,7 +569,10 @@ export function App() {
     root.dataset.targets = display.settings.targets
     root.dataset.inspector = display.settings.inspector
     root.dataset.toolbar = display.toolbar
-  }, [display.settings.targets, display.settings.inspector, display.toolbar])
+    // Nothing in the stylesheet reads this yet. It is here so the phone and
+    // tablet work can key on `html[data-layout="phone"]` without touching this.
+    root.dataset.layout = display.settings.layout
+  }, [display.settings.targets, display.settings.inspector, display.toolbar, display.settings.layout])
 
   useEffect(() => {
     mounted.current = true
