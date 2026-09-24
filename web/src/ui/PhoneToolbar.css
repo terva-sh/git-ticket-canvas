@@ -1,0 +1,77 @@
+/* The phone header. Every rule is keyed on `html[data-layout="phone"]`, which
+   App sets from the display settings, and not on a width query: somebody can
+   override the layout in the Display panel, and a landscape phone is 844px
+   wide. The header follows the setting, whatever the window says.
+
+   One row that never wraps. The search takes what the other controls leave,
+   and the store button gives way before it does. */
+html[data-layout="phone"] #toolbar {
+  /* A stacking context so the sheets below sit over the board. `#toolbar`
+     already carries a z-index; this is what makes it apply. */
+  position: relative;
+  --row-gap: 6px; padding-left: 8px; padding-right: 8px;
+}
+/* The toolbar sizes still scale the text and the targets on a phone. Only the
+   gaps and the side padding are held down, because at 390px those are what
+   would push the row onto a second line. */
+html[data-layout="phone"][data-toolbar="large"] #toolbar { --row-gap: 7px; padding-left: 9px; padding-right: 9px; }
+html[data-layout="phone"][data-toolbar="larger"] #toolbar { --row-gap: 8px; padding-left: 10px; padding-right: 10px; }
+html[data-layout="phone"] #toolbar .toolbar-row { flex-wrap: nowrap; }
+html[data-layout="phone"] #toolbar .toolbar-row > * { flex: none; }
+/* Side padding in the text's own units rather than the coarse-pointer 15-19px.
+   The height of a target is what a thumb needs; its width here is taken from
+   the search box, which at the larger size was left two letters wide. */
+html[data-layout="phone"] #toolbar .toolbar-row > .tool { padding-left: .7em; padding-right: .7em; }
+html[data-layout="phone"] #toolbar .phone-store {
+  flex: 0 1 auto; min-width: 3.5em; max-width: 34%;
+  display: inline-flex; align-items: center; white-space: nowrap; color: var(--ink);
+}
+html[data-layout="phone"] #toolbar .phone-store-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* The desk gives the search a 190px floor, which is half a phone. */
+html[data-layout="phone"] #toolbar #search { flex: 1 1 0; width: 0; min-width: 4.5em; }
+html[data-layout="phone"] #toolbar #roBadge { white-space: nowrap; }
+/* A glyph is narrower than a thumb. */
+html[data-layout="phone"] #toolbar #phoneMenu { min-width: 40px; }
+html[data-layout="phone"] #toolbar .phone-count {
+  display: inline-block; margin-left: 5px; min-width: 1.5em; padding: 0 5px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--ink); font-size: .85em; text-align: center;
+}
+
+/* A sheet hangs from the bottom of the header across the full width, rather
+   than rising from the bottom of the screen. The bottom is where the ticket
+   sheet lives, and two sheets there would fight over the same edge. */
+html[data-layout="phone"] .phone-sheet {
+  position: absolute; left: 0; right: 0; top: 100%; z-index: 30;
+  display: grid; gap: 10px; align-content: start; padding: 12px;
+  max-height: calc(100dvh - 120px); overflow-y: auto;
+  background: var(--panel); border-bottom: 1px solid var(--line);
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.6);
+}
+/* The desk's popovers open inside a sheet, which scrolls and would clip
+   anything absolutely positioned. In here they open in place. */
+html[data-layout="phone"] .phone-sheet :is(.version-details, .label-filter-body, .store-picker-body) {
+  position: static; margin-top: 8px; width: auto; min-width: 0; max-width: none; box-shadow: none;
+}
+html[data-layout="phone"] .phone-sheet .version { justify-self: start; }
+html[data-layout="phone"] .phone-sheet .store-picker > summary { max-width: none; }
+html[data-layout="phone"] .phone-sheet .phone-field {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px; align-items: center;
+  color: var(--ink-dim);
+}
+html[data-layout="phone"] #phoneMenuSheet > button { text-align: left; }
+
+/* New ticket, where a thumb reaches it. It is a sibling of `#toolbar` rather
+   than inside it, so its z-index is weighed against the ticket sheet's own
+   (15) and it stacks underneath: a peek or half sheet covers it instead of it
+   covering the sheet's buttons. It is also hidden outright while a ticket is
+   open, so that holds even if the sheet's stacking changes. */
+#btnNew.phone-new { display: none; }
+html[data-layout="phone"] #btnNew.phone-new {
+  display: block; position: fixed; z-index: 14;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  min-height: 48px; padding: 0 18px; border-radius: 999px;
+  box-shadow: 0 6px 20px -6px rgba(0,0,0,.6);
+}
+html[data-layout="phone"] #btnNew.phone-new:disabled { opacity: .55; cursor: not-allowed; }
+html[data-layout="phone"]:has(#inspector.open) #btnNew.phone-new { display: none; }

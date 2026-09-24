@@ -95,6 +95,8 @@ test('narrow inspector occupies a full-width row with reachable editors', async 
   expect(panel.y - stage.y).toBeGreaterThanOrEqual(150)
   expect(panel.y + panel.height).toBeLessThanOrEqual(845)
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
+  // 390 wide is a phone, whose header keeps Fit in the menu.
+  await page.locator('#phoneMenu').click()
   await page.locator('#btnFit').click()
   const card = (await page.locator('.card').boundingBox())!
   expect(card.y + card.height).toBeLessThanOrEqual(panel.y)
