@@ -23,7 +23,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-24T03:34:06Z
-updated_at: 2026-09-24T03:34:59Z
+updated_at: 2026-09-24T05:50:22Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -53,3 +53,9 @@ The children are ordered so each is useful alone. The gesture work comes first b
 - [ ] On a real phone a person can find a ticket, open it, and change its status, notes and checklist without zooming the page
 - [ ] On a real tablet everything a desk can do can be done by touch
 - [ ] A desk canvas behaves as it does today
+
+## Notes
+
+**agent:claude/t3code** at 2026-09-24T05:50:22Z
+
+PR 33 (wave 1): the Terva review on d8e2d90 was clean (run 4616fcaf-2e07-4ba4-82e8-64b2029426d2), but CI run 226 on the same head failed after 4m14s. Its log is not readable from this machine: the jobs log needs a web session, and the API has no jobs endpoint. Locally, on the same head, just drift-check and just parity-check (the CI recipe) both pass, with browser-test-embedded at 127 passed / 7 skipped / 0 failed. The first guess was that fonts differ: this machine renders the sans stack as FreeSans, while CI installs font-noto. Rerunning the whole suite with Noto Sans forced in also gave 127 passed, so fonts are not the cause. This commit is pushed to rerun CI. If CI fails again, the log is needed from the Actions page.
