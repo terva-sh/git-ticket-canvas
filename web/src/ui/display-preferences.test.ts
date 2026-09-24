@@ -46,6 +46,21 @@ it('drops a value it does not recognise rather than trusting it', () => {
   }
 })
 
+// `recall` rebuilds the record from an allowlist per key, so a layout without
+// one would be written and then dropped on every reload.
+it('keeps a layout across a reload, and drops one it does not know', () => {
+  for (const layout of ['phone', 'tablet', 'desk'] as const) {
+    remember({ layout })
+    expect(recall(), layout).toEqual({ layout })
+  }
+  remember({ layout: 'tablet', density: 'full' })
+  expect(recall()).toEqual({ layout: 'tablet', density: 'full' })
+  localStorage.setItem(KEY, JSON.stringify({ layout: 'watch', density: 'compact' }))
+  expect(recall()).toEqual({ density: 'compact' })
+  localStorage.setItem(KEY, JSON.stringify({ layout: 3 }))
+  expect(recall()).toEqual({})
+})
+
 // Private browsing and a full quota both throw on access. A board that will not
 // open because it could not read a preference would be a poor trade.
 it('survives storage that throws', () => {

@@ -1,5 +1,5 @@
-import { TOOLBAR_SCALES } from '../platform/canvas/viewport'
-import type { DisplayOverrides, ToolbarScale } from '../platform/canvas/viewport'
+import { LAYOUTS, TOOLBAR_SCALES } from '../platform/canvas/viewport'
+import type { DisplayOverrides, Layout, ToolbarScale } from '../platform/canvas/viewport'
 
 /**
  * What somebody has chosen to disagree with about the automatic display
@@ -56,6 +56,10 @@ export function recall(): StoredDisplay {
     if (!parsed || typeof parsed !== 'object') return {}
     const record = parsed as Record<string, unknown>
     const overrides: StoredDisplay = {}
+    // Each key is rebuilt from its own allowlist, so a setting added to
+    // `DisplayChoices` without a line here is silently forgotten on reload.
+    const layout = pick<Layout>(record.layout, LAYOUTS)
+    if (layout) overrides.layout = layout
     const density = pick<'full' | 'compact'>(record.density, DENSITIES)
     if (density) overrides.density = density
     const inspector = pick<'beside' | 'bottom' | 'over'>(record.inspector, PLACEMENTS)

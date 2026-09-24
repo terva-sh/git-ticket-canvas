@@ -24,6 +24,7 @@ afterEach(() => {
   delete document.documentElement.dataset.targets
   delete document.documentElement.dataset.inspector
   delete document.documentElement.dataset.toolbar
+  delete document.documentElement.dataset.layout
   vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers()
 })
 
@@ -67,6 +68,7 @@ it('opens a phone-shaped window compact, sized for a finger, with the panel at t
   // `#app` is outside the Preact tree, so the stylesheet keys on these.
   expect(document.documentElement.dataset.targets).toBe('coarse')
   expect(document.documentElement.dataset.inspector).toBe('bottom')
+  expect(document.documentElement.dataset.layout).toBe('phone')
 })
 
 it('opens a desk monitor full, sized for a mouse, with the panel beside the board', async () => {
@@ -75,6 +77,19 @@ it('opens a desk monitor full, sized for a mouse, with the panel beside the boar
   expect(card().classList.contains('compact')).toBe(false)
   expect(document.documentElement.dataset.targets).toBe('fine')
   expect(document.documentElement.dataset.inspector).toBe('beside')
+  expect(document.documentElement.dataset.layout).toBe('desk')
+})
+
+// The layout decides what later work offers. On its own it must not move
+// anything the other three settings already decide.
+it('publishes a stored layout without changing anything else', async () => {
+  sizeWindow(390, 844, true)
+  remember({ layout: 'desk' })
+  await mount()
+  expect(document.documentElement.dataset.layout).toBe('desk')
+  expect(card().classList.contains('compact')).toBe(true)
+  expect(document.documentElement.dataset.targets).toBe('coarse')
+  expect(document.documentElement.dataset.inspector).toBe('bottom')
 })
 
 // A default is a starting point and never a lock.
@@ -95,6 +110,7 @@ it('follows a window that changes shape', async () => {
   sizeWindow(820, 1180, true)
   await act(async () => { window.dispatchEvent(new Event('resize')); await vi.advanceTimersByTimeAsync(1) })
   expect(document.documentElement.dataset.inspector).toBe('bottom')
+  expect(document.documentElement.dataset.layout).toBe('tablet')
   expect(card().classList.contains('compact')).toBe(true)
 })
 
