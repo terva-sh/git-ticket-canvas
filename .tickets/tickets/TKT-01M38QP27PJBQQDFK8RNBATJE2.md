@@ -27,12 +27,12 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:56Z
-updated_at: 2026-09-24T03:51:11Z
+updated_at: 2026-09-24T04:03:48Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/mobile-harness
+  id: agent:claude/t3code
   name: ""
 extensions: {}
 ---
@@ -102,6 +102,10 @@ Evidence for the criteria, from this branch on 2026-09-24:
 - Before writing the width criterion into a spec, a probe on the current canvas measured `innerWidth` and `documentElement.scrollWidth` at exactly 390 on the phone and 820 on the tablet, so the check passes today without being loosened. On the tablet the label-filter popover's contents extend to about 964px but are clipped and do not widen the document. The header ticket TKT-01M38QP2WYRK9A18P473KTM9BV (Fit the header into one row on a phone) should still call `expectFitsDevice`, because the header is the likeliest thing to push past 390.
 - `touch.spec.ts` also shows the width check failing: it appends a 408px element and expects `expectFitsDevice` to reject.
 - `tests/browser` is outside the `include` list in `tsconfig.json`, so `just web-typecheck` does not cover the new files. I ran `tsc --noEmit --strict` on `touch.ts` and `touch.spec.ts` directly and it passed. I did not change `tsconfig.json`, since that would pull every existing spec into the typecheck, which is outside this ticket.
+
+**agent:claude/t3code** at 2026-09-24T04:03:48Z
+
+Merged with its two sibling tickets on branch t3code/mobile-foundations and opened as one PR, https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/29, at the maintainer's direction on 2026-09-24. The only merge conflict was the generated web/dist/index.html, resolved by rebuilding. On the merged head: web-typecheck pass, web-test 531 passed, go test pass, browser-test 90 passed / 6 skipped / 0 failed, dist-verify byte-identical, ticket check clean. A Terva review is requested next; its result is recorded here when it lands.
 
 ## Summary
 

@@ -26,12 +26,12 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T03:57:18Z
+updated_at: 2026-09-24T04:03:49Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/mobile-relate
+  id: agent:claude/t3code
   name: ""
 extensions: {}
 ---
@@ -130,6 +130,10 @@ Evidence for the criteria, all against commit ac8114a.
 7. The browser test's dependency is on a ticket moved to done, and the option shows its status.
 
 Results: `just web-typecheck` passed. `just web-test` 42 files, 525 tests passed. `just browser-test` 84 passed, 6 skipped, 0 failed, including the two new specs. The six skips are the opt-in visual baseline and the refresh and live-update measurements, which skip on every run without their environment switch. `just dist-verify` matched HEAD byte for byte. No Go was touched.
+
+**agent:claude/t3code** at 2026-09-24T04:03:49Z
+
+Merged with its two sibling tickets on branch t3code/mobile-foundations and opened as one PR, https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/29, at the maintainer's direction on 2026-09-24. The only merge conflict was the generated web/dist/index.html, resolved by rebuilding. On the merged head: web-typecheck pass, web-test 531 passed, go test pass, browser-test 90 passed / 6 skipped / 0 failed, dist-verify byte-identical, ticket check clean. A Terva review is requested next; its result is recorded here when it lands.
 
 ## Summary
 
