@@ -51,3 +51,11 @@ html[data-targets="coarse"] .list-row { padding: 12px 14px; }
 .list-priority.prio-urgent { color: var(--p-urgent); }
 .list-meta .pill.label { max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .list-progress { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* The board under the list keeps its layout, so its view and measurements are
+   intact when somebody switches back, and stops being there for a keyboard or
+   a screen reader. Without this, Tab from the header walked through a pinned
+   card's Manual button, a card's label disclosure and every frame's title,
+   none of which anybody could see. `visibility` rather than `display`, which
+   would drop the cards' measured heights. */
+#stage:has(> #ticketList) > :is(#scene, #grid, #hint, #boardTip) { visibility: hidden; }
