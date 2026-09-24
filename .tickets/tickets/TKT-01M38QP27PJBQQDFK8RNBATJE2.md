@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38QP27PJBQQDFK8RNBATJE2
 title: Drive the canvas as an emulated phone and tablet in browser tests
 type: task
-status: in-progress
+status: review
 status_reason: null
 priority: normal
 due_on: null
@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:56Z
-updated_at: 2026-09-24T03:45:24Z
+updated_at: 2026-09-24T03:51:11Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -47,11 +47,11 @@ See `docs/mobile-design-v1.md`, "Testing". Read `docs/browser-testing.md` first.
 
 ## Acceptance criteria
 
-- [ ] A spec can run against an emulated phone and an emulated tablet, each reporting a coarse pointer
-- [ ] A helper performs a two-finger pinch and a two-finger pan, and a test shows the browser received two touch points
-- [ ] The existing desk suites run unchanged
-- [ ] A phone spec asserts the page did not widen past the emulated width, so overflow cannot pass silently
-- [ ] docs/browser-testing.md says how to write a touch spec and why the pinch goes through CDP
+- [x] A spec can run against an emulated phone and an emulated tablet, each reporting a coarse pointer
+- [x] A helper performs a two-finger pinch and a two-finger pan, and a test shows the browser received two touch points
+- [x] The existing desk suites run unchanged
+- [x] A phone spec asserts the page did not widen past the emulated width, so overflow cannot pass silently
+- [x] docs/browser-testing.md says how to write a touch spec and why the pinch goes through CDP
 
 ## Implementation plan
 
@@ -92,3 +92,24 @@ Groomed 2026-09-24. Probed Playwright 1.x Chromium (the main checkout's install,
 One trap: under `isMobile` the layout viewport grows to fit overflowing content. The probe page overflowed by 18px and `innerWidth` read 408, not 390. A phone spec that does not assert its width can pass against a page that is really wider than a phone. Added a criterion for it.
 
 Where it goes: `playwright.config.ts` has one `use` block, a 1440x1000 viewport, and no projects. The tidiest shape is probably a fixture option or `test.use()` per spec rather than projects, because projects would rerun every desk suite at phone size. The implementer decides and writes it in the plan. `tests/browser/fixtures.ts` launches the desk command only, which is all this needs.
+
+**agent:claude/mobile-harness** at 2026-09-24T03:50:56Z
+
+Evidence for the criteria, from this branch on 2026-09-24:
+
+- `npx playwright test touch.spec`: 6 passed. `--repeat-each=5`: 30 passed, so the CDP gestures are not timing-sensitive on this machine.
+- `just browser-test` (rebuilds web/dist first, which came out byte-identical): 88 passed, 6 skipped, 0 failed. The 6 skipped are the pre-existing opt-in tests (the dense visual baseline and the live-update and refresh measurements), not anything this ticket touched. 82 of the 88 are the desk suites. `playwright.config.ts`, `tests/browser/fixtures.ts` and every existing spec are unchanged in the diff.
+- Before writing the width criterion into a spec, a probe on the current canvas measured `innerWidth` and `documentElement.scrollWidth` at exactly 390 on the phone and 820 on the tablet, so the check passes today without being loosened. On the tablet the label-filter popover's contents extend to about 964px but are clipped and do not widen the document. The header ticket TKT-01M38QP2WYRK9A18P473KTM9BV (Fit the header into one row on a phone) should still call `expectFitsDevice`, because the header is the likeliest thing to push past 390.
+- `touch.spec.ts` also shows the width check failing: it appends a 408px element and expects `expectFitsDevice` to reject.
+- `tests/browser` is outside the `include` list in `tsconfig.json`, so `just web-typecheck` does not cover the new files. I ran `tsc --noEmit --strict` on `touch.ts` and `touch.spec.ts` directly and it passed. I did not change `tsconfig.json`, since that would pull every existing spec into the typecheck, which is outside this ticket.
+
+## Summary
+
+The browser harness can now drive an emulated phone (390x844) and tablet (820x1180), each with `hasTouch` and `isMobile`. This ticket does not change any canvas behavior. It adds the means to test it.
+
+- `tests/browser/touch.ts` has the `phone` and `tablet` context options, which a spec applies with `test.use`. It also has `expectFitsDevice(page, device)`, which fails if the page widened past the emulated width, and the two-finger helpers `pinch`, `twoFingerPan` and `twoFingers`, which go through CDP `Input.dispatchTouchEvent`.
+- `tests/browser/touch.spec.ts` checks the harness. Both devices report a coarse pointer and no hover, and each page fits its width. A pinch and a pan each arrive as two distinct `touch` pointers, one of them primary, with no `pointercancel`, and end where the helper put them. The width check fails when a 408px element is added. The desk size still reports a fine pointer with hover.
+- `docs/browser-testing.md` has a new section, "Writing a touch spec", covering the devices, the width check and why gestures go through CDP.
+- `playwright.config.ts`, `tests/browser/fixtures.ts`, every existing spec and web source are unchanged. `just browser-test` gave 88 passed and 6 skipped, the skips being the pre-existing opt-in tests.
+
+For the sibling tickets: import from `./touch`, call `expectFitsDevice` in every phone spec, and assert what the canvas does with a pinch in that ticket's own spec. `tests/browser` is outside the `tsconfig.json` typecheck, as before.
