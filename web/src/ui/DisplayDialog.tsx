@@ -15,7 +15,16 @@ interface Choice<K extends keyof DisplayChoices> {
   options: { value: DisplayChoices[K]; label: string }[]
 }
 
-const CHOICES: [Choice<'density'>, Choice<'inspector'>, Choice<'targets'>] = [
+// Layout first because it is the broadest of the four: it says what kind of
+// device this is, and the rows below it size things within that.
+const CHOICES: [Choice<'layout'>, Choice<'density'>, Choice<'inspector'>, Choice<'targets'>] = [
+  {
+    key: 'layout',
+    title: 'Layout',
+    hint: 'A window under 600 pixels on its short side is a phone, whichever way it is turned. A touch screen larger than that is a tablet.',
+    options: [{ value: 'phone', label: 'Phone' }, { value: 'tablet', label: 'Tablet' },
+      { value: 'desk', label: 'Desk' }],
+  },
   {
     key: 'density',
     title: 'Cards',
