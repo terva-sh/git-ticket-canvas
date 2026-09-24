@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 import { test, expect } from './fixtures'
-import { expectFitsDevice, phone, touchSteps, type Point } from './touch'
+import { expectFitsDevice, phone, touchSteps, viewSettled, type Point } from './touch'
 
 // A phone's board views and triages: one finger pans, two zoom, a tap opens a
 // card, and nothing on it writes layout. docs/mobile-design-v1.md, "The board".
@@ -16,22 +16,6 @@ async function view(page: Page): Promise<View> {
   const match = /translate\(([-\d.e]+)px, ([-\d.e]+)px\) scale\(([-\d.e]+)\)/.exec(transform)
   if (!match) throw new Error(`unexpected scene transform ${transform}`)
   return { x: Number(match[1]), y: Number(match[2]), k: Number(match[3]) }
-}
-
-/** Wait until the view has held still for a while. The opening fit, a
- * restored view and a re-fit after the first measurements can each move it
- * after the first card is visible, and under load the last of them can land
- * after a test has measured a card and is about to touch it. Comparing a poll
- * against one read taken up front passes at once if nothing has moved yet, so
- * this compares reads taken apart in time. */
-async function settled(page: Page) {
-  let last = '', same = 0
-  await expect.poll(async () => {
-    const now = JSON.stringify(await view(page))
-    same = now === last ? same + 1 : 0
-    last = now
-    return same
-  }, { intervals: [150], timeout: 10_000 }).toBeGreaterThanOrEqual(3)
 }
 
 /** Every request that could have written something. */
@@ -87,7 +71,7 @@ async function drag(page: Page, from: Point, by: Point) {
  * writes the view 300ms after it last moved, so this waits for it to hold
  * still first; clearing sooner leaves that write to land afterwards. */
 async function store(page: Page, stored: Record<string, unknown> | null) {
-  await settled(page)
+  await viewSettled(page)
   await page.evaluate(([key, value]) => {
     for (const held of Object.keys(localStorage)) if (held.startsWith('git-ticket-canvas.view.')) localStorage.removeItem(held)
     if (value === null) localStorage.removeItem(key!)
@@ -100,7 +84,7 @@ async function open(page: Page, url: string, layout = 'phone') {
   await expect(page.locator('html')).toHaveAttribute('data-layout', layout)
   await expect(page.locator('.card').first()).toBeVisible()
   // Let the opening fit settle before anything measures the view.
-  await settled(page)
+  await viewSettled(page)
 }
 
 /** A frame around the card, made through the tablet's frame panel, since a

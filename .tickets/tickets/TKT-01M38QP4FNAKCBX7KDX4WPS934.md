@@ -28,12 +28,12 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T06:06:17Z
+updated_at: 2026-09-24T06:35:21Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/mobile-hover
+  id: agent:claude/mobile-lead
   name: ""
 extensions: {}
 ---
@@ -48,7 +48,7 @@ See `docs/mobile-design-v1.md`, "Tablet".
 
 ## Acceptance criteria
 
-- [ ] The hint line is chosen by pointer and is accurate for touch
+- [x] The hint line is chosen by pointer and is accurate for touch
 - [x] Tapping an edge names it, with a test on the emulated tablet
 - [x] A double tap on empty board files a ticket on the emulated tablet, and double-click on a desk still does
 - [x] No control is explained only by its title attribute on a coarse pointer
@@ -116,6 +116,16 @@ Criterion 4, checked beyond the grooming list. Every `title=` in web/src/ui was 
 - Named in the grooming note. The link handle, Manual and the zoom level have entries in the touch hint. The held-by badge reads "held by NAME". Fit and the zoom level have `aria-label`s. Zoom in and out already had them. New ticket is labelled by its own text, and its title no longer names double-click as the only way to file.
 - Found besides those: New board (`+`), the inspector's close (`×`) and its relation remove buttons (`×`). Each was named only by a glyph, with the meaning in its title. Each now has an `aria-label`: "New board", "Close", "Remove dependency ID". A sighted finger reads a `+` beside the board select and a `×` beside what it removes as what they are.
 - Left alone, because each already has a visible label that says what it does and the title only adds detail: Display, Pens, Arrange, Undo and Redo frame, Cards, the account button, the version badge, the store picker, Rescan, and the card's label pills and the Unhoused state, which is not a control.
+
+**agent:claude/mobile-lead** at 2026-09-24T06:35:21Z
+
+Criterion 1 was left unticked because the touch hint's "hold a card to select several" described a gesture that did not yet exist. The hint is now accurate.
+
+On t3code/mobile-wave-3, the hover branch is merged together with TKT-01M38QP47G7VBHRBVYR8MMKN8K (Select several cards on a touch screen by holding one). A 450 ms hold on a card now selects it and enters selection mode, which tests/browser/select-hold.spec.ts demonstrates on the emulated tablet and phone.
+
+The merge added one interaction guard in Canvas.tsx `touchUp`: in selection mode, a double tap on empty board files nothing. The first tap leaves the mode, and a second tap there is not a request for a ticket. The guard is recorded on TKT-01M38QP47.
+
+The full browser suite passes on the merged branch: 157 passed, 7 skipped.
 
 ## Summary
 

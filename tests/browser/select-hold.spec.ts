@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 import { test, expect } from './fixtures'
-import { expectFitsDevice, phone, tablet, touchSteps, type Point } from './touch'
+import { expectFitsDevice, phone, tablet, touchSteps, viewSettled, type Point } from './touch'
 
 // Selecting several cards without a shift key: hold a card for 450 ms to
 // select it and enter selection mode, then tap to add and remove. A tablet
@@ -65,7 +65,7 @@ async function open(page: Page, url: string, layout: string) {
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute('data-layout', layout)
   await expect(page.locator('.card').first()).toBeVisible()
-  await expect.poll(() => view(page)).toEqual(await view(page))
+  await viewSettled(page)
 }
 
 const mode = (page: Page) => page.locator('#selectionMode')
@@ -184,6 +184,24 @@ test.describe('tablet', () => {
 
     await expect(mode(page)).toHaveCount(0)
     await expect(cardOf(page, a)).toHaveClass(/selected/)
+  })
+
+  for (const echo of [true, false]) test(`a double tap on empty board leaves selection mode and files nothing, ${echo
+    ? 'with the browser\'s dblclick' : 'with no dblclick'}`, async ({ page, app }) => {
+    // Out of the mode a double tap here files a ticket (touch-help.spec.ts).
+    // In it, the first tap is how somebody leaves, and tapping twice to be
+    // sure is not asking for a ticket.
+    if (!echo) await page.addInitScript(() => window.addEventListener('dblclick', event => event.stopPropagation(), true))
+    const { a } = await board(page, app)
+    await hold(page, await on(page, a))
+    await expect(mode(page)).toBeVisible()
+    const point = await empty(page)
+
+    await touchSteps(page, [[point], [], [{ x: point.x + 6, y: point.y + 4 }]])
+
+    await expect(mode(page)).toHaveCount(0)
+    await page.waitForTimeout(400)
+    await expect(page.locator('#composer')).toBeHidden()
   })
 
   test('a drag on empty board pans and stays in selection mode', async ({ page, app }) => {

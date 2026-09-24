@@ -778,6 +778,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     // A phone's board is for reading, and its New ticket button is always
     // there. A double tap on it is too easily a missed tap on a card.
     if (p.layout === 'phone' || p.frameCreating) return
+    // In selection mode a tap on empty board is how somebody leaves it, and a
+    // second tap there to be sure should not file a ticket as well.
+    if (p.selecting) return
     const point = { x: event.clientX, y: event.clientY }
     if (last && event.timeStamp - last.at <= DOUBLE_TAP_MS
       && Math.hypot(point.x - last.point.x, point.y - last.point.y) <= DOUBLE_TAP_SLOP) compose(point)

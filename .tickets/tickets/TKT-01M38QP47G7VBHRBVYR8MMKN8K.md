@@ -27,12 +27,12 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T06:04:21Z
+updated_at: 2026-09-24T06:35:21Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/mobile-select
+  id: agent:claude/mobile-lead
   name: ""
 extensions: {}
 ---
@@ -120,6 +120,18 @@ Built on 9f82bee (wave 2). What a reviewer should know that the plan does not sa
 - A long press is only looked for on a touch pointer. A mouse held on a card on a desk does nothing new; the desk spec checks that.
 - Phone header screenshot in the mode, taken by a throwaway spec: the row reads `default ▾ | Selecting · 1 | Done | Filter | ☰` and stays one row at 390 px. The committed phone header baseline is local-only and was not regenerated, because the header without the mode is unchanged.
 - Not checked on a real device. The design asks for that once the phone layout lands, on the brokkr ledger canvas.
+
+**agent:claude/mobile-lead** at 2026-09-24T06:35:21Z
+
+Merging with TKT-01M38QP4FNAKCBX7KDX4WPS934 (Replace hover-only help and edge names on a touch screen) on t3code/mobile-wave-3 created one interaction between the two tickets. That ticket's stage counts two taps on empty board as a double tap and files a ticket. This ticket makes a tap on empty board in selection mode leave the mode.
+
+Left alone, tapping twice to leave the mode would also open the composer. `touchUp` now returns before the double-tap count while `selecting` is true.
+
+The alternative was to count the pair and let the composer open once the mode had closed. It lost because the second tap belongs to the same intent as the first.
+
+Test: select-hold.spec.ts "a double tap on empty board leaves selection mode and files nothing". It runs twice, once with Chromium's synthesised dblclick and once with it swallowed. Both runs failed with the guard removed and pass with it.
+
+The same commit moves the view-settle wait into a shared `viewSettled` helper in tests/browser/touch.ts. It is used by pinch, phone-board, sheet and select-hold. select-hold and sheet previously compared a poll against one up-front read, which passes before anything has settled.
 
 ## Summary
 

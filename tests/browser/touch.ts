@@ -154,3 +154,23 @@ export async function twoFingerPan(page: Page, start: Point, delta: Point, sprea
   ]
   await twoFingers(page, interpolate(at(start), at({ x: start.x + delta.x, y: start.y + delta.y }), steps))
 }
+
+/**
+ * Wait until the board's view has held still for a while. The opening fit, a
+ * restored view and a re-fit after the first measurements can each move it
+ * after the first card is visible, and under load the last of them can land
+ * after a test has measured a card and is about to touch it. Comparing a poll
+ * against one read taken up front passes at once if nothing has moved yet, so
+ * this compares reads taken apart in time: three matching reads 150ms apart,
+ * which also outlasts the 300ms the page waits before it remembers a view.
+ */
+export async function viewSettled(page: Page) {
+  const read = () => page.locator('#scene').evaluate(scene => (scene as HTMLElement).style.transform)
+  let last = '', same = 0
+  await expect.poll(async () => {
+    const now = await read()
+    same = now === last ? same + 1 : 0
+    last = now
+    return same
+  }, { intervals: [150], timeout: 10_000 }).toBeGreaterThanOrEqual(3)
+}
