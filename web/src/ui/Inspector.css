@@ -70,27 +70,78 @@
 #inspector .linkline .t { white-space: normal; overflow-wrap: anywhere; }
 #inspector .checkitem:focus-within button { visibility: visible; }
 
-/* The inspector gets its own row below the canvas on narrow screens. */
+/* The phone's ticket sheet. Keyed on the layout rather than on a width, so a
+   person who overrides the layout in the Display panel gets what they chose,
+   and a phone turned landscape keeps its sheet. The tablet and desk
+   placements in index.html exclude the phone layout, so this is the only rule
+   that places a phone's inspector.
+
+   The sheet floats over the board rather than taking a row from it. The board
+   keeps the whole stage, so above a peek or half sheet it still pans, pinches
+   and takes a tap on another card, and the fit already works around a panel
+   along the bottom. */
+#inspector .insp-sheet-handle, #inspector .insp-peek-state { display: none; }
+html[data-layout="phone"] #inspector {
+  top: auto; right: 0; bottom: 0; left: 0;
+  width: 100%;
+  max-height: 100%;
+  border-left: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -8px 30px -12px rgba(0,0,0,.7);
+  transform: translateY(100%);
+  transition: transform .16s ease, height .16s ease;
+}
+html[data-layout="phone"] #inspector.open { transform: none; }
+/* The peek is the handle, the head and the foot, however the title wraps:
+   the body is hidden rather than clipped to a guessed height. The foot's
+   Claim or Release is the next thing to do with a ticket, and it sits right
+   under the title. */
+html[data-layout="phone"] #inspector[data-sheet="peek"] { height: auto; }
+html[data-layout="phone"] #inspector[data-sheet="peek"]:not([data-dragging]) .insp-body { display: none; }
+/* On a short stage half of it is less than the peek, so half has a floor: the
+   peek and a few lines of the body, which Inspector.tsx measures into the
+   variable. `max-height` still keeps it inside the stage. */
+html[data-layout="phone"] #inspector[data-sheet="half"] { height: max(50%, var(--sheet-half-least, 0px)); }
+html[data-layout="phone"] #inspector[data-sheet="full"] { height: 100%; border-radius: 0; }
+/* The height follows the finger while it is dragged, set on the element. */
+html[data-layout="phone"] #inspector[data-dragging] { transition: none; }
+html[data-layout="phone"] #inspector .insp-sheet-handle {
+  display: block;
+  flex-shrink: 0;
+  width: 100%;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: ns-resize;
+  /* Claims its touches for the drag, where the body below it scrolls. */
+  touch-action: none;
+}
+html[data-layout="phone"] #inspector .insp-sheet-handle::before {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 5px;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: var(--ink-faint);
+}
+html[data-layout="phone"] #inspector .insp-sheet-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+html[data-layout="phone"] #inspector .insp-peek-state { display: block; color: var(--ink-dim); margin-top: 2px; }
+/* The side resize widens a panel beside the board, and a sheet has no side. */
+html[data-layout="phone"] #inspector .insp-resize { display: none; }
+html[data-layout="phone"] #inspector .insp-head { padding: 0 12px 10px; }
+html[data-layout="phone"] #inspector .insp-title { max-height: 6rem; }
+html[data-layout="phone"] #inspector .insp-body { padding: 4px 12px 24px; }
+html[data-layout="phone"] #inspector .insp-foot { padding: 8px 12px; }
+
+/* Positions nothing. A desk window this narrow had no side resize before the
+   phone sheet, and still has none. TKT-01M38WN9EE8QVNR0E7B3B4QTZM (Hide the
+   inspector's side resize handle when it is not beside the board) decides
+   where the handle belongs when the panel is not beside the board. */
 @media (max-width: 700px) {
-  #stage:has(#inspector.open) { display: grid; grid-template-rows: minmax(150px, 35%) minmax(0, 1fr); }
-  #stage:has(#inspector.open) #formsRoot { display: contents; }
-  #stage:has(#inspector.open) #inspector { grid-row: 2; position: relative; min-height: 0; }
-  #stage:has(#inspector.open) #hint { display: none; }
-  #inspector {
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border-left: 0;
-    border-top: 1px solid var(--line);
-    transform: translateY(100%);
-  }
-  #inspector.open { transform: none; }
   #inspector .insp-resize { display: none; }
-  #inspector .insp-head { padding: 10px 12px; }
-  #inspector .insp-title { max-height: 6rem; }
-  #inspector .insp-body { padding: 4px 12px 24px; }
-  #inspector .insp-foot { padding: 8px 12px; }
 }
 
 /* The placement section: why the card is where it is, and the one control
