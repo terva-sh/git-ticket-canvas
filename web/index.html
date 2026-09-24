@@ -475,13 +475,14 @@ html[data-targets="coarse"] .card-placement { padding: 6px 0; }
 /* Where the inspector sits, chosen from the width and the aspect ratio. A
    360px panel beside the board needs a board left over to sit beside; on a
    taller-than-wide window it would leave a sliver, so it becomes a sheet along
-   the bottom instead, and on a narrow landscape window it covers the board. */
-html[data-inspector="over"] #inspector { width: 100%; border-left: 0; }
-html[data-inspector="bottom"] #inspector {
+   the bottom instead, and on a narrow landscape window it covers the board.
+   A phone is left out: its sheet in Inspector.css is the one rule placing it. */
+html[data-inspector="over"]:not([data-layout="phone"]) #inspector { width: 100%; border-left: 0; }
+html[data-inspector="bottom"]:not([data-layout="phone"]) #inspector {
   width: 100%; top: auto; height: 55%; border-left: 0; border-top: 1px solid var(--line);
   transform: translateY(100%);
 }
-html[data-inspector="bottom"] #inspector.open { transform: none; }
+html[data-inspector="bottom"]:not([data-layout="phone"]) #inspector.open { transform: none; }
 .insp-head { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: flex-start; }
 .insp-body { overflow-y: auto; padding: 4px 14px 40px; flex: 1; }
 .insp-title {

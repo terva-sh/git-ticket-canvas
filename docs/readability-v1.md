@@ -302,6 +302,12 @@ At viewport widths of 700 px or less, the inspector occupies a full-width grid r
 below the canvas area. Its body scrolls while title and lifecycle controls remain
 visible. Toolbar filters wrap. Fit uses the canvas space above the inspector.
 
+Superseded on 2026-09-24 by TKT-01M38QP3EV026GJY91GE3CG0J6 (Open a ticket in a
+bottom sheet on a phone). The 700 px grid row is gone. On the phone layout the
+inspector is a sheet over the bottom of the board with three heights. On tablet
+and desk it is placed by the `data-inspector` setting. See
+`docs/mobile-design-v1.md`, "The ticket sheet".
+
 ## Verification
 
 Run on the integrated working tree on 2026-09-10:

@@ -367,9 +367,94 @@ function InspectorBody({ ticket: t, config, tickets, readOnly, onPatch, onNaviga
   </>
 }
 
+/** How far a phone's ticket sheet is pulled up. Only the phone layout's
+ * stylesheet reads it; everywhere else the attribute is inert. */
+type SheetHeight = 'peek' | 'half' | 'full'
+const SHEET_HEIGHTS: readonly SheetHeight[] = ['peek', 'half', 'full']
+
+/** Released under this share of the peek, the sheet closes rather than
+ * snapping back. A whole peek would close on a flick meant as a nudge, and a
+ * sliver would make closing a drag to the very bottom edge. */
+const SHEET_CLOSE_BELOW = 2 / 3
+
+/** How much of the body half shows at the least. On a short stage, a phone
+ * turned landscape for one, half of it is less than the peek, and a half that
+ * showed no body would be the peek again. About four lines of a field. */
+const SHEET_HALF_BODY = 96
+
+/** A sheet at the peek: its handle, head and foot and its own borders, which
+ * is everything but the body, whichever height it is at now. */
+function peekHeight(element: HTMLElement): number {
+  let height = element.offsetHeight - element.clientHeight
+  element.querySelectorAll<HTMLElement>(':scope > .insp-sheet-handle, :scope > .insp-head, :scope > .insp-foot')
+    .forEach(part => { height += part.offsetHeight })
+  return height
+}
+
 export function Inspector({ ticket, config, tickets, readOnly, onPatch, onClose, onNavigate, onDelete, children, concealed }: InspectorProps) {
   const panel = useRef<HTMLElement>(null)
   const separator = useRef<HTMLDivElement>(null)
+  const [sheet, setSheet] = useState<SheetHeight>('peek')
+  // A sheet opens at the peek every time, whatever height it was left at.
+  // Keyed on whether there is a ticket rather than which one, so tapping
+  // another card while it is open switches the ticket and keeps the height.
+  const opened = !!ticket
+  useLayoutEffect(() => { if (opened) setSheet('peek') }, [opened])
+  const sheetDrag = useRef<{ pointerId: number; y: number; height: number; moved: boolean } | null>(null)
+  const cycleSheet = () => setSheet(SHEET_HEIGHTS[(SHEET_HEIGHTS.indexOf(sheet) + 1) % SHEET_HEIGHTS.length])
+  const stepSheet = (by: number) => {
+    const next = SHEET_HEIGHTS[Math.min(SHEET_HEIGHTS.length - 1, Math.max(0, SHEET_HEIGHTS.indexOf(sheet) + by))]
+    if (next !== sheet) setSheet(next)
+  }
+  // The heights the three settings come to on this stage right now, as the
+  // stylesheet draws them.
+  const sheetHeights = (element: HTMLElement) => {
+    const stage = element.offsetParent as HTMLElement | null
+    const room = stage?.clientHeight ?? element.offsetHeight
+    const peek = peekHeight(element)
+    const half = Math.min(room, Math.max(room / 2, peek + SHEET_HALF_BODY))
+    return { room, heights: { peek, half, full: room } as Record<SheetHeight, number> }
+  }
+  // The stylesheet needs the peek's height for the floor under half, and CSS
+  // cannot read an `auto` height back. The head grows when the title wraps, so
+  // it is watched rather than measured once.
+  useLayoutEffect(() => {
+    const element = panel.current
+    if (!element || typeof ResizeObserver === 'undefined') return
+    const measure = () => element.style.setProperty('--sheet-half-least', `${peekHeight(element) + SHEET_HALF_BODY}px`)
+    measure()
+    const observer = new ResizeObserver(measure)
+    element.querySelectorAll(':scope > .insp-sheet-handle, :scope > .insp-head, :scope > .insp-foot')
+      .forEach(part => observer.observe(part))
+    return () => observer.disconnect()
+  }, [])
+  const finishSheet = (event: PointerEvent) => {
+    const drag = sheetDrag.current
+    if (drag?.pointerId !== event.pointerId) return
+    event.stopPropagation()
+    sheetDrag.current = null
+    const target = event.currentTarget as HTMLElement
+    if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId)
+    const element = panel.current
+    if (!element) return
+    const height = element.getBoundingClientRect().height
+    const { heights } = sheetHeights(element)
+    element.style.removeProperty('height')
+    delete element.dataset.dragging
+    if (event.type === 'pointercancel') return
+    // A press that never moved is a tap, and a tap steps the height.
+    if (!drag.moved) {
+      cycleSheet()
+      return
+    }
+    if (height < heights.peek * SHEET_CLOSE_BELOW) {
+      onClose()
+      return
+    }
+    const nearest = SHEET_HEIGHTS.reduce((best, each) =>
+      Math.abs(heights[each] - height) < Math.abs(heights[best] - height) ? each : best)
+    setSheet(nearest)
+  }
   const width = useRef(400)
   const drag = useRef<{ pointerId: number; x: number; width: number } | null>(null)
   const resize = (next: number) => {
@@ -394,13 +479,63 @@ export function Inspector({ ticket, config, tickets, readOnly, onPatch, onClose,
     if (ticket && !readOnly) void onPatch(ticket, [op]).catch(() => {})
   }
   return <aside id="inspector" ref={panel} style={{ '--inspector-width': `${width.current}px`, display: concealed ? 'none' : undefined }}
-    data-render-count={renders.current} class={ticket && !concealed ? 'open' : ''} aria-hidden={!ticket || concealed} aria-label="Ticket inspector"
+    data-render-count={renders.current} data-sheet={sheet} class={ticket && !concealed ? 'open' : ''} aria-hidden={!ticket || concealed} aria-label="Ticket inspector"
     onKeyDown={event => {
       if (event.key === 'Escape') {
         event.stopPropagation()
         onClose()
       }
     }}>
+    {/* The phone's sheet handle. Hidden in every other layout by the
+        stylesheet, and harmless there: it only sets `data-sheet`. */}
+    <button type="button" class="insp-sheet-handle" tabIndex={ticket ? 0 : -1}
+      aria-label={`Sheet height: ${sheet}. Drag, or press Up or Down.`}
+      title="Drag to resize. Drag below the peek to close."
+      onPointerDown={event => {
+        if (event.button !== 0 || !panel.current) return
+        event.preventDefault()
+        event.stopPropagation()
+        sheetDrag.current = { pointerId: event.pointerId, y: event.clientY,
+          height: panel.current.getBoundingClientRect().height, moved: false }
+        event.currentTarget.setPointerCapture(event.pointerId)
+      }}
+      onPointerMove={event => {
+        const drag = sheetDrag.current
+        const element = panel.current
+        if (drag?.pointerId !== event.pointerId || !element) return
+        event.stopPropagation()
+        const by = drag.y - event.clientY
+        // A few pixels of wobble is a tap on the handle, not a drag.
+        if (!drag.moved && Math.abs(by) < 6) return
+        drag.moved = true
+        // Written to the element rather than to state, for the reason the
+        // side resize gives: a drag frame must not re-render the fields.
+        const { room } = sheetHeights(element)
+        element.dataset.dragging = ''
+        element.style.height = `${Math.round(Math.min(room, Math.max(0, drag.height + by)))}px`
+      }}
+      onPointerUp={finishSheet} onPointerCancel={finishSheet}
+      onLostPointerCapture={() => {
+        if (!sheetDrag.current) return
+        sheetDrag.current = null
+        panel.current?.style.removeProperty('height')
+        if (panel.current) delete panel.current.dataset.dragging
+      }}
+      // No gesture of the browser's own starts here. Left alone, a quick drag
+      // on the handle ends in a fling that nothing scrolls, and Chromium eats
+      // the next tap anywhere on the page as the one that stops it: measured
+      // under touch emulation on 2026-09-24, where a flick to full left the
+      // next tap on a field with no click. A touch tap therefore never becomes
+      // a click here, and pointerup handles it instead.
+      onTouchStart={event => event.preventDefault()}
+      // Enter and Space. A pointer's tap was already taken on pointerup.
+      onClick={event => { if (event.detail === 0) cycleSheet() }}
+      onKeyDown={event => {
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+        event.preventDefault()
+        event.stopPropagation()
+        stepSheet(event.key === 'ArrowUp' ? 1 : -1)
+      }} />
     <div class="insp-resize" ref={separator} role="separator" tabIndex={ticket ? 0 : -1}
       aria-label="Inspector width" aria-controls="inspector" aria-orientation="vertical"
       aria-valuemin={320} aria-valuemax={560} aria-valuenow={width.current} aria-valuetext={`${width.current} pixels`}
@@ -437,6 +572,9 @@ export function Inspector({ ticket, config, tickets, readOnly, onPatch, onClose,
           id="fTitle" className="insp-title" placeholder="Title" multiline enterToBlur />
           : <input id="fTitle" class="insp-title" placeholder="Title" disabled />}
         <div class="muted" id="fMeta">{ticket && `${ticket.id}  ·  updated ${ticket.updatedAt.slice(0, 16).replace('T', ' ')}${ticket.updatedBy ? ` by ${ticket.updatedBy}` : ''}`}</div>
+        {/* What a phone's peek shows of the state, since the peek hides the
+            body. Elsewhere the state summary below says the same. */}
+        {ticket && <div class="insp-peek-state">{ticket.status}{ticket.archived ? ' · archived' : ''} · {ticket.priority}</div>}
       </div>
       <button id="inspClose" class="tool" title="Close (Esc)" onClick={onClose}>×</button>
     </div>

@@ -82,7 +82,10 @@ test('inspector resize preserves an active draft and Fit uses the available widt
   await expect(inspector).toHaveCSS('width', '320px')
 })
 
-test('narrow inspector occupies a full-width row with reachable editors', async ({ page, app }, testInfo) => {
+// A 390px window is a phone by its short side, so the inspector is the phone's
+// sheet: it opens at the peek, over the bottom of the board, and the editors
+// are a step up. sheet.spec.ts drives the sheet with a finger.
+test('narrow inspector is a full-width sheet with reachable editors', async ({ page, app }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await app.create('A long title that must wrap within the narrow inspector rather than overflow')
   await page.goto(app.url)
@@ -100,6 +103,10 @@ test('narrow inspector occupies a full-width row with reachable editors', async 
   await page.locator('#btnFit').click()
   const card = (await page.locator('.card').boundingBox())!
   expect(card.y + card.height).toBeLessThanOrEqual(panel.y)
+  // Two clicks on the handle step it from the peek through half to full.
+  await page.locator('.insp-sheet-handle').click()
+  await page.locator('.insp-sheet-handle').click()
+  await expect(inspector).toHaveAttribute('data-sheet', 'full')
   await page.getByText('Edit status, priority, ownership and due date', { exact: true }).click()
   const priority = page.locator('.field').filter({ has: page.locator('label', { hasText: /^Priority$/ }) }).locator('select')
   await priority.selectOption('high')

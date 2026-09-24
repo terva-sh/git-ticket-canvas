@@ -587,8 +587,10 @@ export function App() {
     root.dataset.targets = display.settings.targets
     root.dataset.inspector = display.settings.inspector
     root.dataset.toolbar = display.toolbar
-    // The phone header keys its stylesheet on this, and Toolbar takes the same
-    // value as a prop to choose which header to render.
+    // Stylesheets key on this: the phone header, the phone's ticket sheet, and
+    // the tablet and desk inspector placements, which exclude the phone.
+    // Toolbar also takes the same value as a prop to choose which header to
+    // render, because nothing re-renders it when only this attribute changes.
     root.dataset.layout = display.settings.layout
   }, [display.settings.targets, display.settings.inspector, display.toolbar, display.settings.layout])
 
