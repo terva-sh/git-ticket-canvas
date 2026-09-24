@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38WN9EE8QVNR0E7B3B4QTZM
 title: Hide the inspector's side resize handle when it is not beside the board
 type: bug
-status: in-progress
+status: review
 status_reason: null
 priority: normal
 due_on: null
@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T05:01:53Z
-updated_at: 2026-09-24T13:17:45Z
+updated_at: 2026-09-24T13:22:39Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -47,6 +47,33 @@ Hide it, or make it resize height, wherever the inspector is not beside the boar
 
 ## Acceptance criteria
 
-- [ ] The resize handle is absent or inert wherever the inspector is not placed beside the board
-- [ ] A touch drag starting at the left edge of a bottom sheet on the emulated tablet scrolls the inspector
-- [ ] The beside placement keeps its resize handle, and its existing tests pass
+- [x] The resize handle is absent or inert wherever the inspector is not placed beside the board
+- [x] A touch drag starting at the left edge of a bottom sheet on the emulated tablet scrolls the inspector
+- [x] The beside placement keeps its resize handle, and its existing tests pass
+
+## Implementation plan
+
+Hide `.insp-resize` with one rule in Inspector.css, `html:not([data-inspector="beside"]) #inspector .insp-resize { display: none; }`, and drop the `max-width: 700px` media query it replaces.
+
+App.tsx already writes the placement to `html[data-inspector]`. There are three placements: `beside`, `bottom` and `over`. Both `bottom` and `over` are full width (web/index.html), so a width handle is meaningless in either. The phone's own rule stays, because the phone always shows its sheet whatever the placement says.
+
+Rejected alternatives:
+- Make the handle resize height on the bottom sheet. On a phone the sheet already has its own peek/half/full handle. A tablet bottom panel with a height handle would be a new feature, and no ticket asks for one.
+- Stop rendering the handle in Inspector.tsx when not beside. That would need the placement passed into Inspector for a purely visual question. `display: none` already removes it from the tab order and from hit testing.
+- Keep the 700px query as well. It hid the handle on a narrow window where somebody had set the panel beside by hand, which is exactly where a width is worth setting.
+
+## Notes
+
+**agent:claude/mobile-lead** at 2026-09-24T13:22:38Z
+
+New test in pinch.spec.ts: "a touch drag from the left edge of the bottom sheet scrolls it". It runs on the emulated portrait tablet (820x1180), with `data-inspector="bottom"`, and drags from 4px inside the sheet's left edge.
+
+Before the fix, the test failed on its `.insp-resize` hidden check. With that check removed, it failed on the scroll, with scrollTop left at 0. It passes with the fix.
+
+The neighbouring inspector scroll test's comment no longer describes the left edge as the resize handle.
+
+Criterion 3: sheet.spec.ts "…desk…beside" already asserts `.insp-resize` is visible for the beside panel, and it passes. pinch and sheet together passed 18/18, and `just web-test` passed 556.
+
+## Summary
+
+The inspector's side resize handle now shows only when the inspector is beside the board. A rule in Inspector.css keyed on html[data-inspector] replaces the 700px width query, so the portrait tablet's bottom panel and the full-width over panel no longer carry a handle that swallowed edge touches. Test: pinch.spec.ts "a touch drag from the left edge of the bottom sheet scrolls it", which failed before the fix. The beside panel keeps its handle (sheet.spec.ts).

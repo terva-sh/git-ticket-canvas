@@ -136,13 +136,14 @@ html[data-layout="phone"] #inspector .insp-title { max-height: 6rem; }
 html[data-layout="phone"] #inspector .insp-body { padding: 4px 12px 24px; }
 html[data-layout="phone"] #inspector .insp-foot { padding: 8px 12px; }
 
-/* Positions nothing. A desk window this narrow had no side resize before the
-   phone sheet, and still has none. TKT-01M38WN9EE8QVNR0E7B3B4QTZM (Hide the
-   inspector's side resize handle when it is not beside the board) decides
-   where the handle belongs when the panel is not beside the board. */
-@media (max-width: 700px) {
-  #inspector .insp-resize { display: none; }
-}
+/* The side resize widens a panel beside the board. Along the bottom and over
+   the board the panel is already full width, so the handle had nothing to
+   resize and took every touch that started along the panel's left edge,
+   scrolls included. Keyed on the placement rather than on a width: a narrow
+   window with the panel set beside by hand still has a width worth setting,
+   and a wide portrait tablet with it along the bottom does not. Hidden, it
+   also leaves the tab order. */
+html:not([data-inspector="beside"]) #inspector .insp-resize { display: none; }
 
 /* The placement section: why the card is where it is, and the one control
    that hands it back to the rules. Styled like frame membership, which sits
