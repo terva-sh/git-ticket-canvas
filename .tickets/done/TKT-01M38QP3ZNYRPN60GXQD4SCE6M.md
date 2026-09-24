@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38QP3ZNYRPN60GXQD4SCE6M
 title: List tickets by status as well as on the board
 type: task
-status: review
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -18,22 +18,15 @@ dependencies:
   - TKT-01M38QP2WYRK9A18P473KTM9BV
 blocks_on: none
 references: []
-claim:
-  actor: agent:claude/mobile-list
-  branch: worktree-agent-a752f78af0b9e1231
-  worktree: /home/sothr/workspace/git.local.sothr.com/terva-sh/git-ticket-canvas/.claude/worktrees/agent-a752f78af0b9e1231
-  commit: 5389071f510222a6008ff7deb307c6f2074d7043
-  session: null
-  claimed_at: 2026-09-24T13:18:00Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T13:43:12Z
+updated_at: 2026-09-24T14:08:48Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/mobile-list
+  id: agent:claude/mobile-lead
   name: ""
 extensions: {}
 ---
@@ -108,6 +101,10 @@ While the list shows, the stage's own board elements (#scene, #grid, #hint, #boa
 **agent:claude/mobile-list** at 2026-09-24T13:43:12Z
 
 Verification at the review commit: just web-typecheck passed. just web-test: 45 files, 569 tests passed. just browser-test: 180 passed, 8 skipped, 0 failed. Strict tsc on list.spec.ts and list-keyboard.spec.ts passed. just dist-verify: the rebuild matches HEAD byte for byte. CANVAS_VISUAL=1 phone-header and phone-list baselines pass. just canvas-visual fails on this machine, and fails the same way with origin/main's web/dist (70,258 pixels, against 70,365 here), so it is not caused by this change. No Go was touched.
+
+**agent:claude/mobile-lead** at 2026-09-24T14:08:48Z
+
+Merged to main through PR 37 (https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/37) at 2bfc536 on 2026-09-24, with the epic's other four remaining children. Terva reviewed 844d14b and raised one finding, keyboard focus lost when the focused list row is removed or regrouped; it was fixed with a test on TKT-01M38RXAS80BEW03WCGBYYRBDC. The review of 9116cfb was clean, and CI passed on it. The summary above stands.
 
 ## Summary
 

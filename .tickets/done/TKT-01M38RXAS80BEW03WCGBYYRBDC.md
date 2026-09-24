@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38RXAS80BEW03WCGBYYRBDC
 title: Open a ticket's inspector without a pointer
 type: task
-status: review
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -16,17 +16,10 @@ origin: null
 dependencies: []
 blocks_on: none
 references: []
-claim:
-  actor: agent:claude/mobile-list
-  branch: worktree-agent-a752f78af0b9e1231
-  worktree: /home/sothr/workspace/git.local.sothr.com/terva-sh/git-ticket-canvas/.claude/worktrees/agent-a752f78af0b9e1231
-  commit: 151fa57c9b17bdc20c09ed2b3bba100ed42be27f
-  session: null
-  claimed_at: 2026-09-24T13:34:09Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-24T03:56:23Z
-updated_at: 2026-09-24T14:00:36Z
+updated_at: 2026-09-24T14:08:48Z
 created_by:
   id: agent:claude/mobile-relate
   name: ""
@@ -109,6 +102,10 @@ Rejected alternatives:
 New test: list-keyboard.spec.ts "focus stays in the list when another writer moves or removes the focused row". It moves the focused ticket to ready and expects focus still on it, then deletes it and expects focus on a neighbour, with Home still working. It failed on 844d14b, where focus was on the body after the move, and passes with the fix.
 
 Checks run: `just browser-test` passed 183 with 8 skipped, and `just web-test` passed 569.
+
+**agent:claude/mobile-lead** at 2026-09-24T14:08:48Z
+
+Merged to main through PR 37 (https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/37) at 2bfc536 on 2026-09-24, with the epic's other four remaining children. Terva reviewed 844d14b and raised one finding, keyboard focus lost when the focused list row is removed or regrouped; it was fixed with a test on TKT-01M38RXAS80BEW03WCGBYYRBDC. The review of 9116cfb was clean, and CI passed on it. The summary above stands.
 
 ## Summary
 

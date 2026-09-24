@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38ZB4QPZXM05BHHT72F81MM
 title: Stop the phone's ticket sheet and keyboard from writing layout
 type: task
-status: review
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -16,17 +16,10 @@ origin: null
 dependencies: []
 blocks_on: none
 references: []
-claim:
-  actor: agent:claude/mobile-lead
-  branch: t3code/mobile-wave-4
-  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-fd003818
-  commit: 5389071f510222a6008ff7deb307c6f2074d7043
-  session: null
-  claimed_at: 2026-09-24T13:17:45Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-24T05:48:47Z
-updated_at: 2026-09-24T13:29:51Z
+updated_at: 2026-09-24T14:08:48Z
 created_by:
   id: agent:claude/mobile-board
   name: ""
@@ -77,6 +70,10 @@ With the `u` guard removed, the test failed: the card became `unpinned`. The des
 Checks run:
 - `just browser-test`: 164 passed, 7 skipped, and 1 failed. The failure was frames.spec "frame capture…", an API-call timeout at load average 9.85. frames.spec passed 18/18 on a `--repeat-each=3` re-run.
 - `just web-test`: 556 passed.
+
+**agent:claude/mobile-lead** at 2026-09-24T14:08:48Z
+
+Merged to main through PR 37 (https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/37) at 2bfc536 on 2026-09-24, with the epic's other four remaining children. Terva reviewed 844d14b and raised one finding, keyboard focus lost when the focused list row is removed or regrouped; it was fixed with a test on TKT-01M38RXAS80BEW03WCGBYYRBDC. The review of 9116cfb was clean, and CI passed on it. The summary above stands.
 
 ## Summary
 

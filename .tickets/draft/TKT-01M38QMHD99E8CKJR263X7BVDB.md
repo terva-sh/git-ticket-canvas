@@ -23,7 +23,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-24T03:34:06Z
-updated_at: 2026-09-24T08:01:54Z
+updated_at: 2026-09-24T14:08:48Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -84,3 +84,22 @@ Test harness lessons from these waves:
 - Use `betweenFrames` to show that a gesture decision does not depend on animation frames.
 
 CI failed several times with unreadable logs while other sessions held load average between 9 and 18. Each time, a re-run on identical code passed.
+
+**agent:claude/mobile-lead** at 2026-09-24T14:08:48Z
+
+PR 37 merged at 2bfc536 on 2026-09-24. It closes the last five children:
+- TKT-01M38QP3ZNYRPN60GXQD4SCE6M (List tickets by status as well as on the board)
+- TKT-01M38RXAS80BEW03WCGBYYRBDC (Open a ticket's inspector without a pointer)
+- TKT-01M38WN9EE8QVNR0E7B3B4QTZM (Hide the inspector's side resize handle when it is not beside the board)
+- TKT-01M38YCD9ZAZSTAHM4FJGQ1TQ9 (Wait for the board before measuring it in the touch spec's lift test)
+- TKT-01M38ZB4QPZXM05BHHT72F81MM (Stop the phone's ticket sheet and keyboard from writing layout)
+
+All fifteen children are now done.
+
+The epic stays open, with its criteria unticked, for these reasons:
+- Criteria 2 and 3 ask for a real phone and a real tablet. Every test so far runs in emulated Chromium, which cannot stand in for Safari on iOS, a real touchscreen, or an on-screen keyboard.
+- Criterion 1 needs somebody to read docs/mobile-design-v1.md against what shipped. The doc was amended as the work went, including the phone's single List toggle and the corrected touch-action claim, but nobody has done a last read of the whole document.
+- Criterion 4 says a desk behaves as it does today. Two deliberate desk changes landed, both asked for:
+  - the dependency-cycle refusal on a desk link drag;
+  - the Board/List switch in the header.
+  The desk suite passes. The desk visual baseline (`just canvas-visual`) was already failing on this machine against main's own dist, about 70k pixels, and was not regenerated.
