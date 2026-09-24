@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:56Z
-updated_at: 2026-09-24T04:40:59Z
+updated_at: 2026-09-24T04:42:01Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -113,6 +113,10 @@ Things found on the way, all in the tests, none in the product:
 - On a portrait tablet, touching a card opens the inspector as a sheet along the bottom, and touching a frame title opens the frame panel over the right half. A second finger that lands on either is on the panel, not the board, so correctly no pinch starts. The tests put their second finger where neither panel is, and say why.
 - A CDP `touchMove` that leaves a finger out does not lift it. A `touchEnd` naming one finger lifts exactly that one. `touchSteps` is built on what Chromium did, not on the CDP documentation, which says a touchEnd carries no points.
 - The inspector does scroll under a finger on main. An early version of the inspector test said otherwise because it started dragging while the sheet was still sliding in, from a point on the resize handle.
+
+**agent:claude/t3code** at 2026-09-24T04:42:01Z
+
+Opened as PR 31, https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/31, from t3code/pinch-two-finger, rebased onto main at c5526d2 after PR 30 closed the harness ticket this one depends on. A Terva review is requested next; its result is recorded here when it lands.
 
 ## Summary
 
