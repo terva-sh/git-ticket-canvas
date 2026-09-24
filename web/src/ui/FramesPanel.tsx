@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { Frame, Frames, Ticket } from '../platform/tickets/types'
+import { ARRANGED_ELSEWHERE } from './Placement'
 import './Frames.css'
 
 export interface FramePanelProps {
@@ -20,6 +21,9 @@ export interface FrameMembershipProps {
   frames: Frames
   readOnly: boolean
   pending: boolean
+  /** The phone layout: membership is shown, and neither changed nor opened,
+   * since the frame panel is all edits. */
+  layoutReadOnly?: boolean
   onChange(target: string | null): Promise<unknown>
   onSelectFrame(id: string): void
 }
@@ -215,6 +219,11 @@ export function FrameMembership(p: FrameMembershipProps) {
     } catch (failure) { if (mounted.current) setError(message(failure)) }
     finally { saving.current = false; if (mounted.current) setBusy(false) }
   }
+  if (p.layoutReadOnly) return <section class="frame-membership" aria-label="Frame membership">
+    <h3>Frame membership</h3>
+    <p>{current ? <>Member of {current[1].title}</> : 'No frame membership.'}</p>
+    {!p.readOnly && <p class="frame-help">{ARRANGED_ELSEWHERE}</p>}
+  </section>
   return <section class="frame-membership" aria-label="Frame membership">
     <h3>Frame membership</h3>
     <p>{current ? <>Member of <button type="button" onClick={() => p.onSelectFrame(current[0])}>{current[1].title}</button></> : 'No frame membership.'}</p>

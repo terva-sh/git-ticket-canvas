@@ -106,6 +106,8 @@ export function App() {
   const [sync, setSync] = useState<LiveStatus>({ connection: 'connecting', stale: false, degraded: false, readFailed: false })
   const live = useRef<LiveUpdates>()
   const latest = useRef(ui); latest.current = ui
+  /** For the key handler, which is registered once. */
+  const layoutLatest = useRef(display.settings.layout); layoutLatest.current = display.settings.layout
   const generation = useRef(0), feedbackId = useRef(0), busy = useRef(false), mounted = useRef(true)
   const deferredRead = useRef(false), canvas = useRef<CanvasHandle>(null), fitFrame = useRef(0)
   /** Debounces the view write, because a pan reports every motion frame. */
@@ -655,7 +657,9 @@ export function App() {
       // are most likely.
       // Canvas.save refuses on a read-only board and says so, so this does not
       // check first: a silent key is worse than one that explains itself.
-      if (event.key === 'u') { event.preventDefault(); canvas.current?.releaseSelected() }
+      // Not on a phone, whose layout is read and never written; a keyboard
+      // attached to one does not make it a tablet.
+      if (event.key === 'u' && layoutLatest.current !== 'phone') { event.preventDefault(); canvas.current?.releaseSelected() }
       if ((event.key === 'Delete' || event.key === 'Backspace') && latest.current.selected && !frameLatest.current.selected && !frameLatest.current.draft && !frameRequest.current) {
         event.preventDefault()
         const ticket = store.state.tickets.get(latest.current.selected)
@@ -779,11 +783,12 @@ export function App() {
           tickets={snapshot.tickets} readOnly={snapshot.readOnly || !!framePreview || pensUI.pending} concealed={frameOpen || pensOpen} onPatch={patch} onClose={closeInspector}
           onNavigate={id => { select(id); canvas.current?.focus(id) }} onDelete={remove}>
           {ui.selected && <FrameMembership ticketId={ui.selected} frames={snapshot.frames} readOnly={snapshot.readOnly}
-            pending={!!framePreview} onSelectFrame={selectFrame}
+            pending={!!framePreview} layoutReadOnly={display.settings.layout === 'phone'} onSelectFrame={selectFrame}
             onChange={target => performFrame(setMembership(frameState(), [ui.selected!], target))} />}
           {selectedTicket && <PlacementSection ticket={selectedTicket} pinned={snapshot.cards[selectedTicket.id] ?? null}
             explanation={explain(routing, selectedTicket, !!snapshot.cards[selectedTicket.id])} pens={routing.pens} inbox={routing.inbox}
-            readOnly={snapshot.readOnly} pending={!!framePreview} onRelease={id => canvas.current?.release([id])} />}
+            readOnly={snapshot.readOnly} pending={!!framePreview} layoutReadOnly={display.settings.layout === 'phone'}
+            onRelease={id => canvas.current?.release([id])} />}
         </Inspector>
         {ui.composer && <Composer key={ui.composerKey} position={ui.composer} readOnly={snapshot.readOnly}
           onCreate={create} onClose={() => closeComposer(ui.composer)} />}

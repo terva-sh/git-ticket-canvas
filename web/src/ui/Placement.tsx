@@ -16,8 +16,14 @@ export interface PlacementProps {
   readOnly: boolean
   /** A frame save in flight: the board is about to change under the card. */
   pending?: boolean
+  /** The phone layout, which reads a board's layout and writes none of it. */
+  layoutReadOnly?: boolean
   onRelease: (id: string) => void
 }
+
+/** What a phone shows where a layout control would be. The Layout setting is
+ * the way in from the same screen, so nothing is out of reach, only moved. */
+export const ARRANGED_ELSEWHERE = 'Arranged on the tablet or desk layout. Display can switch this screen to one.'
 
 function pointText(p: Point): string { return `(${p.x}, ${p.y})` }
 
@@ -81,8 +87,9 @@ export function PlacementSection(p: PlacementProps) {
       {lines.passedOver.map(line => <li key={line}>{line}</li>)}
     </ul>}
     {p.readOnly && <p class="placement-help">Read-only. Placement cannot be changed.</p>}
-    <div class="placement-actions">
+    {p.layoutReadOnly && !p.readOnly && <p class="placement-help">{ARRANGED_ELSEWHERE}</p>}
+    {!p.layoutReadOnly && <div class="placement-actions">
       <button type="button" data-return-automatic disabled={locked || !p.pinned} onClick={() => p.onRelease(p.ticket.id)}>Return to automatic</button>
-    </div>
+    </div>}
   </section>
 }
