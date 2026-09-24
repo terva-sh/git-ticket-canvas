@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CARD_WIDTH, COMPACT_CARD_WIDTH, autoPlace, cardWidthFor, fitView, isPinned,
-  MAX_ZOOM, MIN_ZOOM, posOf, toClient, toScene, zoomAt, zoomTo,
+  clampZoom, MAX_ZOOM, MIN_ZOOM, pinchView, posOf, toClient, toScene, zoomAt, zoomTo,
 } from './geometry';
 
 describe('cardWidthFor', () => {
@@ -197,6 +197,60 @@ describe('zoomAt', () => {
       expect(zoomAt(atLimit, client, origin, deltaY)).toEqual(atLimit);
     },
   );
+});
+
+describe('pinchView', () => {
+  const view = Object.freeze({ x: -120, y: 90, k: 0.8 });
+  const origin = Object.freeze({ left: 37, top: 55 });
+  const middle = (a: { x: number; y: number }, b: { x: number; y: number }) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  const from = Object.freeze([{ x: 300, y: 400 }, { x: 400, y: 400 }] as const);
+
+  it.each([
+    { name: 'spreading apart', to: [{ x: 250, y: 400 }, { x: 450, y: 400 }], k: 1.6 },
+    { name: 'closing together', to: [{ x: 325, y: 400 }, { x: 375, y: 400 }], k: 0.4 },
+    { name: 'turning without spreading', to: [{ x: 350, y: 350 }, { x: 350, y: 450 }], k: 0.8 },
+    { name: 'moving together', to: [{ x: 360, y: 470 }, { x: 460, y: 470 }], k: 0.8 },
+    { name: 'spreading while moving', to: [{ x: 280, y: 500 }, { x: 480, y: 500 }], k: 1.6 },
+  ] as const)('keeps the scene point that was under the midpoint under it, $name', ({ to, k }) => {
+    const anchored = toScene(middle(from[0], from[1]), view, origin);
+    const pinched = pinchView(view, from, to, origin);
+    const now = toScene(middle(to[0], to[1]), pinched, origin);
+    expect(pinched.k).toBeCloseTo(k);
+    expect(now.x).toBeCloseTo(anchored.x);
+    expect(now.y).toBeCloseTo(anchored.y);
+    expect(view).toEqual({ x: -120, y: 90, k: 0.8 });
+  });
+
+  it('pans by the midpoint travel when the fingers keep their distance', () => {
+    const pinched = pinchView(view, from, [{ x: 360, y: 470 }, { x: 460, y: 470 }], origin);
+    expect(pinched).toEqual({ x: view.x + 60, y: view.y + 70, k: view.k });
+  });
+
+  it.each([
+    { name: 'the largest', to: [{ x: 0, y: 400 }, { x: 5000, y: 400 }], k: MAX_ZOOM },
+    { name: 'the smallest', to: [{ x: 349, y: 400 }, { x: 351, y: 400 }], k: MIN_ZOOM },
+  ] as const)('stops at $name magnification the wheel can reach, still anchored', ({ to, k }) => {
+    const anchored = toScene(middle(from[0], from[1]), view, origin);
+    const pinched = pinchView(view, from, to, origin);
+    expect(pinched.k).toBe(k);
+    const now = toScene(middle(to[0], to[1]), pinched, origin);
+    expect(now.x).toBeCloseTo(anchored.x);
+    expect(now.y).toBeCloseTo(anchored.y);
+  });
+
+  it('only pans when the fingers landed on one spot', () => {
+    const together = [{ x: 350, y: 400 }, { x: 350, y: 400 }] as const;
+    const pinched = pinchView(view, together, [{ x: 300, y: 400 }, { x: 420, y: 400 }], origin);
+    expect(pinched.k).toBe(view.k);
+    expect(pinched.x).toBeCloseTo(view.x + 10);
+  });
+
+  it('shares its limits with zoomAt and zoomTo', () => {
+    expect(clampZoom(1e6)).toBe(MAX_ZOOM);
+    expect(clampZoom(0)).toBe(MIN_ZOOM);
+    expect(zoomTo(view, 1e6, { width: 800, height: 600 }).k).toBe(clampZoom(1e6));
+    expect(zoomAt(view, { x: 0, y: 0 }, origin, -1e6).k).toBe(clampZoom(1e6));
+  });
 });
 
 describe('fitView', () => {

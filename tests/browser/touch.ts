@@ -46,41 +46,66 @@ export interface Point { x: number; y: number }
 export type Frame = readonly [Point, Point]
 
 /**
- * Put two fingers down at the first frame, move them through the rest, and
- * lift both.
+ * Which fingers are down at one moment, and where. A finger is its index, so
+ * it keeps its id for the whole sequence; `null` is a finger that is up.
+ */
+export type Touches = readonly (Point | null)[]
+
+/**
+ * Drive the touchscreen through a sequence of moments, one CDP event each, and
+ * lift every finger at the end.
  *
  * This goes through CDP `Input.dispatchTouchEvent` because Playwright's
  * `touchscreen` can only tap: it has no move, and no second finger. Script that
  * dispatches `PointerEvent`s would skip the browser's touch pipeline, so
  * `touch-action`, pointer ids, which pointer is primary and implicit capture
  * would be whatever the test made up. CDP input takes the path a touchscreen
- * does, and the page sees two `touch` pointers with ids the browser assigned.
+ * does, and the page sees `touch` pointers with ids the browser assigned.
  * Chromium only, which is the only browser the harness runs.
+ *
+ * Each step lists every finger that is down, not only the one that moved,
+ * and becomes one or two CDP events. Fingers that were down and are now up are
+ * lifted first, by a `touchEnd` that names them. Then a finger that is new
+ * makes the step a `touchStart` listing everything down, and otherwise a
+ * `touchMove` does. Measured against Chromium on 2026-09-24: a `touchMove`
+ * that leaves a finger out lifts nothing, and a `touchEnd` naming one finger
+ * lifts that finger and no other, so lifting one of two has to be a
+ * `touchEnd`, whatever CDP's documentation says about it carrying no points.
  */
-export async function twoFingers(page: Page, frames: readonly Frame[]) {
-  if (frames.length < 2) throw new Error('a two-finger gesture needs a start and at least one move')
+export async function touchSteps(page: Page, steps: readonly Touches[]) {
   const session = await page.context().newCDPSession(page)
-  // Each finger keeps its id for the whole gesture. That is what lets the page
-  // tell two moving fingers apart from one finger lifting and another landing.
-  const points = (frame: Frame) => frame.map((point, id) => ({ x: point.x, y: point.y, id }))
-  // Whether the fingers are down right now. A move that fails leaves them
-  // down, and a caller that catches the failure and carries on would be
-  // driving a page that still believes two fingers are on the glass.
-  let down = false
+  // Each finger keeps its id for the whole sequence. That is what lets the
+  // page tell two moving fingers apart from one finger lifting and another
+  // landing.
+  const points = (touches: Touches) => touches.flatMap((point, id) => point ? [{ x: point.x, y: point.y, id }] : [])
+  // Which fingers are down right now. A step that fails leaves them down, and
+  // a caller that catches the failure and carries on would be driving a page
+  // that still believes fingers are on the glass.
+  let down: { x: number; y: number; id: number }[] = []
   try {
-    await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: points(frames[0]) })
-    down = true
-    for (const frame of frames.slice(1)) {
-      await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: points(frame) })
+    for (const step of steps) {
+      const now = points(step)
+      const lifted = down.filter(finger => !now.some(point => point.id === finger.id))
+      if (lifted.length) await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: lifted })
+      down = down.filter(finger => !lifted.includes(finger))
+      const landed = now.some(point => !down.some(finger => finger.id === point.id))
+      if (now.length) await session.send('Input.dispatchTouchEvent', { type: landed ? 'touchStart' : 'touchMove', touchPoints: now })
+      down = now
     }
-    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
-    down = false
   } finally {
-    // Lifting is best effort here: the error worth reporting is the one that
-    // got us into this block, not a second one from the cleanup.
-    if (down) await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }).catch(() => {})
+    // Lifting is best effort in a failure: the error worth reporting is the
+    // one that got us here, not a second one from the cleanup. On success it
+    // is how the sequence ends.
+    if (down.length) await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }).catch(() => {})
     await session.detach()
   }
+}
+
+/** Put two fingers down at the first frame, move them through the rest, and
+ * lift both. */
+export async function twoFingers(page: Page, frames: readonly Frame[]) {
+  if (frames.length < 2) throw new Error('a two-finger gesture needs a start and at least one move')
+  await touchSteps(page, frames)
 }
 
 /** A straight line from one frame to another, the first frame included. */

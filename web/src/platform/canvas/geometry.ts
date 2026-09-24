@@ -226,8 +226,13 @@ export const DEFAULT_ZOOM = 1;
  * The wheel zooms about the pointer, which is right when the pointer is what
  * chose the place. A control has no pointer on the board, so it holds the
  * middle of what somebody is looking at still instead. */
+/** Hold a magnification inside the limits every way of zooming shares. */
+export function clampZoom(k: number): number {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, k));
+}
+
 export function zoomTo(view: View, k: number, stage: Size): View {
-  const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, k));
+  const next = clampZoom(k);
   const centre = { x: stage.width / 2, y: stage.height / 2 };
   const before = { x: (centre.x - view.x) / view.k, y: (centre.y - view.y) / view.k };
   return { x: centre.x - before.x * next, y: centre.y - before.y * next, k: next };
@@ -240,10 +245,46 @@ export function zoomAt(
   deltaY: number,
 ): View {
   const before = toScene(client, view, origin);
-  const k = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, view.k * Math.exp(-deltaY * 0.0015)));
+  const k = clampZoom(view.k * Math.exp(-deltaY * 0.0015));
   return {
     x: client.x - origin.left - before.x * k,
     y: client.y - origin.top - before.y * k,
+    k,
+  };
+}
+
+/**
+ * Where two fingers have taken the board since they landed.
+ *
+ * The scene point that was under the fingers' midpoint when they landed stays
+ * under their midpoint now, which is what makes a pinch zoom about the place
+ * somebody is pinching and a two-finger drag pan the board with it. The
+ * magnification scales by how far apart the fingers are now against how far
+ * apart they started.
+ *
+ * Always measured from where the pinch began rather than from the last frame,
+ * so a long pinch does not gather rounding error one frame at a time. Shares
+ * `clampZoom` and the anchoring `zoomAt` uses, so a pinch cannot reach a scale
+ * the wheel cannot. It does not go through `zoomAt` itself because that takes
+ * a wheel delta along the wheel's curve, and a pinch has a ratio instead.
+ */
+export function pinchView(
+  view: View,
+  from: readonly [Point, Point],
+  to: readonly [Point, Point],
+  origin: StageOrigin,
+): View {
+  const spread = (pair: readonly [Point, Point]) => Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y);
+  const middle = (pair: readonly [Point, Point]) => ({ x: (pair[0].x + pair[1].x) / 2, y: (pair[0].y + pair[1].y) / 2 });
+  const start = spread(from);
+  // Two fingers landing on one spot have no distance to scale from, so the
+  // pinch only pans until they part.
+  const k = clampZoom(start > 0 ? view.k * spread(to) / start : view.k);
+  const anchor = toScene(middle(from), view, origin);
+  const now = middle(to);
+  return {
+    x: now.x - origin.left - anchor.x * k,
+    y: now.y - origin.top - anchor.y * k,
     k,
   };
 }
