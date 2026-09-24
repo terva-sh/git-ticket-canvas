@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T06:35:21Z
+updated_at: 2026-09-24T07:08:03Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -132,6 +132,30 @@ The alternative was to count the pair and let the composer open once the mode ha
 Test: select-hold.spec.ts "a double tap on empty board leaves selection mode and files nothing". It runs twice, once with Chromium's synthesised dblclick and once with it swallowed. Both runs failed with the guard removed and pass with it.
 
 The same commit moves the view-settle wait into a shared `viewSettled` helper in tests/browser/touch.ts. It is used by pinch, phone-board, sheet and select-hold. select-hold and sheet previously compared a poll against one up-front read, which passes before anything has settled.
+
+**agent:claude/mobile-lead** at 2026-09-24T07:08:03Z
+
+Terva reviewed 63ef448 on PR 35 in run e7569f0a, Actions run 240. It raised two findings, and both are accepted.
+
+### Medium: a card press can exceed the tap limit and still toggle
+In selection mode the toggle checked only the final delta. A finger that went out 20px and came back therefore toggled the card. A card gesture's `moved` could not be used instead, because it is the desk's drag rule, set after one scene pixel, and a fingertip wobble within 8px sets it.
+
+The card gesture now carries `wandered`. It is latched once the pointer passes TAP_SLOP on screen, reset when a hold restarts the drag, and the toggle requires `!wandered`.
+
+Test: select-hold.spec.ts "in selection mode a finger that passes 8 px and comes back does not toggle".
+
+### Low: a wobbly card tap does not clear a named edge
+`touchUp` decided whether a card lift was a tap with `!moved`, so the same wobble that toggled a card left the edge named. It now uses `!wandered`, the same rule as the toggle.
+
+Test: touch-help.spec.ts "a tap on a card that wobbles within 8 px still unnames the edge".
+
+Both tests failed on 63ef448 and pass with the fix.
+
+Also: touch-help's `linked()` now waits with `viewSettled`.
+
+### Checks run
+- `just web-test`: 556 passed.
+- `just browser-test`: 158 passed, 7 skipped, 2 failed. The two failures were canvas-density tests that failed with "Target crashed" at load average 8. The spec passed 6/6 on re-run.
 
 ## Summary
 

@@ -156,9 +156,12 @@ type Gesture = GestureBase & (
   // (`empty`), may be half of a double tap. `leave` is a press on empty board
   // in selection mode: if it stays a tap, the lift leaves the mode.
   | { kind: 'pan'; tap?: string; moved?: boolean; edge?: string; empty?: boolean; leave?: boolean }
-  // `tap` is set in selection mode: a lift within TAP_SLOP toggles that card
-  // and saves nothing.
-  | { kind: 'card'; ids: string[]; moved: boolean; delta: Point; readOnly: boolean; tap?: string }
+  // `tap` is set in selection mode: a lift that never passed TAP_SLOP toggles
+  // that card and saves nothing. `moved` is the desk's drag rule, set after one
+  // scene pixel, so a fingertip's wobble sets it; `wandered` is set once the
+  // pointer passes TAP_SLOP on screen and stays set if it comes back, and is
+  // what makes a touch lift a tap or not.
+  | { kind: 'card'; ids: string[]; moved: boolean; wandered?: boolean; delta: Point; readOnly: boolean; tap?: string }
   // A refused card is never `to`: it gets no target highlight and the drop
   // writes nothing, as over empty board, and `refused` says why.
   | { kind: 'link'; from: string; to: string | null; refused: { id: string; message: string } | null; point: Point }
@@ -686,6 +689,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
         gesture.pointer = now
         gesture.delta = { x: 0, y: 0 }
         gesture.moved = false
+        gesture.wandered = false
         cancelFrame()
       }
       p.onHold?.(hold.id)
@@ -706,6 +710,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       const dx = (point.x - gesture.pointer.x) / gesture.view.k
       const dy = (point.y - gesture.pointer.y) / gesture.view.k
       if (Math.abs(dx) > 1 || Math.abs(dy) > 1) gesture.moved = true
+      if (Math.hypot(point.x - gesture.pointer.x, point.y - gesture.pointer.y) > TAP_SLOP) gesture.wandered = true
       gesture.delta = { x: dx, y: dy }
     } else if (gesture.kind === 'frame-move' || gesture.kind === 'frame-resize') {
       const dx = Math.round((point.x - gesture.pointer.x) / gesture.view.k)
@@ -772,7 +777,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
    * unnames any other, and two taps on empty board file a ticket, the way a
    * double-click does. Anything else breaks a double tap in progress. */
   function touchUp(gesture: Gesture, event: PointerEvent) {
-    const tapped = (gesture.kind === 'pan' || gesture.kind === 'card') && !gesture.moved
+    const tapped = (gesture.kind === 'pan' && !gesture.moved) || (gesture.kind === 'card' && !gesture.wandered)
     if (tapped) local.named = gesture.kind === 'pan' ? gesture.edge ?? null : null
     const last = local.lastTap
     local.lastTap = null
@@ -808,8 +813,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
         if (p.selecting) p.onToggle?.(gesture.tap)
         else p.onSelect(gesture.tap, event.shiftKey)
       } else if (gesture.leave && p.selecting) p.onSelectionDone?.()
-    } else if (gesture.kind === 'card' && gesture.tap
-      && Math.hypot(gesture.delta.x, gesture.delta.y) * gesture.view.k <= TAP_SLOP) {
+    } else if (gesture.kind === 'card' && gesture.tap && !gesture.wandered) {
       if (p.tickets.has(gesture.tap)) p.onToggle?.(gesture.tap)
     } else if (gesture.kind === 'frame-draw') {
       if (!p.readOnly && !p.layoutBusy && gesture.bounds.w >= 80 && gesture.bounds.h >= 80) p.onNewFrame?.(gesture.bounds)

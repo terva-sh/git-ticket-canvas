@@ -139,6 +139,21 @@ test.describe('tablet', () => {
     expect(sent).toEqual([])
   })
 
+  test('in selection mode a finger that passes 8 px and comes back does not toggle', async ({ page, app }) => {
+    const { a, b } = await board(page, app)
+    await hold(page, await on(page, a))
+    await tap(page, await on(page, b))
+    await expect(count(page)).toHaveText('2')
+
+    // Out past the tap limit and back to where it landed. Where it lifts is a
+    // tap's distance away; the path it took was a drag.
+    const at = await on(page, b)
+    await touchSteps(page, [[at], [{ x: at.x + 10, y: at.y }], [{ x: at.x + 20, y: at.y }], [{ x: at.x + 10, y: at.y }], [at]])
+
+    await expect(count(page)).toHaveText('2')
+    await expect(cardOf(page, b)).toHaveClass(/selected/)
+  })
+
   test('a drag from a selected card moves every selected card', async ({ page, app }) => {
     const { a, b, c } = await board(page, app)
     await hold(page, await on(page, a))

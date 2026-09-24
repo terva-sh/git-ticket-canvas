@@ -28,7 +28,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T06:35:21Z
+updated_at: 2026-09-24T07:08:04Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -126,6 +126,10 @@ On t3code/mobile-wave-3, the hover branch is merged together with TKT-01M38QP47G
 The merge added one interaction guard in Canvas.tsx `touchUp`: in selection mode, a double tap on empty board files nothing. The first tap leaves the mode, and a second tap there is not a request for a ticket. The guard is recorded on TKT-01M38QP47.
 
 The full browser suite passes on the merged branch: 157 passed, 7 skipped.
+
+**agent:claude/mobile-lead** at 2026-09-24T07:08:04Z
+
+Terva's low finding on PR 35 (review of 63ef448) is recorded in full on TKT-01M38QP47G7VBHRBVYR8MMKN8K. touchUp now counts a touch lift from a card as a tap when the finger never passed TAP_SLOP on screen (), not when it never moved one scene pixel. A fingertip wobble on a card now unnames the edge, as the toggle already treated it. Test: touch-help.spec.ts "a tap on a card that wobbles within 8 px still unnames the edge".
 
 ## Summary
 

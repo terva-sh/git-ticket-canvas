@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { test, expect, type Ticket } from './fixtures'
-import { tablet, touchSteps, type Point } from './touch'
+import { tablet, touchSteps, viewSettled, type Point } from './touch'
 
 // Nothing on a tablet's board needs hover. The hint describes a finger, a tap
 // names an edge and the name stays, and the stage counts a double tap itself
@@ -25,12 +25,11 @@ async function linked(page: Page, app: App) {
   const second = await app.create('Dependent', { x: 900, y: 0 })
   await app.patch(second, [{ op: 'addDependency', id: first.id }])
   await page.goto(app.url)
-  await expect(page.locator('.card')).toHaveCount(2)
+  await expect(page.locator(`.card[data-id="${first.id}"], .card[data-id="${second.id}"]`)).toHaveCount(2)
   await page.locator('#relationshipMode').selectOption('all')
   await expect(page.locator('#edges .relationship')).toHaveCount(1)
   // Let the opening fit settle before anything measures a point on the board.
-  const transform = () => page.locator('#scene').evaluate(node => (node as HTMLElement).style.transform)
-  await expect.poll(transform).toBe(await transform())
+  await viewSettled(page)
   return { first, second }
 }
 
@@ -119,6 +118,22 @@ test.describe('tablet', () => {
     await expect(label(page)).toHaveCount(0)
     await expect(named(page)).toHaveCount(0)
     await expect(page.locator('#edges .relationship.faded')).toHaveCount(0)
+  })
+
+  test('a tap on a card that wobbles within 8 px still unnames the edge', async ({ page, app }) => {
+    // A card no edge touches, so selecting it emphasises nothing of its own.
+    const apart = await app.create('Unrelated', { x: 450, y: 300 })
+    await linked(page, app)
+    await tap(page, await edgePoint(page))
+    await expect(named(page)).toHaveCount(1)
+
+    // Enough to count as a drag on a desk, where one scene pixel is; still a
+    // tap for a finger.
+    const title = (await page.locator(`.card[data-id="${apart.id}"] .card-title`).boundingBox())!
+    const at = { x: Math.round(title.x + 20), y: Math.round(title.y + title.height / 2) }
+    await touchSteps(page, [[at], [{ x: at.x + 4, y: at.y + 3 }]])
+
+    await expect(named(page)).toHaveCount(0)
   })
 
   test('a pan that starts on an edge moves the board and names nothing', async ({ page, app }) => {
