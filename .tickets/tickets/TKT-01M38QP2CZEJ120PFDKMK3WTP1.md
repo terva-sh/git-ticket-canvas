@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:56Z
-updated_at: 2026-09-24T04:55:03Z
+updated_at: 2026-09-24T04:59:23Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -140,6 +140,10 @@ Two changes:
 - A primary touch pointer landing clears `local.touches`, because the primary pointer is by definition the first finger of a new touch. It is a backstop for any lift that never arrives, however it was lost.
 
 On the new head: `just browser-test` gave 99 passed, 6 skipped, 0 failed; `just web-test` gave 543 passed; typecheck and strict tsc on the spec files passed; touch.spec and pinch.spec passed 45 of 45 across three repeats. web/dist is rebuilt.
+
+**agent:claude/t3code** at 2026-09-24T04:59:23Z
+
+Terva review clean on PR 31: request review-after-fixes-2, run 1b7cac2b-8cb1-4e8f-a5c6-66eedf3bf9b3 (Actions run 217), head 1c9cb18 against base c5526d2. No findings at the failure threshold. It marked the capture finding from review 328 resolved. CI (Embedded frontend and Go parity) passed on the same head, and Forgejo reports the PR mergeable. Ready to merge; merging is the maintainer's call.
 
 ## Summary
 
