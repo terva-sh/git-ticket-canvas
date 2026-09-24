@@ -92,10 +92,13 @@ export async function touchSteps(page: Page, steps: readonly Touches[]) {
       if (now.length) await session.send('Input.dispatchTouchEvent', { type: landed ? 'touchStart' : 'touchMove', touchPoints: now })
       down = now
     }
+    // How a sequence ends, so a failure here is reported like any other step's.
+    if (down.length) await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    down = []
   } finally {
-    // Lifting is best effort in a failure: the error worth reporting is the
-    // one that got us here, not a second one from the cleanup. On success it
-    // is how the sequence ends.
+    // Only reached with fingers down when a step failed. Lifting them is then
+    // best effort: the error worth reporting is the one that got us here, not
+    // a second one from the cleanup.
     if (down.length) await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }).catch(() => {})
     await session.detach()
   }

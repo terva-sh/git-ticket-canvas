@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:56Z
-updated_at: 2026-09-24T04:42:01Z
+updated_at: 2026-09-24T04:46:52Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -117,6 +117,14 @@ Things found on the way, all in the tests, none in the product:
 **agent:claude/t3code** at 2026-09-24T04:42:01Z
 
 Opened as PR 31, https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/31, from t3code/pinch-two-finger, rebased onto main at c5526d2 after PR 30 closed the harness ticket this one depends on. A Terva review is requested next; its result is recorded here when it lands.
+
+**agent:claude/t3code** at 2026-09-24T04:46:52Z
+
+Terva review of PR 31: request `ready-review`, run 2cba4185-2e10-4860-909c-ab487711b30e (Actions run 213), review 324, on head 15064f4 against base c5526d2. The gate failed on one medium finding. CI passed on the same head.
+
+**Accepted and fixed: "Report failure to lift fingers after a successful touch sequence"** (tests/browser/touch.ts:101). It was real. On the success path, `touchSteps` left the final `touchEnd` to the `finally` block, which swallows errors. So a sequence whose last lift failed resolved as though the fingers were up. Lifting is now the sequence's own last step and its error propagates. The `finally` only lifts when a step failed partway, and only there is a cleanup error swallowed in favour of the one being reported.
+
+No new test. Making only the final `touchEnd` fail would need a fake CDP session, and the helper talks to a real one on purpose. The existing test for a failed move still covers the cleanup path, and touch.spec and pinch.spec pass (14 of 14) after the change. The canvas code was not touched, so web/dist is unchanged.
 
 ## Summary
 
