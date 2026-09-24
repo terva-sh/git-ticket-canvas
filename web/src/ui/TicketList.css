@@ -3,14 +3,16 @@
 .view-switch { display: inline-flex; flex: none; }
 .view-switch > .tool:first-child:not(:last-child) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .view-switch > .tool:last-child:not(:first-child) { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
-/* On a phone the row has no width to spare. Adding this button pushed the
-   read-only row at the larger toolbar size 17px past a 390px screen, with every
+/* On a phone the row has no width to spare. The one word takes the same side
+   padding as the controls around it, except at the larger toolbar size: there
+   this button pushed the read-only row 17px past a 390px screen with every
    other control already at its floor, so it takes the space back from three
-   places: its own side padding here, a pixel of each gap, and an em of the
-   search box's floor. The height is untouched; that is what a thumb needs.
-   PhoneToolbar.css sets the gap and the floor this overrides. */
-html[data-layout="phone"] #toolbar .view-switch > .tool { padding-left: .25em; padding-right: .25em; }
+   places: its own side padding, a pixel of each gap, and an em of the search
+   box's floor. The height is untouched; that is what a thumb needs.
+   PhoneToolbar.css sets the gap and the floor these override. */
+html[data-layout="phone"] #toolbar .view-switch > .tool { padding-left: .6em; padding-right: .6em; }
 html[data-layout="phone"][data-toolbar="larger"] #toolbar { --row-gap: 7px; }
+html[data-layout="phone"][data-toolbar="larger"] #toolbar .view-switch > .tool { padding-left: .25em; padding-right: .25em; }
 html[data-layout="phone"][data-toolbar="larger"] #toolbar #search { min-width: 3.5em; }
 
 /* The list covers the board inside the stage: over the hint and the tip (10),

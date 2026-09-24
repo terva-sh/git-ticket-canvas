@@ -234,7 +234,7 @@ test.describe('on a phone', () => {
       ['Fit the header into one row on a phone', [{ op: 'setStatus', status: 'ready' }, { op: 'addLabel', label: 'mobile' }, { op: 'addLabel', label: 'ui' }]],
       ['List tickets by status as well as on the board', [{ op: 'setStatus', status: 'ready' }, { op: 'setPriority', priority: 'high' },
         { op: 'addLabel', label: 'mobile' }, { op: 'addChecklistItem', section: 'ac', text: 'One' }, { op: 'addChecklistItem', section: 'ac', text: 'Two' }]],
-      ['Pinch to zoom the board', [{ op: 'setStatus', status: 'done' }, { op: 'addLabel', label: 'mobile' }]],
+      ['Pinch to zoom the board', [{ op: 'setStatus', status: 'ready' }, { op: 'setStatus', status: 'in-progress' }, { op: 'addLabel', label: 'mobile' }]],
       ['Open a ticket without a pointer', [{ op: 'addLabel', label: 'ui' }]],
       ['Hide the side resize handle', []],
     ]
