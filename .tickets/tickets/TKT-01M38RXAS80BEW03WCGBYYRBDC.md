@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38RXAS80BEW03WCGBYYRBDC
 title: Open a ticket's inspector without a pointer
 type: task
-status: draft
+status: in-progress
 status_reason: null
 priority: normal
 due_on: null
@@ -16,15 +16,22 @@ origin: null
 dependencies: []
 blocks_on: none
 references: []
-claim: null
+claim:
+  actor: agent:claude/mobile-list
+  branch: worktree-agent-a752f78af0b9e1231
+  worktree: /home/sothr/workspace/git.local.sothr.com/terva-sh/git-ticket-canvas/.claude/worktrees/agent-a752f78af0b9e1231
+  commit: 151fa57c9b17bdc20c09ed2b3bba100ed42be27f
+  session: null
+  claimed_at: 2026-09-24T13:34:09Z
+  expires_at: null
 archive: null
 created_at: 2026-09-24T03:56:23Z
-updated_at: 2026-09-24T03:56:23Z
+updated_at: 2026-09-24T13:34:09Z
 created_by:
   id: agent:claude/mobile-relate
   name: ""
 updated_by:
-  id: agent:claude/mobile-relate
+  id: agent:claude/mobile-list
   name: ""
 extensions: {}
 ---
