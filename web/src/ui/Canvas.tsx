@@ -617,7 +617,10 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       gesture = { ...base, kind: frameHandle?.dataset.frameGesture === 'resize' ? 'frame-resize' : 'frame-move',
         id: frameID, before: structuredClone(frame), next: structuredClone(frame), cards: structuredClone(p.cards),
         delta: { x: 0, y: 0 }, moved: false }
-    } else if (p.frameCreating && !p.readOnly && !card) {
+    } else if (p.frameCreating && !p.readOnly && !card && !phone) {
+      // Not on a phone, whose board writes no layout. A phone offers no New
+      // frame, but a draft opened on a tablet layout outlives a switch to the
+      // phone one, and drawing would redraw what Create and capture saves.
       const start = toScene(pointer, local.view, element.getBoundingClientRect())
       gesture = { ...base, kind: 'frame-draw', start,
         bounds: { title: 'New frame', ...start, w: 0, h: 0, color: '#759bcc', members: [] } }

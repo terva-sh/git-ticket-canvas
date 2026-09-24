@@ -239,6 +239,39 @@ test.describe('phone', () => {
     await expectFitsDevice(page, phone)
   })
 
+  test('a frame draft left open when the layout turns to phone is not redrawn from the board', async ({ page, app }) => {
+    await app.create('Beside a draft', { x: 0, y: 0 })
+    await page.goto(app.url)
+    await store(page, { layout: 'tablet', tipClosed: true })
+    await open(page, app.url, 'tablet')
+    // New frame arms drawing: a drag on empty board would draw one.
+    await page.locator('#btnFrame').click()
+    await expect(page.locator('#framePanel')).toBeVisible()
+    await page.locator('#btnDisplay').click()
+    await page.locator('#display-layout').selectOption('phone')
+    await page.keyboard.press('Escape')
+    await expect(page.locator('#displayDialog')).toHaveCount(0)
+    await expect(page.locator('html')).toHaveAttribute('data-layout', 'phone')
+    // The draft is still open and still arming the board. A drawn frame
+    // would replace its bounds, which Create and capture then saves.
+    const panel = page.locator('#framePanel')
+    await expect(panel).toBeVisible()
+    const bounds = async () => Promise.all(['X', 'Y', 'Width', 'Height'].map(label => panel.getByLabel(label, { exact: true }).inputValue()))
+    const drafted = await bounds()
+    const frames = (await app.board() as unknown as { layout: { frames: unknown } }).layout.frames
+    const sent = writes(page)
+
+    // The top left of the board, clear of the card framed into the middle
+    // and of whatever the draft left open over the right half.
+    const stage = (await page.locator('#stage').boundingBox())!
+    await drag(page, whole({ x: stage.x + 20, y: stage.y + 20 }), { x: 120, y: 120 })
+
+    await expect(page.locator('.canvas-frame-draft')).toHaveCount(0)
+    expect(await bounds()).toEqual(drafted)
+    expect(sent).toEqual([])
+    expect((await app.board() as unknown as { layout: { frames: unknown } }).layout.frames).toEqual(frames)
+  })
+
   test('a phone set to tablet gets card drags, the handles and the hint back', async ({ page, app }) => {
     const ticket = await app.create('Arranged on a phone', { x: 0, y: 0 })
     await frameAround(page, app.url)

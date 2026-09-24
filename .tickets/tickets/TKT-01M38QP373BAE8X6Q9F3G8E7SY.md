@@ -29,7 +29,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:57Z
-updated_at: 2026-09-24T06:24:05Z
+updated_at: 2026-09-24T06:34:30Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -130,6 +130,20 @@ The tablet-on-phone drag now goes up and right, because at 390px that board is a
 pinch.spec.ts and phone-board.spec.ts also replace `expect.poll(() => view(page)).toEqual(await view(page))` with `settled()`. The old check compared a poll against a single up-front read, so it passed at once whenever nothing had moved yet.
 
 Results: phone-board with `--repeat-each=8` passed 48/48. phone-board plus pinch with `--repeat-each=4 --workers=8` passed 56/56. The full suite passed 133, with 7 skipped.
+
+**agent:claude/mobile-lead** at 2026-09-24T06:34:30Z
+
+Terva reviewed 97513da on PR 34 in run 404e92a8, Actions run 231. It raised one medium finding: frame drawing could still write layout on the phone board. The finding is accepted.
+
+A phone has no New frame button, so the normal route does not exist. However, a frame draft opened on the tablet layout survives a switch to the phone layout in Display. A drag on empty board then redrew the draft's bounds, and Create and capture saves those bounds.
+
+The fix is in Canvas.tsx: the frame-draw branch now requires `!phone`, so that press pans instead.
+
+The new test "a frame draft left open when the layout turns to phone is not redrawn from the board" is in phone-board.spec.ts. It failed without the guard: the draft bounds changed from -62,-21,620x420 to -101,-60,117x117. It passes with the guard.
+
+An alternative was to close the draft when the layout changes. It lost for two reasons. The frame panel's other fields are still usable on a phone. And discarding typed work because a display setting changed would be a worse surprise than the board declining to draw.
+
+Checks run: `just browser-test` passed 134 with 7 skipped, and `just web-test` passed 554.
 
 ## Summary
 
