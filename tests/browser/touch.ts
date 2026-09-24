@@ -63,13 +63,22 @@ export async function twoFingers(page: Page, frames: readonly Frame[]) {
   // Each finger keeps its id for the whole gesture. That is what lets the page
   // tell two moving fingers apart from one finger lifting and another landing.
   const points = (frame: Frame) => frame.map((point, id) => ({ x: point.x, y: point.y, id }))
+  // Whether the fingers are down right now. A move that fails leaves them
+  // down, and a caller that catches the failure and carries on would be
+  // driving a page that still believes two fingers are on the glass.
+  let down = false
   try {
     await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: points(frames[0]) })
+    down = true
     for (const frame of frames.slice(1)) {
       await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: points(frame) })
     }
     await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    down = false
   } finally {
+    // Lifting is best effort here: the error worth reporting is the one that
+    // got us into this block, not a second one from the cleanup.
+    if (down) await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }).catch(() => {})
     await session.detach()
   }
 }

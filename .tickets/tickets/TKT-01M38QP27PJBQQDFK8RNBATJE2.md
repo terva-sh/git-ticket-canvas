@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:56Z
-updated_at: 2026-09-24T04:03:48Z
+updated_at: 2026-09-24T04:08:49Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -106,6 +106,14 @@ Evidence for the criteria, from this branch on 2026-09-24:
 **agent:claude/t3code** at 2026-09-24T04:03:48Z
 
 Merged with its two sibling tickets on branch t3code/mobile-foundations and opened as one PR, https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/29, at the maintainer's direction on 2026-09-24. The only merge conflict was the generated web/dist/index.html, resolved by rebuilding. On the merged head: web-typecheck pass, web-test 531 passed, go test pass, browser-test 90 passed / 6 skipped / 0 failed, dist-verify byte-identical, ticket check clean. A Terva review is requested next; its result is recorded here when it lands.
+
+**agent:claude/t3code** at 2026-09-24T04:08:49Z
+
+Terva review of PR 29, request `ready-review`, run 920b4f41-8e15-404c-a0ee-4c7c4e3a5ae4 (Actions run 204), review 317, on head a2b5eb6 against base 0be4e5a. The gate failed on two medium findings. This is the one on this ticket.
+
+**Accepted and fixed: "End the touch gesture if a CDP move fails"** (tests/browser/touch.ts:64). It was real. Once `touchStart` succeeded, a failing `touchMove` skipped `touchEnd`, and `finally` only detached the session, so both fingers stayed down for whatever the caller did next. `twoFingers` now tracks whether the fingers are down, and its `finally` sends a best-effort `touchEnd` before detaching. It swallows a second error from that cleanup, because the error worth reporting is the one that got there.
+
+New test `a gesture whose move fails still lifts both fingers` in touch.spec.ts. A NaN coordinate makes CDP reject the move after both fingers land, and the test asserts each pointer that went down also came up. With the cleanup line removed the test fails; with it, it passes.
 
 ## Summary
 

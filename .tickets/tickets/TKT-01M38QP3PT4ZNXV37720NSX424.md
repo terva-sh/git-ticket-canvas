@@ -26,7 +26,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T04:03:49Z
+updated_at: 2026-09-24T04:08:49Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -134,6 +134,19 @@ Results: `just web-typecheck` passed. `just web-test` 42 files, 525 tests passed
 **agent:claude/t3code** at 2026-09-24T04:03:49Z
 
 Merged with its two sibling tickets on branch t3code/mobile-foundations and opened as one PR, https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/29, at the maintainer's direction on 2026-09-24. The only merge conflict was the generated web/dist/index.html, resolved by rebuilding. On the merged head: web-typecheck pass, web-test 531 passed, go test pass, browser-test 90 passed / 6 skipped / 0 failed, dist-verify byte-identical, ticket check clean. A Terva review is requested next; its result is recorded here when it lands.
+
+**agent:claude/t3code** at 2026-09-24T04:08:49Z
+
+Terva review of PR 29, request `ready-review`, run 920b4f41-8e15-404c-a0ee-4c7c4e3a5ae4 (Actions run 204), review 317, on head a2b5eb6 against base 0be4e5a. The gate failed on two medium findings. This is the one on this ticket.
+
+**Declined, with a test: "Reset an open relationship search when the inspected ticket changes"** (web/src/ui/RelationPicker.tsx:35). The failure it describes does not happen. Both pickers render inside `InspectorBody`, which Inspector.tsx:444 mounts as `<InspectorBody key={ticket.id} ...>`. A change of ticket therefore remounts the pickers with fresh state, so an open search and its query cannot carry over to the next ticket. The review read only the diff, and that line is outside it.
+
+I first wrote the reset the finding asked for. The new test passed with and without it, which is how the key came to light. I removed the reset as redundant and kept two tests in inspector-relations.test.tsx:
+
+- `closes an open search when the inspector moves to another ticket`. Removing `key={ticket.id}` from InspectorBody makes it fail, so it holds what the finding was worried about.
+- `keeps an open search when the same ticket arrives with a new revision`. A live update must not close a search somebody is typing into.
+
+The finding was right that the picker does not defend itself. It depends on its parent's key. That is the pattern the other inspector fields already use (TextEditor keys on ticket.id at line 435), so the picker follows it rather than adding a second mechanism.
 
 ## Summary
 

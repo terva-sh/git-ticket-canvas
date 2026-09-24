@@ -183,3 +183,28 @@ it('counts the matches beyond the ones it shows', () => {
   expect(options()).toHaveLength(8)
   expect(root.textContent).toContain('4 more match. Keep typing to narrow them')
 })
+
+it('closes an open search when the inspector moves to another ticket', () => {
+  const { patch } = inspector()
+  act(() => button(/Add dependency/).click())
+  type('Unrelated')
+  // The inspector stays mounted and only its ticket changes, as it does when
+  // somebody selects another card with the search still open. What closes the
+  // search is `InspectorBody key={ticket.id}` in Inspector.tsx, which remounts
+  // both pickers; this holds that, because without it the choice would be
+  // written to the ticket now showing rather than the one it was opened for.
+  inspector(tickets[3], tickets, patch)
+  expect(search()).toBeNull()
+  act(() => button(/Add dependency/).click())
+  expect(search().value).toBe('')
+  expect(patch).not.toHaveBeenCalled()
+})
+
+it('keeps an open search when the same ticket arrives with a new revision', () => {
+  const { patch } = inspector()
+  act(() => button(/Add dependency/).click())
+  type('Unrelated')
+  // A live update replaces the ticket object without changing whose it is.
+  inspector({ ...self, revision: 'r-SELF-2' }, tickets, patch)
+  expect(search().value).toBe('Unrelated')
+})

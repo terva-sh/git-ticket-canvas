@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { test, expect } from './fixtures'
-import { expectFitsDevice, phone, pinch, tablet, twoFingerPan } from './touch'
+import { expectFitsDevice, phone, pinch, tablet, twoFingerPan, twoFingers } from './touch'
 
 // These check the harness rather than the canvas: that an emulated device is a
 // touch device as far as the page can tell, and that the two-finger helpers
@@ -106,6 +106,25 @@ test.describe('phone gestures', () => {
       expect(end.y - down.y).toBeCloseTo(90, 0)
     }
     await expectFitsDevice(page, phone)
+  })
+
+  // A gesture that fails partway must not leave its fingers down. The caller
+  // may catch the failure and carry on, and every tap after that would land
+  // on a page that still has two touches in progress. A coordinate CDP will
+  // not accept is the simplest way to make a move fail after the fingers land.
+  test('a gesture whose move fails still lifts both fingers', async ({ page, app }) => {
+    await page.goto(app.url)
+    const seen = await recordPointers(page)
+    const center = await stageCenter(page)
+    const left = { x: center.x - 40, y: center.y }, right = { x: center.x + 40, y: center.y }
+
+    await expect(twoFingers(page, [[left, right], [{ x: Number.NaN, y: center.y }, right]])).rejects.toThrow()
+
+    const events = await seen()
+    const downs = events.filter(event => event.type === 'pointerdown').map(event => event.id)
+    expect(downs).toHaveLength(2)
+    const lifted = events.filter(event => event.type === 'pointerup' || event.type === 'pointercancel').map(event => event.id)
+    expect(lifted.sort()).toEqual([...downs].sort())
   })
 
   // The width check is only worth calling if it fails when it should. Chromium
