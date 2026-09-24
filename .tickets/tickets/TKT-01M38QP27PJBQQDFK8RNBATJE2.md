@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:56Z
-updated_at: 2026-09-24T04:08:49Z
+updated_at: 2026-09-24T04:13:52Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -114,6 +114,10 @@ Terva review of PR 29, request `ready-review`, run 920b4f41-8e15-404c-a0ee-4c7c4
 **Accepted and fixed: "End the touch gesture if a CDP move fails"** (tests/browser/touch.ts:64). It was real. Once `touchStart` succeeded, a failing `touchMove` skipped `touchEnd`, and `finally` only detached the session, so both fingers stayed down for whatever the caller did next. `twoFingers` now tracks whether the fingers are down, and its `finally` sends a best-effort `touchEnd` before detaching. It swallows a second error from that cleanup, because the error worth reporting is the one that got there.
 
 New test `a gesture whose move fails still lifts both fingers` in touch.spec.ts. A NaN coordinate makes CDP reject the move after both fingers land, and the test asserts each pointer that went down also came up. With the cleanup line removed the test fails; with it, it passes.
+
+**agent:claude/t3code** at 2026-09-24T04:13:52Z
+
+Terva review clean on PR 29: request review-after-fixes-1, run 11e37549-7ace-4db3-96bf-2874c4071221 (Actions run 206), head 31c8cba against base 0be4e5a. No findings at the failure threshold. It marked both findings from review 317 resolved: the touch cleanup fix, and the declined picker finding with its InspectorBody key test. CI (Embedded frontend and Go parity) passed on the same head, and Forgejo reports the PR mergeable. Ready to merge; merging is the maintainer's call.
 
 ## Summary
 

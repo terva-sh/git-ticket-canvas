@@ -26,7 +26,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T04:08:49Z
+updated_at: 2026-09-24T04:13:52Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -147,6 +147,10 @@ I first wrote the reset the finding asked for. The new test passed with and with
 - `keeps an open search when the same ticket arrives with a new revision`. A live update must not close a search somebody is typing into.
 
 The finding was right that the picker does not defend itself. It depends on its parent's key. That is the pattern the other inspector fields already use (TextEditor keys on ticket.id at line 435), so the picker follows it rather than adding a second mechanism.
+
+**agent:claude/t3code** at 2026-09-24T04:13:52Z
+
+Terva review clean on PR 29: request review-after-fixes-1, run 11e37549-7ace-4db3-96bf-2874c4071221 (Actions run 206), head 31c8cba against base 0be4e5a. No findings at the failure threshold. It marked both findings from review 317 resolved: the touch cleanup fix, and the declined picker finding with its InspectorBody key test. CI (Embedded frontend and Go parity) passed on the same head, and Forgejo reports the PR mergeable. Ready to merge; merging is the maintainer's call.
 
 ## Summary
 
