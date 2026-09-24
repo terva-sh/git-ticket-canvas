@@ -18,6 +18,22 @@ async function view(page: Page): Promise<View> {
   return { x: Number(match[1]), y: Number(match[2]), k: Number(match[3]) }
 }
 
+/** Wait until the view has held still for a while. The opening fit, a
+ * restored view and a re-fit after the first measurements can each move it
+ * after the first card is visible, and under load the last of them can land
+ * after a test has measured a card and is about to touch it. Comparing a poll
+ * against one read taken up front passes at once if nothing has moved yet, so
+ * this compares reads taken apart in time. */
+async function settled(page: Page) {
+  let last = '', same = 0
+  await expect.poll(async () => {
+    const now = JSON.stringify(await view(page))
+    same = now === last ? same + 1 : 0
+    last = now
+    return same
+  }, { intervals: [150], timeout: 10_000 }).toBeGreaterThanOrEqual(3)
+}
+
 /** Every request that could have written something. */
 function writes(page: Page) {
   const seen: string[] = []
@@ -28,9 +44,32 @@ function writes(page: Page) {
 /** Touch coordinates reach the page as whole pixels. */
 const whole = (point: Point) => ({ x: Math.round(point.x), y: Math.round(point.y) })
 
+/** A whole-pixel point on the element that a finger there would land on.
+ * The opening fit can leave a card partly past the edge of a 390px screen, or
+ * under the hint, and a touch outside the viewport never reaches the page, so
+ * a point taken from the bounding box alone misses now and then. This walks
+ * the box and returns the first point, nearest its top left, that is on the
+ * screen and whose topmost element is this one or inside it. An element that
+ * lets touches through, as the phone's frame label does, names in `lands` what
+ * the finger should reach instead, and a card is never it. */
+async function reachable(page: Page, locator: Locator, lands?: string): Promise<Point> {
+  const point = await locator.evaluate((element, lands) => {
+    const box = element.getBoundingClientRect()
+    for (let y = Math.ceil(box.top) + 4; y < box.bottom - 2; y += 4) {
+      for (let x = Math.ceil(box.left) + 4; x < box.right - 2; x += 4) {
+        if (x >= window.innerWidth || y >= window.innerHeight) continue
+        const hit = document.elementFromPoint(x, y)
+        if (hit && (lands ? hit.closest(lands) && !hit.closest('.card') : element.contains(hit))) return { x, y }
+      }
+    }
+    return null
+  }, lands)
+  if (!point) throw new Error('no part of the element is on screen and uncovered')
+  return point
+}
+
 async function tap(page: Page, locator: Locator) {
-  const box = (await locator.boundingBox())!
-  await touchSteps(page, [[whole({ x: box.x + Math.min(40, box.width / 2), y: box.y + Math.min(20, box.height / 2) })]])
+  await touchSteps(page, [[await reachable(page, locator)]])
 }
 
 /** One finger from `from`, by `by`, in eight steps, and up. */
@@ -39,10 +78,21 @@ async function drag(page: Page, from: Point, by: Point) {
 }
 
 /** Store display settings the way the Display panel does, once. An init
- * script would run again on every reload and undo what the page wrote. */
+ * script would run again on every reload and undo what the page wrote.
+ *
+ * The remembered view goes too. It was taken at whatever size the board had
+ * before, and a phone toolbar and a tablet toolbar at 390px leave boards of
+ * very different heights, so restoring one layout's view in the other can put
+ * the card off the screen. Every open after this one fits instead. The page
+ * writes the view 300ms after it last moved, so this waits for it to hold
+ * still first; clearing sooner leaves that write to land afterwards. */
 async function store(page: Page, stored: Record<string, unknown> | null) {
-  await page.evaluate(([key, value]) => value === null ? localStorage.removeItem(key!) : localStorage.setItem(key!, value),
-    [KEY, stored === null ? null : JSON.stringify(stored)] as const)
+  await settled(page)
+  await page.evaluate(([key, value]) => {
+    for (const held of Object.keys(localStorage)) if (held.startsWith('git-ticket-canvas.view.')) localStorage.removeItem(held)
+    if (value === null) localStorage.removeItem(key!)
+    else localStorage.setItem(key!, value)
+  }, [KEY, stored === null ? null : JSON.stringify(stored)] as const)
 }
 
 async function open(page: Page, url: string, layout = 'phone') {
@@ -50,7 +100,7 @@ async function open(page: Page, url: string, layout = 'phone') {
   await expect(page.locator('html')).toHaveAttribute('data-layout', layout)
   await expect(page.locator('.card').first()).toBeVisible()
   // Let the opening fit settle before anything measures the view.
-  await expect.poll(() => view(page)).toEqual(await view(page))
+  await settled(page)
 }
 
 /** A frame around the card, made through the tablet's frame panel, since a
@@ -80,12 +130,11 @@ test.describe('phone', () => {
     await open(page, app.url)
     const card = page.locator(`.card[data-id="${ticket.id}"]`)
     const style = await card.getAttribute('style')
-    const box = (await card.boundingBox())!
     const before = await view(page)
     const files = await app.snapshot()
     const sent = writes(page)
 
-    await drag(page, { x: box.x + 60, y: box.y + 30 }, { x: 40, y: 80 })
+    await drag(page, await reachable(page, card.locator('.card-title')), { x: 40, y: 80 })
 
     const after = await view(page)
     expect(after.k).toBeCloseTo(before.k, 5)
@@ -133,11 +182,10 @@ test.describe('phone', () => {
     await page.keyboard.press('Escape')
     await expect(page.locator('#inspector.open')).toHaveCount(0)
 
-    const box = (await label.boundingBox())!
     const before = await view(page)
     const frames = (await app.board() as unknown as { layout: { frames: unknown } }).layout.frames
     const sent = writes(page)
-    await drag(page, { x: box.x + 20, y: box.y + box.height / 2 }, { x: 30, y: 60 })
+    await drag(page, await reachable(page, label, '#stage'), { x: 30, y: 60 })
 
     const after = await view(page)
     expect(after.x - before.x).toBeCloseTo(30, 0)
@@ -222,14 +270,16 @@ test.describe('phone', () => {
     await expect(page.locator('.canvas-frame-label')).toHaveCount(0)
 
     // A drag from the card moves the card and saves it, as on a tablet.
-    const box = (await card.boundingBox())!
+    // Up and right, since the board on a phone this size is a strip along
+    // the bottom and the card can sit at its foot.
+    const from = await reachable(page, card.locator('.card-title'))
     const before = await view(page)
     const saved = page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/layout') && r.request().method() === 'PUT')
-    await drag(page, { x: box.x + 60, y: box.y + 30 }, { x: 40, y: 80 })
+    await drag(page, from, { x: 40, y: -40 })
     expect((await saved).status()).toBe(200)
     expect(await view(page)).toEqual(before)
     const moved = (await app.board()).layout.cards[ticket.id]
     expect(moved.x).toBeGreaterThan(0)
-    expect(moved.y).toBeGreaterThan(0)
+    expect(moved.y).toBeLessThan(0)
   })
 })

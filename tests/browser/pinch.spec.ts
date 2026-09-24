@@ -27,6 +27,22 @@ async function sceneAt(page: Page, client: Point) {
   return { x: (client.x - box.x - v.x) / v.k, y: (client.y - box.y - v.y) / v.k }
 }
 
+/** Wait until the view has held still for a while. The opening fit, a
+ * restored view and a re-fit after the first measurements can each move it
+ * after the first card is visible, and under load the last of them can land
+ * after a test has measured a card and is about to touch it. Comparing a poll
+ * against one read taken up front passes at once if nothing has moved yet, so
+ * this compares reads taken apart in time. */
+async function settled(page: Page) {
+  let last = '', same = 0
+  await expect.poll(async () => {
+    const now = JSON.stringify(await view(page))
+    same = now === last ? same + 1 : 0
+    last = now
+    return same
+  }, { intervals: [150], timeout: 10_000 }).toBeGreaterThanOrEqual(3)
+}
+
 /** Every request that could have written something. */
 function writes(page: Page) {
   const seen: string[] = []
@@ -38,7 +54,7 @@ function writes(page: Page) {
 async function open(page: Page, url: string, id: string) {
   await page.goto(url)
   await expect(page.locator(`.card[data-id="${id}"]`)).toBeVisible()
-  await expect.poll(() => view(page)).toEqual(await view(page))
+  await settled(page)
 }
 
 /** Touch coordinates reach the page rounded to whole pixels, so a finger

@@ -29,12 +29,12 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:57Z
-updated_at: 2026-09-24T05:49:13Z
+updated_at: 2026-09-24T06:24:05Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/mobile-board
+  id: agent:claude/mobile-lead
   name: ""
 extensions: {}
 ---
@@ -112,6 +112,24 @@ Evidence for the criteria, from `tests/browser/phone-board.spec.ts` on the emula
 Built against d8e2d90's web source, tests 1, 3, 4 and 6 fail and tests 2 and 5 pass: those two guard behaviour the base already had. The two new unit tests (`display-preferences.test.ts`, `display-dialog.test.tsx`) fail against d8e2d90's source too.
 
 Filed TKT-01M38ZB4QPZXM05BHHT72F81MM (Stop the phone's ticket sheet and keyboard from writing layout) for the sheet's Return to automatic, its frame membership controls, and the `u` key, which still write layout on the phone layout.
+
+**agent:claude/mobile-lead** at 2026-09-24T06:24:05Z
+
+The phone-board browser specs failed about one run in ten under load. They were fixed in the tests, and the product was not changed. There were two causes:
+
+- **A remembered view carried between layouts.** The page writes the view 300ms after it last moved, and it writes again on unload. When a test changed display settings straight after the first load, that pending write landed after the test's reset. The next open then restored the first load's view instead of fitting. The card ended up placed for a compact card, or for a different toolbar height, and parts of it sat past the 390px edge. The Manual placement label was at x≈400.
+- **Taps taken from the bounding box.** A touch at a point outside the viewport never reaches the page, so pointerdown never ran.
+
+The fixes, both in tests/browser/phone-board.spec.ts:
+
+- `store()` waits for the view to hold still, then clears `git-ticket-canvas.view.*` along with the display record.
+- `tap()` and the drags start from `reachable()`, which is the first point on the element that is on the screen and uncovered.
+
+The tablet-on-phone drag now goes up and right, because at 390px that board is a strip along the bottom.
+
+pinch.spec.ts and phone-board.spec.ts also replace `expect.poll(() => view(page)).toEqual(await view(page))` with `settled()`. The old check compared a poll against a single up-front read, so it passed at once whenever nothing had moved yet.
+
+Results: phone-board with `--repeat-each=8` passed 48/48. phone-board plus pinch with `--repeat-each=4 --workers=8` passed 56/56. The full suite passed 133, with 7 skipped.
 
 ## Summary
 
