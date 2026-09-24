@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 import { test, expect } from './fixtures'
-import { expectFitsDevice, phone, pinch, tablet, touchSteps, type Device, type Point } from './touch'
+import { expectFitsDevice, phone, pinch, tablet, touchSteps, viewSettled, type Device, type Point } from './touch'
 
 // The ticket sheet on a phone: three heights on a handle, closed by dragging
 // below the peek, and a board above it that still pans and takes a tap on
@@ -79,7 +79,7 @@ test.describe('phone', () => {
     const second = await app.create('Second on the phone', { x: 400, y: 0 })
     await page.goto(app.url)
     await expect(page.locator(`.card[data-id="${second.id}"]`)).toBeVisible()
-    await expect.poll(() => view(page)).toEqual(await view(page))
+    await viewSettled(page)
     await expect(page.locator('html')).toHaveAttribute('data-layout', 'phone')
     return { first, second, card: (id: string) => page.locator(`.card[data-id="${id}"]`) }
   }

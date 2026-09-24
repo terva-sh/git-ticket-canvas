@@ -52,6 +52,14 @@ export type Frame = readonly [Point, Point]
 export type Touches = readonly (Point | null)[]
 
 /**
+ * One step of `touchSteps`: the fingers down at one moment, or a number, which
+ * waits that many milliseconds with every finger where the last step left it.
+ * A pause is how a test holds a finger still: each step is one CDP event, so
+ * repeating a step sends a move of zero rather than letting time pass.
+ */
+export type Step = Touches | number
+
+/**
  * Drive the touchscreen through a sequence of moments, one CDP event each, and
  * lift every finger at the end.
  *
@@ -64,7 +72,8 @@ export type Touches = readonly (Point | null)[]
  * Chromium only, which is the only browser the harness runs.
  *
  * Each step lists every finger that is down, not only the one that moved,
- * and becomes one or two CDP events. Fingers that were down and are now up are
+ * and becomes one or two CDP events. A step that is a number is a pause; see
+ * `Step`. Fingers that were down and are now up are
  * lifted first, by a `touchEnd` that names them. Then a finger that is new
  * makes the step a `touchStart` listing everything down, and otherwise a
  * `touchMove` does. Measured against Chromium on 2026-09-24: a `touchMove`
@@ -72,7 +81,7 @@ export type Touches = readonly (Point | null)[]
  * lifts that finger and no other, so lifting one of two has to be a
  * `touchEnd`, whatever CDP's documentation says about it carrying no points.
  */
-export async function touchSteps(page: Page, steps: readonly Touches[]) {
+export async function touchSteps(page: Page, steps: readonly Step[]) {
   const session = await page.context().newCDPSession(page)
   // Each finger keeps its id for the whole sequence. That is what lets the
   // page tell two moving fingers apart from one finger lifting and another
@@ -84,6 +93,7 @@ export async function touchSteps(page: Page, steps: readonly Touches[]) {
   let down: { x: number; y: number; id: number }[] = []
   try {
     for (const step of steps) {
+      if (typeof step === 'number') { await page.waitForTimeout(step); continue }
       const now = points(step)
       const lifted = down.filter(finger => !now.some(point => point.id === finger.id))
       if (lifted.length) await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: lifted })
@@ -143,4 +153,54 @@ export async function twoFingerPan(page: Page, start: Point, delta: Point, sprea
     { x: center.x + spread / 2, y: center.y },
   ]
   await twoFingers(page, interpolate(at(start), at({ x: start.x + delta.x, y: start.y + delta.y }), steps))
+}
+
+/**
+ * Wait until the board's view has held still for a while. The opening fit, a
+ * restored view and a re-fit after the first measurements can each move it
+ * after the first card is visible, and under load the last of them can land
+ * after a test has measured a card and is about to touch it. Comparing a poll
+ * against one read taken up front passes at once if nothing has moved yet, so
+ * this compares reads taken apart in time: three matching reads 150ms apart,
+ * which also outlasts the 300ms the page waits before it remembers a view.
+ */
+export async function viewSettled(page: Page) {
+  const read = () => page.locator('#scene').evaluate(scene => (scene as HTMLElement).style.transform)
+  let last = '', same = 0
+  await expect.poll(async () => {
+    const now = await read()
+    same = now === last ? same + 1 : 0
+    last = now
+    return same
+  }, { intervals: [150], timeout: 10_000 }).toBeGreaterThanOrEqual(3)
+}
+
+/**
+ * Run `act` with the page's animation frames held, then run every frame it
+ * asked for. Everything `act` sends then lands between two frames, which is
+ * how a test shows that a finger crossing the tap limit and coming back
+ * before the next frame still counts as having moved. CDP input is otherwise
+ * free to let a frame run between any two events.
+ */
+export async function betweenFrames(page: Page, act: () => Promise<void>) {
+  await page.evaluate(() => {
+    const w = window as unknown as Record<string, unknown>
+    const held = new Map<number, FrameRequestCallback>()
+    let next = 1_000_000
+    w.__frames = { held, request: window.requestAnimationFrame, cancel: window.cancelAnimationFrame }
+    window.requestAnimationFrame = callback => { held.set(++next, callback); return next }
+    window.cancelAnimationFrame = id => { held.delete(id) }
+  })
+  try {
+    await act()
+  } finally {
+    await page.evaluate(() => {
+      const w = window as unknown as Record<string, unknown>
+      const frames = w.__frames as { held: Map<number, FrameRequestCallback>; request: typeof requestAnimationFrame; cancel: typeof cancelAnimationFrame }
+      window.requestAnimationFrame = frames.request
+      window.cancelAnimationFrame = frames.cancel
+      delete w.__frames
+      for (const callback of frames.held.values()) callback(performance.now())
+    })
+  }
 }

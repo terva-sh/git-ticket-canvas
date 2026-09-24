@@ -43,6 +43,18 @@ export interface ToolbarProps {
    * so an override in the Display panel changes the header as well. Absent
    * reads as a desk. */
   layout?: Layout
+  /** Selection mode, entered by holding a card on a touch screen, and how many
+   * cards it has selected. Absent while the mode is off. */
+  selecting?: { count: number; onDone(): void }
+}
+
+/** Which mode the board is in, how many cards it holds, and the way out. A
+ * tap means something different while this shows, so it has to be seen. */
+export function SelectionMode({ selecting }: { selecting: NonNullable<ToolbarProps['selecting']> }) {
+  return <div class="selection-mode" id="selectionMode" role="status" aria-label={`Selecting, ${selecting.count} selected`}>
+    <span class="badge">Selecting · <span id="selectionCount">{selecting.count}</span></span>
+    <button id="selectionDone" type="button" class="tool" onClick={selecting.onDone}>Done</button>
+  </div>
 }
 
 const stateWords: Record<LabelState | 'off', string> = {
@@ -162,9 +174,10 @@ export function Toolbar(p: ToolbarProps) {
         <select id="boardSelect" class="tool" title="Board" value={p.board} onChange={e => p.onBoard(e.currentTarget.value)}>
           {[...new Set([...p.boards, p.board])].map(board => <option key={board} value={board}>{board}</option>)}
         </select>
-        <button id="newBoard" class="tool" title="New board" disabled={p.readOnly} onClick={p.onNewBoard}>+</button>
+        <button id="newBoard" class="tool" title="New board" aria-label="New board" disabled={p.readOnly} onClick={p.onNewBoard}>+</button>
       </div>
       <div class="toolbar-side right">
+        {p.selecting && <SelectionMode selecting={p.selecting} />}
         {/* A property of the store rather than of the filters, so it sits with
             the store rather than with the counts. */}
         <span class="badge warn" id="roBadge" hidden={!p.readOnly}>read-only</span>
@@ -218,15 +231,16 @@ export function Toolbar(p: ToolbarProps) {
           {/* The level is the reset. A separate button for something you press
               rarely costs a slot in a row that is already the longer of the two. */}
           <button id="btnZoomReset" class="tool zoom-level" onClick={p.onZoomReset}
-            title="Reset to 1:1. Fit is the other one — it frames every card instead.">
+            title="Reset to 1:1. Fit is the other one — it frames every card instead."
+            aria-label={`${Math.round(p.zoom * 100)}%, reset to 1:1`}>
             {Math.round(p.zoom * 100)}%</button>
           <button id="btnZoomIn" class="tool" title="Zoom in" aria-label="Zoom in"
             disabled={p.zoom >= MAX_ZOOM - 0.001} onClick={p.onZoomIn}>+</button>
         </div>}
-        <button id="btnFit" class="tool" title="Fit all cards in view" onClick={p.onFit}>Fit</button>
+        <button id="btnFit" class="tool" title="Fit all cards in view" aria-label="Fit all cards in view" onClick={p.onFit}>Fit</button>
         {/* Last, where a primary action belongs. The wrapping row used to leave
             it alone on a line of its own at the far left. */}
-        <button id="btnNew" class="tool primary" title="New ticket (double-click the canvas)" disabled={p.readOnly} onClick={p.onNew}>New ticket</button>
+        <button id="btnNew" class="tool primary" title="New ticket, or double-click the board (double-tap on a touch screen) to file one there" disabled={p.readOnly} onClick={p.onNew}>New ticket</button>
       </div>
     </div>
   </div>

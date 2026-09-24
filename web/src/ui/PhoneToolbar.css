@@ -30,6 +30,8 @@ html[data-layout="phone"] #toolbar .phone-store-name { overflow: hidden; text-ov
 /* The desk gives the search a 190px floor, which is half a phone. */
 html[data-layout="phone"] #toolbar #search { flex: 1 1 0; width: 0; min-width: 4.5em; }
 html[data-layout="phone"] #toolbar #roBadge { white-space: nowrap; }
+/* Selection mode stands where the search was, and takes its share of the row. */
+html[data-layout="phone"] #toolbar .selection-mode { flex: 1 1 0; min-width: 0; justify-content: flex-end; }
 /* A glyph is narrower than a thumb. */
 html[data-layout="phone"] #toolbar #phoneMenu { min-width: 40px; }
 html[data-layout="phone"] #toolbar .phone-count {

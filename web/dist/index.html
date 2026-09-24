@@ -208,6 +208,10 @@ input.tool, select.tool { color: var(--ink); }
 .zoom > .tool:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; }
 /* Wide enough that 100% and 40% do not shuffle the buttons beside them. */
 .zoom-level { min-width: 52px; font-variant-numeric: tabular-nums; }
+/* Selection mode, shown in the header while a held card has it on. Accented
+   because a tap on a card means something else until Done. */
+.selection-mode { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.selection-mode .badge { color: var(--accent); font-variant-numeric: tabular-nums; }
 
 .session-dialog {
   position: fixed; top: 56px; right: 12px; z-index: 40; width: min(420px, calc(100vw - 24px));
@@ -387,6 +391,10 @@ input.tool, select.tool { color: var(--ink); }
   font-family: var(--mono); font-size: 10px; color: var(--s-in-progress);
   overflow-wrap: anywhere;
 }
+/* A bare actor name says what it is only through its title, which a finger
+   never sees. Chosen by the pointer itself rather than by the targets setting,
+   the same fact the board's hint is chosen by. */
+@media (pointer: coarse) { .card-alerts .held::before { content: 'held by '; } }
 .card-head { display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--line-soft); padding-top: 10px; margin-top: 12px; }
 .card-id { font-family: var(--mono); font-size: 10px; color: var(--ink-dim); overflow-wrap: anywhere; }
 .card-type { font-size: 10px; color: var(--ink-dim); }
@@ -573,8 +581,8 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
 #composer .muted { margin-top: 6px; display: block; }
 [hidden] { display: none !important; }
 </style>
-  <script type="module" crossorigin src="./assets/index-0F7dIj_w.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-BlfnPdZ4.css">
+  <script type="module" crossorigin src="./assets/index-CDrkDFD5.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CmSwLpKY.css">
 </head>
 <body>
 <div id="app"></div>

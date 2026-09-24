@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import type { Density } from '../platform/canvas/geometry'
 import type { RelationshipMode } from './canvas/Edges'
 import { StorePicker } from './StorePicker'
-import { LabelFilter, StatusFilters, Version, type ToolbarProps } from './Toolbar'
+import { LabelFilter, SelectionMode, StatusFilters, Version, type ToolbarProps } from './Toolbar'
 import './PhoneToolbar.css'
 
 type Sheet = 'store' | 'filters' | 'menu'
@@ -77,8 +77,11 @@ export function PhoneToolbar(p: ToolbarProps) {
         title={`Store and board: ${place}`} aria-label={`Store and board: ${place}`}>
         <span class="phone-store-name">{p.board}</span><span aria-hidden="true">{' ▾'}</span>
       </button>
-      <input id="search" class="tool" type="search" placeholder="Search" autoComplete="off"
-        value={p.query} onInput={e => p.onQuery(e.currentTarget.value)} />
+      {/* The row has no room for a fourth control, so selection mode takes the
+          search box's place while it lasts. The query stays in force. */}
+      {p.selecting ? <SelectionMode selecting={p.selecting} />
+        : <input id="search" class="tool" type="search" placeholder="Search" autoComplete="off"
+          value={p.query} onInput={e => p.onQuery(e.currentTarget.value)} />}
       {/* Stays in the row: somebody who cannot write needs to see that
           before they try, not after opening a sheet. */}
       <span class="badge warn" id="roBadge" hidden={!p.readOnly}>read-only</span>
