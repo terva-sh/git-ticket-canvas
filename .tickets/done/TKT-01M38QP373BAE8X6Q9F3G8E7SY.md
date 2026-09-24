@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38QP373BAE8X6Q9F3G8E7SY
 title: Keep a phone's board to panning, zooming and opening cards
 type: task
-status: review
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -19,17 +19,10 @@ dependencies:
   - TKT-01M38QP2NVPG01307B8V69C29M
 blocks_on: none
 references: []
-claim:
-  actor: agent:claude/mobile-board
-  branch: worktree-agent-abf562633c7642e20
-  worktree: /home/sothr/workspace/git.local.sothr.com/terva-sh/git-ticket-canvas/.claude/worktrees/agent-abf562633c7642e20
-  commit: d8e2d90fa342322167fa2d673a1df162d19efc45
-  session: null
-  claimed_at: 2026-09-24T05:39:22Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-24T03:34:57Z
-updated_at: 2026-09-24T06:49:40Z
+updated_at: 2026-09-24T06:55:19Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -162,6 +155,22 @@ The hazard the reviewer describes is the one the wait already closes. Before tha
 **agent:claude/mobile-lead** at 2026-09-24T06:49:40Z
 
 Terva reviewed e8f31a3 on PR 34 in run 019e44a9 and found nothing at the failure threshold. CI run 235 on e8f31a3 failed after 6m33s; a passing run takes about 4m20s. The log cannot be read from here: this Forgejo has no jobs API, and no preview browser is available. The full wave 3 browser suite ran locally at the same time, with load average 9 to 10, and every check on e8f31a3 passed locally just before. This bookkeeping-only commit re-runs CI.
+
+**agent:claude/mobile-lead** at 2026-09-24T06:55:19Z
+
+Merged to main through PR 34 (https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/34) at 72d3c31 on 2026-09-24.
+
+On the phone layout, a drag from a card pans the board, and a tap under 8px opens the card. No link or frame handle is drawn, and the frame title becomes a label that touches pass through. A frame draft carried over from the tablet layout cannot be redrawn from the board, and its hint points to the panel. A first-visit tip replaces the hint and stays closed once tapped. Setting the layout to tablet by hand brings drags, handles and the hint back.
+
+Tests are in tests/browser/phone-board.spec.ts (7 tests).
+
+Review: Terva raised findings in three rounds.
+- Round 1: frame drawing on a phone. Accepted and fixed.
+- Round 2: the unload view write. Declined with evidence.
+- Round 2: the frame hint. Accepted and fixed.
+- Round 3, on e8f31a3: clean.
+
+CI run 235 failed on e8f31a3 with an unreadable log while the machine was loaded. Run 237, on the bookkeeping head 4fcae47, passed.
 
 ## Summary
 
