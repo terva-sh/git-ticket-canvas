@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 import { test, expect } from './fixtures'
-import { expectFitsDevice, phone, tablet, touchSteps, viewSettled, type Point } from './touch'
+import { betweenFrames, expectFitsDevice, phone, tablet, touchSteps, viewSettled, type Point } from './touch'
 
 // Selecting several cards without a shift key: hold a card for 450 ms to
 // select it and enter selection mode, then tap to add and remove. A tablet
@@ -150,6 +150,11 @@ test.describe('tablet', () => {
     const at = await on(page, b)
     await touchSteps(page, [[at], [{ x: at.x + 10, y: at.y }], [{ x: at.x + 20, y: at.y }], [{ x: at.x + 10, y: at.y }], [at]])
 
+    await expect(count(page)).toHaveText('2')
+    await expect(cardOf(page, b)).toHaveClass(/selected/)
+
+    // The same, out and back before the board draws again.
+    await betweenFrames(page, () => touchSteps(page, [[at], [{ x: at.x + 20, y: at.y }], [at]]))
     await expect(count(page)).toHaveText('2')
     await expect(cardOf(page, b)).toHaveClass(/selected/)
   })

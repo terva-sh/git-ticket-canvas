@@ -174,3 +174,33 @@ export async function viewSettled(page: Page) {
     return same
   }, { intervals: [150], timeout: 10_000 }).toBeGreaterThanOrEqual(3)
 }
+
+/**
+ * Run `act` with the page's animation frames held, then run every frame it
+ * asked for. Everything `act` sends then lands between two frames, which is
+ * how a test shows that a finger crossing the tap limit and coming back
+ * before the next frame still counts as having moved. CDP input is otherwise
+ * free to let a frame run between any two events.
+ */
+export async function betweenFrames(page: Page, act: () => Promise<void>) {
+  await page.evaluate(() => {
+    const w = window as unknown as Record<string, unknown>
+    const held = new Map<number, FrameRequestCallback>()
+    let next = 1_000_000
+    w.__frames = { held, request: window.requestAnimationFrame, cancel: window.cancelAnimationFrame }
+    window.requestAnimationFrame = callback => { held.set(++next, callback); return next }
+    window.cancelAnimationFrame = id => { held.delete(id) }
+  })
+  try {
+    await act()
+  } finally {
+    await page.evaluate(() => {
+      const w = window as unknown as Record<string, unknown>
+      const frames = w.__frames as { held: Map<number, FrameRequestCallback>; request: typeof requestAnimationFrame; cancel: typeof cancelAnimationFrame }
+      window.requestAnimationFrame = frames.request
+      window.cancelAnimationFrame = frames.cancel
+      delete w.__frames
+      for (const callback of frames.held.values()) callback(performance.now())
+    })
+  }
+}

@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T07:08:03Z
+updated_at: 2026-09-24T07:20:55Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -156,6 +156,30 @@ Also: touch-help's `linked()` now waits with `viewSettled`.
 ### Checks run
 - `just web-test`: 556 passed.
 - `just browser-test`: 158 passed, 7 skipped, 2 failed. The two failures were canvas-density tests that failed with "Target crashed" at load average 8. The spec passed 6/6 on re-run.
+
+**agent:claude/mobile-lead** at 2026-09-24T07:20:55Z
+
+Terva reviewed f2efd4d on PR 35 in run 999f15c8, Actions run 241. It marked the wobble and edge-naming finding resolved. It kept the tap-limit finding open in a sharper form and added one new finding. Both are accepted.
+
+### Medium: a rapid out-and-back card gesture can still toggle
+`wandered` was latched in `applyMotion`, which runs once per animation frame with the latest point. A finger that crossed 8px and came back between two frames was therefore never seen as having moved. The pan's `moved`, which decides whether a phone's card press opens the card and whether a touch pan was a tap, had the same weakness.
+
+`pointerMove` now latches both on every move, measured from the gesture's start. This is where the hold was already ended, and for the same reason.
+
+Tests:
+- select-hold.spec.ts "in selection mode a finger that passes 8 px and comes back does not toggle" gains a second out-and-back, sent between two frames.
+- phone-board.spec.ts adds "a finger that leaves the card and comes back before the next frame opens nothing".
+
+Both hold the page's animation frames with a new `betweenFrames` helper in tests/browser/touch.ts. That makes it certain no frame runs between the moves. CDP input is otherwise free to let one run.
+
+### Medium: tapping an edge also leaves selection mode
+An edge press is a pan with no card, so it set `leave`. `leave` now also requires that no edge was hit, so only bare board leaves the mode, and an edge tap still names the edge.
+
+Test: touch-help.spec.ts "in selection mode a tap on an edge names it and stays in the mode".
+
+All three new tests failed on f2efd4d and pass with the fix.
+
+The /tmp worktree this branch was being fixed in was deleted from outside the session during a test run, at about 02:19. The branch was re-created under .claude/worktrees/mobile-wave-3, and the uncommitted fix was restored from a saved copy of Canvas.tsx.
 
 ## Summary
 

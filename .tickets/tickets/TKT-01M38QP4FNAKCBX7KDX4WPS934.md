@@ -28,7 +28,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T07:08:04Z
+updated_at: 2026-09-24T07:20:55Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -130,6 +130,12 @@ The full browser suite passes on the merged branch: 157 passed, 7 skipped.
 **agent:claude/mobile-lead** at 2026-09-24T07:08:04Z
 
 Terva's low finding on PR 35 (review of 63ef448) is recorded in full on TKT-01M38QP47G7VBHRBVYR8MMKN8K. touchUp now counts a touch lift from a card as a tap when the finger never passed TAP_SLOP on screen (), not when it never moved one scene pixel. A fingertip wobble on a card now unnames the edge, as the toggle already treated it. Test: touch-help.spec.ts "a tap on a card that wobbles within 8 px still unnames the edge".
+
+**agent:claude/mobile-lead** at 2026-09-24T07:20:55Z
+
+This supersedes the previous note, the one on Terva's low finding from the review of 63ef448. The shell swallowed a code span in it. The phrase "when the finger never passed TAP_SLOP on screen ()" should read "when the finger never passed TAP_SLOP on screen (the card gesture's `wandered` flag)".
+
+Since then, the review of f2efd4d on PR 35 found that an edge tap in selection mode left the mode. An edge tap now names the edge and keeps the mode. The details are on TKT-01M38QP47G7VBHRBVYR8MMKN8K.
 
 ## Summary
 

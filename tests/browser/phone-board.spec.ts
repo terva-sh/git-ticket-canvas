@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 import { test, expect } from './fixtures'
-import { expectFitsDevice, phone, touchSteps, viewSettled, type Point } from './touch'
+import { betweenFrames, expectFitsDevice, phone, touchSteps, viewSettled, type Point } from './touch'
 
 // A phone's board views and triages: one finger pans, two zoom, a tap opens a
 // card, and nothing on it writes layout. docs/mobile-design-v1.md, "The board".
@@ -133,6 +133,17 @@ test.describe('phone', () => {
     expect(sent).toEqual([])
     expect(await app.snapshot()).toEqual(files)
     await expectFitsDevice(page, phone)
+  })
+
+  test('a finger that leaves the card and comes back before the next frame opens nothing', async ({ page, app }) => {
+    const ticket = await app.create('Swiped on a phone', { x: 0, y: 0 })
+    await open(page, app.url)
+    const at = await reachable(page, page.locator(`.card[data-id="${ticket.id}"] .card-title`))
+
+    await betweenFrames(page, () => touchSteps(page, [[at], [{ x: at.x, y: at.y + 30 }], [at]]))
+
+    await expect(page.locator('#inspector.open')).toHaveCount(0)
+    await expect(page.locator('.card.selected')).toHaveCount(0)
   })
 
   test('a tap on a card opens it', async ({ page, app }) => {

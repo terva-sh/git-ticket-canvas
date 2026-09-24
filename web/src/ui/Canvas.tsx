@@ -651,7 +651,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       }
     } else {
       const edge = target.closest<SVGElement>('[data-edge]')?.dataset.edge
-      gesture = { ...base, kind: 'pan', moved: false, edge, leave: !!p.selecting && !card,
+      // Only bare board leaves the mode: a tap on an edge names it.
+      gesture = { ...base, kind: 'pan', moved: false, edge, leave: !!p.selecting && !card && !edge,
         // Empty as a double-click reads it, so the two file in the same places.
         empty: !edge && !target.closest('.card, .canvas-frame') }
     }
@@ -760,7 +761,13 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     }
     // Matched on the pointer rather than on being primary: the finger left
     // down after a pinch keeps panning, and it need not be the primary one.
-    if (!local.gesture || event.pointerId !== local.gesture.pointerId || event.buttons !== 1) return
+    const gesture = local.gesture
+    if (!gesture || event.pointerId !== gesture.pointerId || event.buttons !== 1) return
+    // Whether a lift is a tap is latched here for the same reason the hold is
+    // ended here: the frame below sees only the latest point.
+    const far = Math.hypot(event.clientX - gesture.pointer.x, event.clientY - gesture.pointer.y) > TAP_SLOP
+    if (far && gesture.kind === 'pan') gesture.moved = true
+    if (far && gesture.kind === 'card') gesture.wandered = true
     local.motion = { x: event.clientX, y: event.clientY }
     if (local.frame !== null) return
     local.frame = requestAnimationFrame(() => {

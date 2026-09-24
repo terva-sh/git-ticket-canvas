@@ -136,6 +136,28 @@ test.describe('tablet', () => {
     await expect(named(page)).toHaveCount(0)
   })
 
+  test('in selection mode a tap on an edge names it and stays in the mode', async ({ page, app }) => {
+    const { first } = await linked(page, app)
+    const title = (await page.locator(`.card[data-id="${first.id}"] .card-title`).boundingBox())!
+    // Held past the 450 ms that enters selection mode.
+    await touchSteps(page, [[{ x: Math.round(title.x + 20), y: Math.round(title.y + title.height / 2) }], 700])
+    await expect(page.locator('#selectionMode')).toBeVisible()
+    // Holding the card opened the sheet over it and the edge, so bring both up
+    // into the board left above the sheet. A pan on empty board keeps the mode.
+    const stage = (await page.locator('#stage').boundingBox())!
+    const card = (await page.locator(`.card[data-id="${first.id}"]`).boundingBox())!
+    const from = { x: Math.round(stage.x + 24), y: Math.round(stage.y + 340) }
+    const by = Math.round(stage.y + 80 - card.y)
+    await touchSteps(page, Array.from({ length: 9 }, (_, i) => [{ x: from.x, y: Math.round(from.y + by * i / 8) }]))
+    await viewSettled(page)
+    await expect(page.locator('#selectionMode')).toBeVisible()
+
+    await tap(page, await edgePoint(page))
+
+    await expect(named(page)).toHaveCount(1)
+    await expect(page.locator('#selectionMode')).toBeVisible()
+  })
+
   test('a pan that starts on an edge moves the board and names nothing', async ({ page, app }) => {
     await linked(page, app)
     const from = await edgePoint(page)
