@@ -28,12 +28,12 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:57Z
-updated_at: 2026-09-24T05:26:36Z
+updated_at: 2026-09-24T05:38:44Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/mobile-header
+  id: agent:claude/t3code
   name: ""
 extensions: {}
 ---
@@ -120,6 +120,10 @@ Implementation notes for the sibling tickets and for review.
 - Three existing desk specs resize a mouse window to 390 wide, which is a phone by the layout rule, and they clicked `#btnFit` or read `#version` from the row. They now open the menu or the store sheet first: `baseline.spec.ts` (toolbar labels the server build), `frames.spec.ts` (frame panel fits the narrow-screen layout), `readability.spec.ts` (narrow inspector occupies a full-width row). Before that change all three failed on this branch; after it the whole browser suite passed.
 - For TKT-01M38QP3EV026GJY91GE3CG0J6 (Open a ticket in a bottom sheet on a phone): New ticket hides while `#inspector` has the `open` class. The rule is `html[data-layout="phone"]:has(#inspector.open) #btnNew.phone-new` in `web/src/ui/PhoneToolbar.css`. If the sheet stops using that class, the button falls back to stacking under the inspector at `z-index: 14` against its 15.
 - For TKT-01M38QP373BAE8X6Q9F3G8E7SY (Keep a phone's board to panning, zooming and opening cards): until the hint line goes, its right end runs under New ticket at the bottom right of a portrait phone. The first-visit tip that ticket adds should stay clear of the bottom-right 48px-tall button.
+
+**agent:claude/t3code** at 2026-09-24T05:38:44Z
+
+Opened with its two wave 1 siblings as PR 33, https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/33, from t3code/mobile-wave-1. On the merged head: web-test 552 passed, browser-test 127 passed / 7 skipped / 0 failed, dist-verify byte-identical, ticket check clean. A Terva review is requested next; its result is recorded here when it lands.
 
 ## Summary
 

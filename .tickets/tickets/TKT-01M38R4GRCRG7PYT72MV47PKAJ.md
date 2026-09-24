@@ -27,12 +27,12 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:42:50Z
-updated_at: 2026-09-24T05:17:19Z
+updated_at: 2026-09-24T05:38:44Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/mobile-cycle
+  id: agent:claude/t3code
   name: ""
 extensions: {}
 ---
@@ -94,6 +94,10 @@ Checked that the new browser tests catch the missing behaviour: with the `linkRe
 Verification on 5fa0278, in this worktree: `just web-typecheck` passes; `just web-test` 42 files, 543 tests passed; `just browser-test` (whole suite, rebuilt bundle) 101 passed, 6 skipped (the opt-in skips), 0 failed, including the unchanged link tests in `canvas.spec.ts` and `baseline.spec.ts` and the two new tests in `link-cycle.spec.ts`; strict tsc on `tests/browser/link-cycle.spec.ts` passes; `just dist-verify` matches HEAD byte for byte; `just tickets-check` finds no problems. No Go was touched.
 
 Evidence for the criteria. 1: both new browser tests drop onto the cycle-closing card, see only GET requests, find A's dependencies still empty, and read the loop from the error toast by short ID. 2: `link()` and `linkRefusal()` in `App.tsx` call `closingCycle`, which is `cycleFinder(tickets)(...)`, the function the picker in `RelationPicker.tsx` uses. 3: the desk test asserts `link-refused` on the hovered card, on `#stage` and on `#ghost` before the mouse is released; the tablet test records the card class while the finger is down. 4: a card that closes nothing takes the unchanged path (`to` set, `link-target`, `onLink`), which the desk test checks on an unrelated card and the existing link tests check unchanged.
+
+**agent:claude/t3code** at 2026-09-24T05:38:44Z
+
+Opened with its two wave 1 siblings as PR 33, https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/33, from t3code/mobile-wave-1. On the merged head: web-test 552 passed, browser-test 127 passed / 7 skipped / 0 failed, dist-verify byte-identical, ticket check clean. A Terva review is requested next; its result is recorded here when it lands.
 
 ## Summary
 

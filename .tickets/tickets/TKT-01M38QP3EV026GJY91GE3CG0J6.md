@@ -28,7 +28,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:57Z
-updated_at: 2026-09-24T05:38:13Z
+updated_at: 2026-09-24T05:38:44Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -119,6 +119,10 @@ In one full `just browser-test` run, `touch.spec.ts` "a gesture whose move fails
 **agent:claude/t3code** at 2026-09-24T05:38:13Z
 
 Merged with the phone header (TKT-01M38QP2WYRK9A18P473KTM9BV) and the cycle refusal (TKT-01M38R4GRCRG7PYT72MV47PKAJ) on t3code/mobile-wave-1. As this ticket's report asked, the portrait phone tests in sheet.spec.ts no longer hide the header: they pass with the real one-row header. The landscape test still hides it, with the comment updated to say why. The New ticket button does not collide with the sheet, because the header hides it while the inspector is open, and phone-header.spec's test for that passes on the merged tree. On the merged tree: web-test 552 passed, browser-test 127 passed / 7 skipped / 0 failed, typecheck and strict tsc on the new specs pass.
+
+**agent:claude/t3code** at 2026-09-24T05:38:44Z
+
+Opened with its two wave 1 siblings as PR 33, https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/33, from t3code/mobile-wave-1. On the merged head: web-test 552 passed, browser-test 127 passed / 7 skipped / 0 failed, dist-verify byte-identical, ticket check clean. A Terva review is requested next; its result is recorded here when it lands.
 
 ## Summary
 
