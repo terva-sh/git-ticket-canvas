@@ -28,7 +28,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T13:20:53Z
+updated_at: 2026-09-24T13:33:49Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -92,3 +92,11 @@ Three places, all in the render, none near the keyboard handler: an import, `vie
 - Filtering in the list with its own predicate. Rejected by the ticket: the list and the count must not be able to disagree.
 - Storing the view under its own localStorage key. Rejected: the display record is the one allowlist and the design puts it there, as it did `tipClosed`.
 - A single toggle button everywhere. Cheaper in width, but the two-button group says which view is showing without having to read the screen behind it; kept as the phone fallback only.
+
+## Notes
+
+**agent:claude/mobile-list** at 2026-09-24T13:33:49Z
+
+Built as planned, with one change on the phone. Two buttons (Board, List) pushed the read-only phone row 17px past 390px at the larger toolbar size, with every other control at its floor. The phone now has one `List` toggle, `aria-pressed` while the list shows. Even that overflowed by 3.8px at the larger size, so at that size only, the toggle's side padding drops to .25em, the row gap to 7px, and the search box's floor to 3.5em. Measured slack there is now about 6px under this machine's fonts. The desk and tablet keep the two-button group. The design doc records the difference under "The list".
+
+Where the baselines live: the task brief pointed at tests/browser/baseline.spec.ts, but that spec holds no screenshots. The phone header baseline is in tests/browser/phone-header.spec.ts, opt-in under CANVAS_VISUAL. The new phone list baseline follows it in tests/browser/list.spec.ts and writes docs/artifacts/canvas-review-baseline-2026-09-11/ahpsh-tickets/phone-list.png. phone-header.png is regenerated because the row gained the toggle. `--update-snapshots` kept the old header image when the difference was under tolerance, so the file was deleted and written again. The artifacts README says so.

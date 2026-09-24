@@ -164,6 +164,13 @@ to the search box.
 The list is available on tablet and desk as well, because building it only
 for phones would mean building a condition. It is not the default on either.
 
+As built for `TKT-01M38QP3ZNYRPN60GXQD4SCE6M`: on a tablet and a desk the
+switch is two buttons, Board and List. On a phone it is one `List` button,
+pressed while the list shows, because a second word pushed the read-only row
+past a 390px screen at the larger toolbar size. The list is drawn over the
+board rather than in place of it, so the sheet and the inspector serve a row
+exactly as they serve a card.
+
 ## Tablet
 
 A tablet gets everything a desk does. The work is making each thing reachable
