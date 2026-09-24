@@ -20,9 +20,10 @@ Three things in the code decide what can be done about it:
 - **The canvas handles one pointer.** `pointerMove` and `pointerUp` in
   `web/src/ui/Canvas.tsx` return early unless `event.isPrimary`, and zoom comes
   only from `wheel` or the toolbar buttons. There is no pinch.
-- **`#stage` sets no `touch-action`.** The browser is free to claim a touch
-  drag for its own scrolling or zooming and send `pointercancel`, which ends a
-  gesture half done. Only the inspector's resize handle sets `touch-action: none`.
+- **`#stage` already sets `touch-action: none`**, inline in `Canvas.tsx`, so
+  the browser does not claim a touch drag on the board. An earlier version of
+  this document said it did not, from a search of the stylesheets alone;
+  corrected on 2026-09-24 when the gesture work read the component.
 - **Adding a relationship requires a drag.** The inspector can remove a
   dependency or a parent and cannot add one; its empty state says "Drag a
   card's right handle onto another to add one". A layout without drags needs
@@ -80,7 +81,7 @@ The gesture code moves from one pointer to a small set of active pointers.
 This comes first because the tablet needs it and the phone's board is not
 usable without it.
 
-- `#stage` sets `touch-action: none`, so the canvas owns every touch on it.
+- `#stage` keeps `touch-action: none`, so the canvas owns every touch on it.
   The header, the inspector and the list keep the browser's own scrolling.
 - One finger behaves as the mouse does today: pan on empty board, drag on a
   card, link from the handle.
@@ -169,8 +170,7 @@ A tablet gets everything a desk does. The work is making each thing reachable
 without a mouse:
 
 - **Pinch and two-finger pan**, from the gesture work above.
-- **Card, link and frame drags that survive touch.** Mostly `touch-action`.
-  Each drag gets a test that runs it from a touch pointer, not just from a
+- **Card, link and frame drags that survive touch.** Each drag gets a test that runs it from a touch pointer, not just from a
   mouse.
 - **Long-press to select.** Shift-click has no touch equivalent. Holding a
   card for 450 ms without moving more than 8 px adds it to the selection and

@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import { forwardRef } from 'preact/compat'
 import { useCallback, useImperativeHandle, useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { cardWidthFor, DEFAULT_ZOOM, fitView, posOf, toScene, zoomAt, zoomTo } from '../platform/canvas/geometry'
+import { cardWidthFor, DEFAULT_ZOOM, fitView, pinchView, posOf, toScene, zoomAt, zoomTo } from '../platform/canvas/geometry'
 import { resolveBoard } from '../platform/canvas/resolve'
 import { captureMembers } from '../platform/canvas/frames'
 import type { Density, Point, View } from '../platform/canvas/geometry'
@@ -112,11 +112,28 @@ type Gesture = GestureBase & (
   | { kind: 'frame-move' | 'frame-resize'; id: string; before: Frame; next: Frame; cards: Cards; delta: Point; moved: boolean }
   | { kind: 'frame-draw'; start: Point; bounds: Frame }
 )
+/** Two fingers moving the board. Not a `Gesture`: it has two pointers, touches
+ * no card, and saves nothing, so every path that ends a gesture by saving
+ * would be one more place to remember that this one must not. */
+interface Pinch {
+  ids: readonly [number, number]
+  /** Where both fingers were, and the view, when the second one landed. Each
+   * frame is measured from here, never from the frame before. */
+  from: readonly [Point, Point]
+  view: View
+  endBusy: () => void
+}
 interface LocalState {
   view: View
   /** A null is a removal in flight: the card is going back to the rules. */
   previews: Map<string, Card | null>
   gesture: Gesture | null
+  /** Every finger down on the canvas, and where it is now. Filled
+   * on a down over the canvas and emptied on a lift or a cancel, but not on a
+   * lost capture: releasing capture is not a lift, and starting a pinch
+   * releases the first finger's capture on purpose. */
+  touches: Map<number, Point>
+  pinch: Pinch | null
   motion: Point | null
   frame: number | null
   frameCount: number
@@ -135,7 +152,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   const activeWidth = () => cardWidthFor(latest.current.density ?? 'full')
   const local = useRef<LocalState>({
     view: { x: 120, y: 90, k: 1 }, previews: new Map<string, Card | null>(), gesture: null,
-    motion: null, frame: null, frameCount: 0, mounted: false,
+    touches: new Map<number, Point>(), pinch: null, motion: null, frame: null, frameCount: 0, mounted: false,
   }).current
   const [, setRevision] = useState(0)
   const redraw = () => setRevision(n => n + 1)
@@ -204,12 +221,23 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     return gesture
   }
 
+  /** Stop following two fingers. The view stays wherever they took it: a
+   * pinch writes nothing, so there is nothing to roll back. */
+  function endPinch(): boolean {
+    const pinch = local.pinch
+    if (!pinch) return false
+    local.pinch = null
+    pinch.endBusy()
+    return true
+  }
+
   function cancel() {
     const pendingFrame = local.frame !== null
     const gesture = release()
+    const pinched = endPinch()
     // Wheel deltas update the view before their RAF; keep DOM and view in sync
     // even when Escape or a toolbar action cancels that scheduled render.
-    if ((gesture || pendingFrame) && local.mounted) redraw()
+    if ((gesture || pinched || pendingFrame) && local.mounted) redraw()
   }
 
   function viewport() {
@@ -398,6 +426,91 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   }
 
   function pointerDown(event: PointerEvent) {
+    // Only fingers are counted. A mouse is one pointer, and a stylus is one
+    // too; a pinch is two fingers.
+    if (event.pointerType === 'touch' && canvasTarget(event.target)) {
+      // The primary pointer is the first finger of a new touch, so any finger
+      // still recorded is one whose lift never arrived. Counting it would make
+      // this finger the second of a pinch with a finger that is not there.
+      if (event.isPrimary) local.touches.clear()
+      local.touches.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      // A third finger is ignored rather than turning the pinch into
+      // something else. It is still counted, so its lift is not a surprise.
+      if (local.pinch || local.touches.size > 2) return
+      if (local.touches.size === 2) {
+        startPinch()
+        event.preventDefault()
+        return
+      }
+    }
+    startGesture(event)
+  }
+
+  /** The second finger has landed. Whatever the first one started is dropped
+   * without saving, the same way a cancelled pointer drops it: a card goes
+   * back to where it was, a link leaves no edge, a frame is not drawn. Two
+   * fingers almost never mean "and keep dragging that card". */
+  function startPinch() {
+    const [[first, a], [second, b]] = [...local.touches]
+    release()
+    // Both fingers are captured to the board for as long as the pinch lasts.
+    // Dropping the first finger's gesture released its capture, and a finger
+    // that then wandered off the board would lift somewhere the board never
+    // hears, leaving the pinch running after the fingers are gone.
+    const element = stage.current
+    for (const id of [first, second]) {
+      try { element?.setPointerCapture(id) }
+      catch { /* A finger already gone is lifted by its own event. */ }
+    }
+    const p = latest.current
+    local.pinch = { ids: [first, second], from: [a, b], view: { ...local.view }, endBusy: () => p.onBusy(false) }
+    p.onBusy(true)
+    redraw()
+  }
+
+  /** Move the view to where the two fingers have taken it. */
+  function applyPinch() {
+    const pinch = local.pinch
+    const element = stage.current
+    if (!pinch || !element) return
+    const a = local.touches.get(pinch.ids[0]), b = local.touches.get(pinch.ids[1])
+    if (!a || !b) return
+    local.view = pinchView(pinch.view, pinch.from, [a, b], element.getBoundingClientRect())
+    reportView()
+  }
+
+  /** A finger has come off the canvas, by lifting or by the browser cancelling
+   * it. If it was one of a pinch's two, the pinch ends where it got to, and a
+   * finger still down carries on as a pan from where it is now. A pan and not
+   * whatever it began before the pinch, because a finger left behind after a
+   * pinch almost never means "now move this card". */
+  function lift(event: PointerEvent) {
+    const pinch = local.pinch
+    if (pinch?.ids.includes(event.pointerId)) {
+      local.touches.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      applyPinch()
+    }
+    local.touches.delete(event.pointerId)
+    if (!pinch?.ids.includes(event.pointerId)) return
+    cancelFrame()
+    endPinch()
+    const rest = pinch.ids.find(id => local.touches.has(id))
+    if (rest !== undefined) startPan(rest, local.touches.get(rest)!)
+    if (local.mounted) { local.frameCount++; redraw() }
+  }
+
+  function startPan(pointerId: number, pointer: Point) {
+    const element = stage.current
+    if (!element || local.gesture) return
+    const p = latest.current
+    try { element.setPointerCapture(pointerId) }
+    catch { return } // The finger may already be gone.
+    local.gesture = { kind: 'pan', pointerId, capture: element, pointer, view: { ...local.view },
+      positions: positions(), endBusy: () => p.onBusy(false) }
+    p.onBusy(true)
+  }
+
+  function startGesture(event: PointerEvent) {
     if (!event.isPrimary || event.button !== 0 || local.gesture) return
     const target = canvasTarget(event.target)
     const element = stage.current
@@ -479,7 +592,23 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   }
 
   function pointerMove(event: PointerEvent) {
-    if (!local.gesture || event.pointerId !== local.gesture.pointerId || !event.isPrimary || event.buttons !== 1) return
+    if (local.touches.has(event.pointerId)) local.touches.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    if (local.pinch) {
+      if (!local.pinch.ids.includes(event.pointerId) || local.frame !== null) return
+      // Batched to a frame the way the wheel is: every move updates where the
+      // fingers are, and the view is worked out once from the latest.
+      local.frame = requestAnimationFrame(() => {
+        local.frame = null
+        if (!local.mounted || !local.pinch) return
+        applyPinch()
+        local.frameCount++
+        redraw()
+      })
+      return
+    }
+    // Matched on the pointer rather than on being primary: the finger left
+    // down after a pinch keeps panning, and it need not be the primary one.
+    if (!local.gesture || event.pointerId !== local.gesture.pointerId || event.buttons !== 1) return
     local.motion = { x: event.clientX, y: event.clientY }
     if (local.frame !== null) return
     local.frame = requestAnimationFrame(() => {
@@ -493,7 +622,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   }
 
   function pointerUp(event: PointerEvent) {
-    if (!local.gesture || event.pointerId !== local.gesture.pointerId || event.button !== 0 || !event.isPrimary) return
+    lift(event)
+    if (!local.gesture || event.pointerId !== local.gesture.pointerId || event.button !== 0) return
     // The final point can arrive before the queued RAF. Do not save the previous frame.
     applyMotion({ x: event.clientX, y: event.clientY })
     const current = positions()
@@ -529,13 +659,18 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   }
 
   function pointerCancel(event: PointerEvent) {
+    lift(event)
+    lostCapture(event)
+  }
+
+  function lostCapture(event: PointerEvent) {
     if (event.pointerId === local.gesture?.pointerId) cancel()
   }
 
   function wheel(event: WheelEvent) {
     if (!canvasTarget(event.target)) return
     event.preventDefault()
-    if (local.gesture || !stage.current) return
+    if (local.gesture || local.pinch || !stage.current) return
     // Updating the ref preserves every wheel delta while only rendering once per frame.
     local.view = zoomAt(local.view, { x: event.clientX, y: event.clientY }, stage.current.getBoundingClientRect(), event.deltaY)
     reportView()
@@ -546,10 +681,17 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     })
   }
 
+  /** The window lost focus mid-gesture. The lifts may never arrive, so the
+   * fingers are forgotten along with the gesture. */
+  function blur() {
+    local.touches.clear()
+    cancel()
+  }
+
   // Native listeners give wheel an explicit passive:false and share one cleanup path.
   // Indirection keeps listeners stable without retaining old props or callback closures.
-  const handlers = useRef({ pointerDown, pointerMove, pointerUp, pointerCancel, wheel, cancel })
-  handlers.current = { pointerDown, pointerMove, pointerUp, pointerCancel, wheel, cancel }
+  const handlers = useRef({ pointerDown, pointerMove, pointerUp, pointerCancel, lostCapture, wheel, cancel, blur })
+  handlers.current = { pointerDown, pointerMove, pointerUp, pointerCancel, lostCapture, wheel, cancel, blur }
   useLayoutEffect(() => {
     local.mounted = true
     const element = stage.current!
@@ -557,13 +699,14 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     const move = (event: PointerEvent) => handlers.current.pointerMove(event)
     const up = (event: PointerEvent) => handlers.current.pointerUp(event)
     const abort = (event: PointerEvent) => handlers.current.pointerCancel(event)
+    const lost = (event: PointerEvent) => handlers.current.lostCapture(event)
     const scroll = (event: WheelEvent) => handlers.current.wheel(event)
-    const blur = () => handlers.current.cancel()
+    const blur = () => handlers.current.blur()
     element.addEventListener('pointerdown', down)
     element.addEventListener('pointermove', move)
     element.addEventListener('pointerup', up)
     element.addEventListener('pointercancel', abort)
-    element.addEventListener('lostpointercapture', abort)
+    element.addEventListener('lostpointercapture', lost)
     element.addEventListener('wheel', scroll, { passive: false })
     window.addEventListener('blur', blur)
     return () => {
@@ -572,7 +715,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       element.removeEventListener('pointermove', move)
       element.removeEventListener('pointerup', up)
       element.removeEventListener('pointercancel', abort)
-      element.removeEventListener('lostpointercapture', abort)
+      element.removeEventListener('lostpointercapture', lost)
       element.removeEventListener('wheel', scroll)
       window.removeEventListener('blur', blur)
       handlers.current.cancel()
@@ -580,7 +723,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   }, [])
 
   useLayoutEffect(() => {
-    if (props.readOnly && local.gesture?.kind !== 'pan') cancel()
+    // A pinch only moves the view, so turning read-only has nothing to stop.
+    if (props.readOnly && local.gesture && local.gesture.kind !== 'pan') cancel()
   }, [props.readOnly])
 
   const view = local.view
@@ -603,7 +747,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   const cardWidth = activeWidth()
   return <div id="stage" ref={stage} data-canvas-frame={local.frameCount}
     data-placement-calculations={placementCalculations.current}
-    class={gesture?.kind === 'pan' ? 'panning' : gesture?.kind === 'link' ? 'linking' : ''}
+    class={gesture?.kind === 'pan' || local.pinch ? 'panning' : gesture?.kind === 'link' ? 'linking' : ''}
     style={{ touchAction: 'none' }}
     onDblClick={event => {
       const target = canvasTarget(event.target)
