@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38QP3ZNYRPN60GXQD4SCE6M
 title: List tickets by status as well as on the board
 type: task
-status: in-progress
+status: review
 status_reason: null
 priority: normal
 due_on: null
@@ -28,7 +28,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T13:37:38Z
+updated_at: 2026-09-24T13:43:12Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -48,12 +48,12 @@ See `docs/mobile-design-v1.md`, "The list".
 
 ## Acceptance criteria
 
-- [ ] Board/List switches the view and the choice survives a reload
-- [ ] The list shows the same tickets the board shows under every filter and search, with a test
-- [ ] Tapping a row opens the ticket in the inspector or sheet
-- [ ] Live updates reach the list as they reach the board
-- [ ] A phone baseline screenshot of the list is added
-- [ ] A touch drag scrolls the list on the emulated phone and tablet, carried from TKT-01M38QP2CZEJ120PFDKMK3WTP1's first criterion
+- [x] Board/List switches the view and the choice survives a reload
+- [x] The list shows the same tickets the board shows under every filter and search, with a test
+- [x] Tapping a row opens the ticket in the inspector or sheet
+- [x] Live updates reach the list as they reach the board
+- [x] A phone baseline screenshot of the list is added
+- [x] A touch drag scrolls the list on the emulated phone and tablet, carried from TKT-01M38QP2CZEJ120PFDKMK3WTP1's first criterion
 
 ## Implementation plan
 
@@ -104,3 +104,30 @@ Where the baselines live: the task brief pointed at tests/browser/baseline.spec.
 **agent:claude/mobile-list** at 2026-09-24T13:37:38Z
 
 While the list shows, the stage's own board elements (#scene, #grid, #hint, #boardTip) now get visibility: hidden, from TicketList.css. Without that, Tab and a screen reader went through the covered board's buttons. The rule was added under TKT-01M38RXAS80BEW03WCGBYYRBDC (Open a ticket's inspector without a pointer), which found the problem. The board keeps its layout, so its view and measurements survive a switch back, and list.spec.ts still passes with it.
+
+**agent:claude/mobile-list** at 2026-09-24T13:43:12Z
+
+Verification at the review commit: just web-typecheck passed. just web-test: 45 files, 569 tests passed. just browser-test: 180 passed, 8 skipped, 0 failed. Strict tsc on list.spec.ts and list-keyboard.spec.ts passed. just dist-verify: the rebuild matches HEAD byte for byte. CANVAS_VISUAL=1 phone-header and phone-list baselines pass. just canvas-visual fails on this machine, and fails the same way with origin/main's web/dist (70,258 pixels, against 70,365 here), so it is not caused by this change. No Go was touched.
+
+## Summary
+
+A Board/List switch in the header shows the tickets as a list, grouped by status in the store's order. It is on every layout and the default on none.
+
+### What was built
+
+- `web/src/platform/tickets/list.ts`: `listGroups` filters through `matchesTicket`, the predicate the board dims with and the count uses. It groups by status in configured order, puts unconfigured statuses after the configured ones, leaves out empty groups, and sorts each group the way a pen sorts its cards: more urgent first, then ID.
+- `web/src/ui/TicketList.tsx` and `TicketList.css`: a heading per status with its count, and a button per ticket carrying title, short ID, priority, labels and `AC done/total`. `aria-current` marks the ticket the inspector shows. A row calls App's `select`, the path a card tap takes, so it opens the same inspector, or on a phone the same sheet. The list is drawn over the board as a child of `Canvas`. The inspector, sheet, composer and toast therefore work unchanged, and the board keeps its view underneath. The canvas treats unknown children as overlays, so `Canvas.tsx` is unchanged. While the list shows, the covered board is `visibility: hidden`, so it is out of the tab order and the accessibility tree.
+- The switch: `ViewSwitch` in Toolbar.tsx. On desk and tablet it is two buttons, Board and List, opening the working row beside the search box. On a phone it is one `List` toggle between the search box and the read-only badge, because two buttons overflowed the row (see the notes). Both headers use `#viewList`.
+- The preference: `view?: 'list'` in the display record (`displayPreferences.ts`), exposed by `useDisplay` as `view` and `chooseView`. The board is the absence of a record, so every layout opens on the board the first time. The Display panel's reset leaves the choice alone.
+- App.tsx, render only: an import, `view`/`onView` on `Toolbar`, and the `TicketList` child before `#formsRoot`. The keyboard handler is untouched.
+- Baselines: `phone-list.png` added, and `phone-header.png` regenerated because the row gained the toggle. Both are opt-in under `CANVAS_VISUAL`. The artifacts README records them.
+
+### Tests
+
+- Unit tests: `list.test.ts` (grouping, order, unknown statuses, filters), `ticket-list.test.tsx` (row content, `aria-current`, `onSelect`, filtering), `display-preferences.test.ts` and `display-dialog.test.tsx` (the view round trip, and reset leaving it alone), `phone-toolbar.test.tsx` and `toolbar-layout.test.tsx` (where the switch sits and what it asks for).
+- Browser tests, `tests/browser/list.spec.ts`: the choice survives a reload both ways. Under status, label (include, both, any, exclude) and search filters, the rows are exactly the board's undimmed cards and the count agrees. A desk click and a phone tap on a row open the inspector or sheet. An external edit moves a row between groups, and an external create adds one. A row carries its five fields. A touch drag scrolls the list on the phone and the tablet without moving the board's view or writing anything. With `touch-action: none` injected on the list, the scroll test fails on both devices.
+
+### Not done here
+
+- The dense canvas visual gate (`just canvas-visual`) does not match on this machine. It fails the same way with origin/main's bundle (70,258 pixels against 70,365 with this change), so it was left alone. The desk header in that image now has the switch, so whoever next regenerates the baseline will see it.
+- On a desk with the inspector beside the board, the inspector covers the right side of the list, as it covers the board. Rows are capped at 880px wide, which leaves them clear at 1440px.

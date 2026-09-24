@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38RXAS80BEW03WCGBYYRBDC
 title: Open a ticket's inspector without a pointer
 type: task
-status: in-progress
+status: review
 status_reason: null
 priority: normal
 due_on: null
@@ -26,7 +26,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:56:23Z
-updated_at: 2026-09-24T13:37:38Z
+updated_at: 2026-09-24T13:43:12Z
 created_by:
   id: agent:claude/mobile-relate
   name: ""
@@ -44,10 +44,10 @@ A keyboard user can therefore edit any ticket they can reach and cannot reach on
 
 ## Acceptance criteria
 
-- [ ] From page load on the desk, tablet and phone layouts, Tab reaches List in the header and Enter shows the list, with no pointer (list-keyboard.spec.ts)
-- [ ] While the list shows, the list is one Tab stop and no Tab lands on the board it covers (list-keyboard.spec.ts)
-- [ ] ArrowUp, ArrowDown, Home and End move between rows across status groups, and Enter opens the focused ticket in the inspector (list-keyboard.spec.ts)
-- [ ] The Tab after the list lands in the open inspector, and closing the inspector with Escape puts focus back on the row that opened it (list-keyboard.spec.ts)
+- [x] From page load on the desk, tablet and phone layouts, Tab reaches List in the header and Enter shows the list, with no pointer (list-keyboard.spec.ts)
+- [x] While the list shows, the list is one Tab stop and no Tab lands on the board it covers (list-keyboard.spec.ts)
+- [x] ArrowUp, ArrowDown, Home and End move between rows across status groups, and Enter opens the focused ticket in the inspector (list-keyboard.spec.ts)
+- [x] The Tab after the list lands in the open inspector, and closing the inspector with Escape puts focus back on the row that opened it (list-keyboard.spec.ts)
 
 ## Implementation plan
 
@@ -87,3 +87,21 @@ Each criterion added with `ac --add` names what the test proves.
 Evidence that the tests catch what they are for: tests/browser/list-keyboard.spec.ts was run against the bundle as it stood after TKT-01M38QP3ZNYRPN60GXQD4SCE6M (List tickets by status as well as on the board) alone, at commit 6fb447a plus the baselines, which has buttons for rows but no roving stop, no focus return and no hidden board. All 9 tests failed (3 tests on the desk, tablet and phone layouts). The Tab test failed on "Tab reached the board under the list". The arrow test failed because ArrowDown was an ordinary Tab-order move and focus did not follow. The inspector test failed because the Tab after the row landed on the next row, not in the inspector. With the change in c049867, all 9 pass, together with the 8 tests of tests/browser/list.spec.ts.
 
 The criteria were added by this session, as the maintainer asked. The ticket arrived with none.
+
+## Summary
+
+A keyboard can now open any ticket's inspector from page load, with no pointer, on the desk, tablet and phone layouts. The route is the list from TKT-01M38QP3ZNYRPN60GXQD4SCE6M (List tickets by status as well as on the board): Tab to `List` in the header, Enter, Tab into the list, the arrow keys to the ticket, Enter.
+
+### Decision
+
+The list alone was not enough, though its rows are buttons. Read against the built page: Tab from the header walked through the covered board's buttons before it reached a row. Every row was a tab stop, so the inspector was as many Tabs away as there were rows below the one opened. Closing the inspector left focus on a hidden panel. So three changes, all in `web/src/ui/TicketList.tsx` and `TicketList.css`:
+
+- A roving tab stop. One row has `tabIndex=0`. ArrowUp and ArrowDown move across status groups, and Home and End go to the ends. The stop is the row last focused, then the selected ticket, then the first row. The inspector follows the list in the document, so the next Tab reaches it.
+- Focus comes back. When the selection clears while focus is on the body or inside `#inspector`, the list focuses its stop.
+- The covered board is out of reach. `#stage:has(> #ticketList) > :is(#scene, #grid, #hint, #boardTip)` gets `visibility: hidden`, which takes the board out of the tab order and the accessibility tree and keeps its layout.
+
+The plan records the rejected alternatives: focusable cards with a roving tab stop on the board, opening from the search box, plain button rows, and `inert` set from script. App.tsx, Canvas.tsx and Inspector.tsx are not changed for this ticket.
+
+### Tests
+
+`tests/browser/list-keyboard.spec.ts`, 3 tests on each of the desk, tablet and phone layouts, keyboard only from `page.goto`. The four criteria each name the test that proves them. Against the list without these changes, all 9 fail, each for the reason its criterion covers. With them, all 9 pass.
