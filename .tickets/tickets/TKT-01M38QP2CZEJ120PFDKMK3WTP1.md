@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38QP2CZEJ120PFDKMK3WTP1
 title: Pinch to zoom and pan with two fingers on the board
 type: task
-status: in-progress
+status: review
 status_reason: null
 priority: normal
 due_on: null
@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:56Z
-updated_at: 2026-09-24T04:21:36Z
+updated_at: 2026-09-24T04:40:59Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -48,11 +48,11 @@ See `docs/mobile-design-v1.md`, "Gestures, for every layout".
 ## Acceptance criteria
 
 - [ ] #stage sets touch-action: none, and the header, inspector and list still scroll natively
-- [ ] A second finger landing during a card, link or frame drag cancels it without saving, and the card returns
-- [ ] Lifting to one finger after a pinch pans rather than resuming a drag
-- [ ] Mouse and wheel behaviour on a desk is unchanged, and the existing gesture tests pass
-- [ ] Each of the above is a browser test on the emulated tablet
-- [ ] Two fingers zoom about their midpoint and pan with it, sharing zoomAt's limits and anchoring
+- [x] A second finger landing during a card, link or frame drag cancels it without saving, and the card returns
+- [x] Lifting to one finger after a pinch pans rather than resuming a drag
+- [x] Mouse and wheel behaviour on a desk is unchanged, and the existing gesture tests pass
+- [x] Each of the above is a browser test on the emulated tablet
+- [x] Two fingers zoom about their midpoint and pan with it, sharing zoomAt's limits and anchoring
 
 ## Implementation plan
 
@@ -95,3 +95,33 @@ Desk: the existing suites, unchanged.
 **agent:claude/t3code** at 2026-09-24T04:21:36Z
 
 Criterion 2 reworded from 'through zoomAt' to 'sharing zoomAt's limits and anchoring' when the plan was written. zoomAt takes a wheel delta along an exponential curve, and a pinch has a distance ratio. What the original wording protected is that the two cannot drift apart on limits or anchoring, and a shared clampZoom and the same anchor formula protect that. The list named in criterion 1 does not exist yet (TKT-01M38QP3ZNYRPN60GXQD4SCE6M); that half is checked against the header and the inspector, and the list ticket inherits it.
+
+**agent:claude/t3code** at 2026-09-24T04:40:59Z
+
+Evidence, on the commit that implements this:
+
+- Criterion 2: `pinch.spec.ts` covers a card drag, a link drag and a frame move, each interrupted by a second finger, on the emulated tablet. Each asserts that the element is back where it started, that no non-GET request was sent, and that the saved layout or dependency is unchanged.
+- Criterion 3: "the finger left after a pinch pans the board and does not resume the card drag". The first finger starts on a card, the second joins and pinches out and back, the second lifts, and the first moves 40,30. The test asserts the view moved by exactly 40,30 at the same magnification, and that the card and the layout are unchanged.
+- Criterion 4: `just browser-test` gave 98 passed, 6 skipped, 0 failed; the 6 are the opt-in measurement and visual specs. That is 91 before this ticket plus 7 new. `just web-test` gave 543 passed, including the Canvas unmount test, which was what caught counting non-touch pointers.
+- Criterion 5: all seven tests in `pinch.spec.ts` run with `test.use(tablet)`. They passed on each of three repeats.
+- Criterion 6: the pinch and two-finger-pan browser tests, plus table tests for `pinchView` in `geometry.test.ts`. Those cover anchoring while spreading, closing, turning and moving; the clamp at both limits; and that `clampZoom` bounds `zoomTo`, `zoomAt` and `pinchView` alike.
+
+**Criterion 1 is left unticked.** The `touch-action` half was already true on main, inline in Canvas.tsx. The inspector half is tested: a touch drag in the open inspector scrolls it and leaves the board's view alone. The header does not scroll at all, and it is outside `#stage`, so nothing here reaches it. The list does not exist yet. That third part can only be met by TKT-01M38QP3ZNYRPN60GXQD4SCE6M (List tickets by status as well as on the board), which should carry the check, so the box stays empty rather than being ticked for a list nobody has built.
+
+Things found on the way, all in the tests, none in the product:
+
+- On a portrait tablet, touching a card opens the inspector as a sheet along the bottom, and touching a frame title opens the frame panel over the right half. A second finger that lands on either is on the panel, not the board, so correctly no pinch starts. The tests put their second finger where neither panel is, and say why.
+- A CDP `touchMove` that leaves a finger out does not lift it. A `touchEnd` naming one finger lifts exactly that one. `touchSteps` is built on what Chromium did, not on the CDP documentation, which says a touchEnd carries no points.
+- The inspector does scroll under a finger on main. An early version of the inspector test said otherwise because it started dragging while the sheet was still sliding in, from a point on the resize handle.
+
+## Summary
+
+Two fingers now pinch and pan the board. A second finger landing drops whatever the first one started, whether a card drag, a link or a frame move, without saving it. The pinch zooms about the fingers' midpoint and pans with it. When one finger lifts, the one left pans the board and never resumes the drag it started with.
+
+`Canvas.tsx` tracks the fingers down on the canvas in `local.touches`, and only fingers: `pointerType === 'touch'`, since a mouse or a stylus is one pointer. The pinch is held apart from `Gesture`, because it has two pointers, touches no card and saves nothing, and every path that ends a gesture by saving would otherwise need to know that. A lost capture does not count as a lift, because starting a pinch releases the first finger's capture on purpose. `pointerMove` and `pointerUp` now match the gesture's pointer id without requiring it to be primary, so the finger left after a pinch can keep panning. A mouse has one pointer, so desk behaviour is unchanged, and the full browser suite says so.
+
+`geometry.ts` gains `pinchView`, which always works from where the pinch began so a long pinch does not gather error. It also gains `clampZoom`, now shared by `zoomTo`, `zoomAt` and `pinchView`, so no way of zooming can reach a scale the others cannot.
+
+`tests/browser/touch.ts` gains `touchSteps`, for fingers that land and lift one at a time, and `twoFingers` is built on it.
+
+Criterion 1 stays unticked, because its "list still scrolls" part waits on the list ticket; see the evidence note. The design doc is corrected: `#stage` already had `touch-action: none`.
