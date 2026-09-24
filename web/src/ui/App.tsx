@@ -117,8 +117,15 @@ export function App() {
     published.current = store.state
     publications.current++
     setSnapshot(store.state)
-    setUI(current => current.selected && !store.state.tickets.has(current.selected)
-      ? { ...current, selected: null, selection: new Set(), selecting: false } : current)
+    // A ticket another writer removed leaves every selection it was in, not
+    // only the inspector: selection mode counts the whole set, and a drag of
+    // it would carry an ID with no card.
+    setUI(current => {
+      const tickets = store.state.tickets
+      if (current.selected && !tickets.has(current.selected)) return { ...current, selected: null, selection: new Set(), selecting: false }
+      if ([...current.selection].every(id => tickets.has(id))) return current
+      return { ...current, selection: new Set([...current.selection].filter(id => tickets.has(id))) }
+    })
   }
   const toast = (message: string, error = false) => {
     if (mounted.current) setFeedback({ id: ++feedbackId.current, message, error })

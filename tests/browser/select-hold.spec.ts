@@ -159,6 +159,27 @@ test.describe('tablet', () => {
     await expect(cardOf(page, b)).toHaveClass(/selected/)
   })
 
+  test('a selected card deleted elsewhere leaves the selection and the count', async ({ page, app }) => {
+    const a = await app.create('Held first', { x: 0, y: 0 })
+    const b = await app.create('Deleted elsewhere', { x: 320, y: 0 })
+    // The same three cards as board(), so the fit leaves both clear of the sheet.
+    await app.create('Left alone', { x: 0, y: 300 })
+    await open(page, app.url, 'tablet')
+    // The inspector follows the card last toggled on, so the card that goes
+    // is held first and is not the one the inspector shows.
+    await hold(page, await on(page, b.id))
+    await tap(page, await on(page, a.id))
+    await expect(count(page)).toHaveText('2')
+    await expect(page.locator('#fTitle')).toHaveValue('Held first')
+
+    const query = new URLSearchParams({ board: 'default', ifRevision: b.revision, force: 'false' })
+    expect((await page.request.delete(`${app.url}/api/tickets/${b.id}?${query}`)).status()).toBe(200)
+
+    await expect(cardOf(page, b.id)).toHaveCount(0)
+    await expect(count(page)).toHaveText('1')
+    await expect(mode(page)).toBeVisible()
+  })
+
   test('a drag from a selected card moves every selected card', async ({ page, app }) => {
     const { a, b, c } = await board(page, app)
     await hold(page, await on(page, a))

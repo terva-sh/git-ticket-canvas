@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T07:20:55Z
+updated_at: 2026-09-24T07:36:23Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -180,6 +180,19 @@ Test: touch-help.spec.ts "in selection mode a tap on an edge names it and stays 
 All three new tests failed on f2efd4d and pass with the fix.
 
 The /tmp worktree this branch was being fixed in was deleted from outside the session during a test run, at about 02:19. The branch was re-created under .claude/worktrees/mobile-wave-3, and the uncommitted fix was restored from a saved copy of Canvas.tsx.
+
+**agent:claude/mobile-lead** at 2026-09-24T07:36:23Z
+
+Terva reviewed 0a00685 on PR 35 in run 47ac2d27, Actions run 243. It marked both findings from review 367 resolved and raised one new finding, which is accepted.
+
+### Medium: remove disappeared cards from an active multi-selection
+`publish()` in App.tsx cleared the selection only when the inspected ticket had gone. If a different selected ticket was deleted elsewhere, selection mode went on counting it, and the dead ID stayed in the set.
+
+`publish()` now keeps the old rule for the inspected ticket: when it disappears, the whole selection and the mode are cleared. Otherwise it filters every other ID in the selection against the published tickets. The object identity is unchanged when nothing went, so no extra render.
+
+Test: select-hold.spec.ts "a selected card deleted elsewhere leaves the selection and the count". It deletes the selected card that is not inspected through the API, then expects the count to drop from 2 to 1 with the mode still open. It failed on 0a00685 with the count left at 2, and passes with the fix.
+
+CI run on 0a00685: failed. Its log cannot be read from here. The full local suite had passed on that commit just before the push, with 162 passed and 7 skipped.
 
 ## Summary
 
