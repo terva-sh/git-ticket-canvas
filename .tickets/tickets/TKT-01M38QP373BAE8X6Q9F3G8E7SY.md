@@ -29,7 +29,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:57Z
-updated_at: 2026-09-24T06:42:06Z
+updated_at: 2026-09-24T06:49:40Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -158,6 +158,10 @@ The hazard the reviewer describes is the one the wait already closes. Before tha
 
 ### Low: "do not offer frame drawing after switching a draft to phone" (accepted)
 `#frameDrawHint` said "Draw on empty canvas…" on a board that now refuses to draw. On the phone layout it now reads "Enter bounds in the frame panel. Escape cancels." The frame-draft test in phone-board.spec.ts asserts that text.
+
+**agent:claude/mobile-lead** at 2026-09-24T06:49:40Z
+
+Terva reviewed e8f31a3 on PR 34 in run 019e44a9 and found nothing at the failure threshold. CI run 235 on e8f31a3 failed after 6m33s; a passing run takes about 4m20s. The log cannot be read from here: this Forgejo has no jobs API, and no preview browser is available. The full wave 3 browser suite ran locally at the same time, with load average 9 to 10, and every check on e8f31a3 passed locally just before. This bookkeeping-only commit re-runs CI.
 
 ## Summary
 
