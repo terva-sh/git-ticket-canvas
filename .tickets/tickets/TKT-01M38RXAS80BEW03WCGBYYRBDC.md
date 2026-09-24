@@ -26,12 +26,12 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:56:23Z
-updated_at: 2026-09-24T13:43:12Z
+updated_at: 2026-09-24T13:50:09Z
 created_by:
   id: agent:claude/mobile-relate
   name: ""
 updated_by:
-  id: agent:claude/mobile-list
+  id: agent:claude/mobile-lead
   name: ""
 extensions: {}
 ---
@@ -87,6 +87,10 @@ Each criterion added with `ac --add` names what the test proves.
 Evidence that the tests catch what they are for: tests/browser/list-keyboard.spec.ts was run against the bundle as it stood after TKT-01M38QP3ZNYRPN60GXQD4SCE6M (List tickets by status as well as on the board) alone, at commit 6fb447a plus the baselines, which has buttons for rows but no roving stop, no focus return and no hidden board. All 9 tests failed (3 tests on the desk, tablet and phone layouts). The Tab test failed on "Tab reached the board under the list". The arrow test failed because ArrowDown was an ordinary Tab-order move and focus did not follow. The inspector test failed because the Tab after the row landed on the next row, not in the inspector. With the change in c049867, all 9 pass, together with the 8 tests of tests/browser/list.spec.ts.
 
 The criteria were added by this session, as the maintainer asked. The ticket arrived with none.
+
+**agent:claude/mobile-lead** at 2026-09-24T13:50:09Z
+
+Merging with TKT-01M38WN9EE8QVNR0E7B3B4QTZM (Hide the inspector's side resize handle when it is not beside the board) on t3code/mobile-wave-4 changed the inspector's tab order on a bottom panel. The width handle used to be the first tab stop there. It is now hidden, so the first Tab after the list lands straight on the title field. list-keyboard.spec.ts "Tab goes from the row into the inspector…" assumed a stop before the title and tabbed past it, failing 5 of 5 on the tablet. The test now accepts the title as that first stop and still requires the first Tab to land inside the inspector. list-keyboard and list together, with --repeat-each=3, passed 51 with 3 visual tests skipped. The rest of the merged suite passed at 181, with 8 skipped.
 
 ## Summary
 

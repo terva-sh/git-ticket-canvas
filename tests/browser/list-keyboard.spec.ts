@@ -123,10 +123,13 @@ for (const [name, device] of [['desk', null], ['tablet', tablet], ['phone', phon
       await expect(page.locator('#inspector')).toHaveClass(/open/)
 
       // The inspector follows the list, so the next Tab after the list's one
-      // stop is inside it, and the title field is a few presses on.
+      // stop is inside it, and the title field is that stop or a few presses
+      // on. Beside the board the width handle comes first; along the bottom
+      // there is no handle and the title is the first stop.
       await page.keyboard.press('Tab')
-      expect((await focused(page)).inspector, 'the Tab after the list lands in the inspector').toBe(true)
-      await tabUntil(page, at => at.id === 'fTitle', 6)
+      const first = await focused(page)
+      expect(first.inspector, 'the Tab after the list lands in the inspector').toBe(true)
+      if (first.id !== 'fTitle') await tabUntil(page, at => at.id === 'fTitle', 6)
       await page.keyboard.type(' by keyboard')
       // Escape leaves the field, which saves it; a second Escape closes the
       // inspector, and focus is back on the row that opened it.
