@@ -28,7 +28,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T13:33:49Z
+updated_at: 2026-09-24T13:37:38Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -100,3 +100,7 @@ Three places, all in the render, none near the keyboard handler: an import, `vie
 Built as planned, with one change on the phone. Two buttons (Board, List) pushed the read-only phone row 17px past 390px at the larger toolbar size, with every other control at its floor. The phone now has one `List` toggle, `aria-pressed` while the list shows. Even that overflowed by 3.8px at the larger size, so at that size only, the toggle's side padding drops to .25em, the row gap to 7px, and the search box's floor to 3.5em. Measured slack there is now about 6px under this machine's fonts. The desk and tablet keep the two-button group. The design doc records the difference under "The list".
 
 Where the baselines live: the task brief pointed at tests/browser/baseline.spec.ts, but that spec holds no screenshots. The phone header baseline is in tests/browser/phone-header.spec.ts, opt-in under CANVAS_VISUAL. The new phone list baseline follows it in tests/browser/list.spec.ts and writes docs/artifacts/canvas-review-baseline-2026-09-11/ahpsh-tickets/phone-list.png. phone-header.png is regenerated because the row gained the toggle. `--update-snapshots` kept the old header image when the difference was under tolerance, so the file was deleted and written again. The artifacts README says so.
+
+**agent:claude/mobile-list** at 2026-09-24T13:37:38Z
+
+While the list shows, the stage's own board elements (#scene, #grid, #hint, #boardTip) now get visibility: hidden, from TicketList.css. Without that, Tab and a screen reader went through the covered board's buttons. The rule was added under TKT-01M38RXAS80BEW03WCGBYYRBDC (Open a ticket's inspector without a pointer), which found the problem. The board keeps its layout, so its view and measurements survive a switch back, and list.spec.ts still passes with it.

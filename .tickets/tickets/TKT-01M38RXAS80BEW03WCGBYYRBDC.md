@@ -26,7 +26,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:56:23Z
-updated_at: 2026-09-24T13:34:54Z
+updated_at: 2026-09-24T13:37:38Z
 created_by:
   id: agent:claude/mobile-relate
   name: ""
@@ -41,6 +41,13 @@ extensions: {}
 Found while building TKT-01M38QP3PT4ZNXV37720NSX424 (Add a dependency or a parent from the inspector). Once a ticket's inspector is open, a dependency or a parent can be added by keyboard alone. Getting the inspector open cannot be done that way. A card is not focusable (`web/src/ui/canvas/CardView.tsx` sets no tabIndex and handles no key on the card itself), so selecting a ticket takes a click or a tap, and the browser test for that ticket opens the inspector with a click before it switches to keys.
 
 A keyboard user can therefore edit any ticket they can reach and cannot reach one. The list view, TKT-01M38QP3ZNYRPN60GXQD4SCE6M (List tickets by status as well as on the board), may cover this if its rows are buttons, which is one reason to decide this after that ticket rather than before it. The other candidates are focusable cards with a roving tab stop, or opening a ticket from the search box.
+
+## Acceptance criteria
+
+- [ ] From page load on the desk, tablet and phone layouts, Tab reaches List in the header and Enter shows the list, with no pointer (list-keyboard.spec.ts)
+- [ ] While the list shows, the list is one Tab stop and no Tab lands on the board it covers (list-keyboard.spec.ts)
+- [ ] ArrowUp, ArrowDown, Home and End move between rows across status groups, and Enter opens the focused ticket in the inspector (list-keyboard.spec.ts)
+- [ ] The Tab after the list lands in the open inspector, and closing the inspector with Escape puts focus back on the row that opened it (list-keyboard.spec.ts)
 
 ## Implementation plan
 
@@ -72,3 +79,11 @@ Keyboard only, from `page.goto` with no click and no tap, on the desk, the table
 - Escape leaves the field, a second Escape closes the inspector, and focus is back on the row.
 
 Each criterion added with `ac --add` names what the test proves.
+
+## Notes
+
+**agent:claude/mobile-list** at 2026-09-24T13:37:38Z
+
+Evidence that the tests catch what they are for: tests/browser/list-keyboard.spec.ts was run against the bundle as it stood after TKT-01M38QP3ZNYRPN60GXQD4SCE6M (List tickets by status as well as on the board) alone, at commit 6fb447a plus the baselines, which has buttons for rows but no roving stop, no focus return and no hidden board. All 9 tests failed (3 tests on the desk, tablet and phone layouts). The Tab test failed on "Tab reached the board under the list". The arrow test failed because ArrowDown was an ordinary Tab-order move and focus did not follow. The inspector test failed because the Tab after the row landed on the next row, not in the inspector. With the change in c049867, all 9 pass, together with the 8 tests of tests/browser/list.spec.ts.
+
+The criteria were added by this session, as the maintainer asked. The ticket arrived with none.
