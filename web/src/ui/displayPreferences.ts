@@ -29,7 +29,15 @@ export interface StoredDisplay extends DisplayOverrides {
    * under a key of its own so that it is one more line in the one allowlist,
    * and absent rather than false until somebody closes it. */
   tipClosed?: true
+  /** The list in place of the board. The board is the absence of a record, the
+   * way the default toolbar size is, so a phone opens on the board the first
+   * time and nobody who never switched has anything stored. */
+  view?: 'list'
 }
+
+/** What the stage shows. A preference with a default, like the toolbar size:
+ * nothing about a window says whether somebody wants a list. */
+export type View = 'board' | 'list'
 
 const DENSITIES = ['full', 'compact']
 const PLACEMENTS = ['beside', 'bottom', 'over']
@@ -73,6 +81,7 @@ export function recall(): StoredDisplay {
     const toolbar = pick<ToolbarScale>(record.toolbar, TOOLBAR_SCALES)
     if (toolbar) overrides.toolbar = toolbar
     if (record.tipClosed === true) overrides.tipClosed = true
+    if (record.view === 'list') overrides.view = 'list'
     return overrides
   } catch {
     return {}
