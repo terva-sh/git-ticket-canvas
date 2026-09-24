@@ -848,7 +848,11 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
           density={props.density} linkable={!phone} onRelease={props.readOnly || phone ? undefined : releaseCard} />
       })}</div>
     </div>
-    {props.frameCreating && <div id="frameDrawHint" role="status">Draw on empty canvas to capture card centers, or enter bounds in the frame panel. Escape cancels.</div>}
+    {/* A phone's board does not draw a frame, so a draft carried over from
+      * the tablet layout is finished in the panel. */}
+    {props.frameCreating && <div id="frameDrawHint" role="status">{props.layout === 'phone'
+      ? 'Enter bounds in the frame panel. Escape cancels.'
+      : 'Draw on empty canvas to capture card centers, or enter bounds in the frame panel. Escape cancels.'}</div>}
     {/* The hint describes a mouse and a desk. A phone gets one line, once. */}
     {phone
       ? props.tip && <button id="boardTip" type="button" title="Tap to close" onClick={() => props.onTipClosed?.()}>

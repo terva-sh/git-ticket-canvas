@@ -84,8 +84,10 @@ async function drag(page: Page, from: Point, by: Point) {
  * before, and a phone toolbar and a tablet toolbar at 390px leave boards of
  * very different heights, so restoring one layout's view in the other can put
  * the card off the screen. Every open after this one fits instead. The page
- * writes the view 300ms after it last moved, so this waits for it to hold
- * still first; clearing sooner leaves that write to land afterwards. */
+ * writes the view 300ms after it last moved, and on unload writes only a view
+ * still owed from that wait, so this waits for it to hold still first. After
+ * that nothing is owed and the navigation that follows writes nothing back;
+ * clearing sooner leaves the owed write to land afterwards. */
 async function store(page: Page, stored: Record<string, unknown> | null) {
   await settled(page)
   await page.evaluate(([key, value]) => {
@@ -274,6 +276,8 @@ test.describe('phone', () => {
     await expect(panel).toBeVisible()
     const bounds = async () => Promise.all(['X', 'Y', 'Width', 'Height'].map(label => panel.getByLabel(label, { exact: true }).inputValue()))
     const drafted = await bounds()
+    // And the board does not offer what it will refuse.
+    await expect(page.locator('#frameDrawHint')).toHaveText('Enter bounds in the frame panel. Escape cancels.')
     const frames = (await app.board() as unknown as { layout: { frames: unknown } }).layout.frames
     const sent = writes(page)
 
