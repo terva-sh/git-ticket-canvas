@@ -126,3 +126,23 @@
 }
 #inspector .placement button:disabled { opacity: .55; cursor: not-allowed; }
 #inspector .placement button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Adding a dependency or a parent without the drag. The results sit in the
+   inspector's flow rather than floating over it, so a long list scrolls with
+   the panel instead of covering the fields below it. */
+#inspector .relation-picker { margin-top: 6px; }
+#inspector .relation-search { margin-top: 6px; }
+#inspector .relation-search .control { width: 100%; }
+#inspector .relation-search [role=listbox] { list-style: none; margin: 4px 0 0; padding: 0; }
+#inspector .relation-search [role=option] {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+#inspector .relation-search [role=option].active { background: var(--accent-soft); color: var(--ink); }
+#inspector .relation-search [role=option] .id { color: var(--ink-dim); flex-shrink: 0; }
+#inspector .relation-search [role=option] .t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+#inspector .relation-search [role=option] .status { color: var(--ink-dim); font-size: 11px; flex-shrink: 0; }
