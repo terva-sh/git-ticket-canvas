@@ -551,6 +551,18 @@ textarea.control { resize: vertical; min-height: 66px; font: inherit; }
   position: absolute; left: 12px; bottom: 10px; z-index: 10;
   color: var(--ink-faint); font-size: 11px; pointer-events: none;
 }
+/* The phone's first-visit tip, in place of the hint. Across the board and
+   above New ticket, which is fixed 16px from the bottom right and 48px tall,
+   so the two never share a box. The ticket sheet rises from the same edge, so
+   the tip gives way while a ticket is open and waits to be tapped after. */
+#boardTip {
+  position: absolute; left: 12px; right: 12px; z-index: 10;
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  background: var(--panel); color: var(--ink-dim); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 12px; font: 12px/1.4 var(--sans); text-align: center; cursor: pointer;
+  box-shadow: 0 6px 20px -8px rgba(0,0,0,.6);
+}
+#stage:has(#inspector.open) #boardTip { display: none; }
 #composer {
   position: absolute; z-index: 25; width: 248px;
   background: var(--panel); border: 1px solid var(--accent); border-radius: var(--radius);

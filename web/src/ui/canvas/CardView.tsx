@@ -21,15 +21,18 @@ interface CardViewProps {
   frameMember?: boolean
   /** How much of the ticket to show. Defaults to the full presentation. */
   density?: Density
+  /** Whether the link handle is drawn. Not on a phone, which does not write
+   * layout or draw relationships by dragging. */
+  linkable?: boolean
   /** Hands this card back to automatic placement. Absent on a read-only
-   * canvas, which is why an absent prop renders a plain label rather than a
-   * disabled button. */
+   * canvas and on a phone, which is why an absent prop renders a plain label
+   * rather than a disabled button. */
   onRelease?: (id: string) => void
   register: (id: string, element: HTMLDivElement) => (() => void)
 }
 
 // Memoization keeps metadata out of the per-frame pan and link updates.
-export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, unhoused = false, selected, dimmed, target, refused = false, frameTitle, frameMember, density = 'full', onRelease, register }: CardViewProps) {
+export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, unhoused = false, selected, dimmed, target, refused = false, frameTitle, frameMember, density = 'full', linkable = true, onRelease, register }: CardViewProps) {
   const compact = density === 'compact'
   const element = useRef<HTMLDivElement>(null)
   // Refresh regression diagnostic; unlike DOM mutation counts this sees renders.
@@ -108,6 +111,6 @@ export const CardView = memo(function CardView({ ticket: t, x, y, z, pinned, unh
           aria-label={`Hand ${t.short || t.id} back to automatic placement`}
           onClick={() => onRelease(t.id)}>Manual</button>
         : <span class="card-placement" title={unhoused ? 'No rule on this board matches it, so it waits at the inbox.' : undefined}>{pinned ? 'Manual' : unhoused ? 'Unhoused' : 'Automatic'}</span>}</div>}
-    <div class="handle" title="Drag to another card to make that ticket depend on this one" />
+    {linkable && <div class="handle" title="Drag to another card to make that ticket depend on this one" />}
   </div>
 })

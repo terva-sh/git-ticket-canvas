@@ -23,7 +23,7 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-24T03:34:06Z
-updated_at: 2026-09-24T05:50:22Z
+updated_at: 2026-09-24T05:55:34Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -59,3 +59,7 @@ The children are ordered so each is useful alone. The gesture work comes first b
 **agent:claude/t3code** at 2026-09-24T05:50:22Z
 
 PR 33 (wave 1): the Terva review on d8e2d90 was clean (run 4616fcaf-2e07-4ba4-82e8-64b2029426d2), but CI run 226 on the same head failed after 4m14s. Its log is not readable from this machine: the jobs log needs a web session, and the API has no jobs endpoint. Locally, on the same head, just drift-check and just parity-check (the CI recipe) both pass, with browser-test-embedded at 127 passed / 7 skipped / 0 failed. The first guess was that fonts differ: this machine renders the sans stack as FreeSans, while CI installs font-noto. Rerunning the whole suite with Noto Sans forced in also gave 127 passed, so fonts are not the cause. This commit is pushed to rerun CI. If CI fails again, the log is needed from the Actions page.
+
+**agent:claude/t3code** at 2026-09-24T05:55:34Z
+
+PR 33 CI: the rerun, run 228 on c7a4da4, passed in 4m20s on code identical to the failed run 226 (the only commit between them is a ticket note). So run 226 was a flake. Its log was never readable from here, so which test is not known. The two known candidates are TKT-01M38YCD9ZAZSTAHM4FJGQ1TQ9 (Wait for the board before measuring it in the touch spec's lift test) and the refresh-regressions draft flake. PR 33 was merged at 9a1d66b.

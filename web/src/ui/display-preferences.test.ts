@@ -69,3 +69,16 @@ it('survives storage that throws', () => {
   expect(() => remember({ density: 'compact' })).not.toThrow()
   expect(recall()).toEqual({})
 })
+
+// The phone's first-visit tip is remembered here, and `recall` rebuilds the
+// record key by key, so without its own line it would come back every visit.
+it('keeps a closed tip across a reload, and drops anything else under its key', () => {
+  remember({ tipClosed: true })
+  expect(recall()).toEqual({ tipClosed: true })
+  remember({ tipClosed: true, toolbar: 'large', layout: 'phone' })
+  expect(recall()).toEqual({ tipClosed: true, toolbar: 'large', layout: 'phone' })
+  for (const value of [false, 'true', 1, null]) {
+    localStorage.setItem(KEY, JSON.stringify({ tipClosed: value, density: 'compact' }))
+    expect(recall(), JSON.stringify(value)).toEqual({ density: 'compact' })
+  }
+})

@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38R4GRCRG7PYT72MV47PKAJ
 title: Refuse a dependency drag that would close a cycle
 type: task
-status: review
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -17,17 +17,10 @@ dependencies:
   - TKT-01M38QP3PT4ZNXV37720NSX424
 blocks_on: none
 references: []
-claim:
-  actor: agent:claude/mobile-cycle
-  branch: worktree-agent-a42474eec8ebfad02
-  worktree: /home/sothr/workspace/git.local.sothr.com/terva-sh/git-ticket-canvas/.claude/worktrees/agent-a42474eec8ebfad02
-  commit: 1e1926626e0d0b508c7a4898535f90f0602f693d
-  session: null
-  claimed_at: 2026-09-24T05:10:51Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-24T03:42:50Z
-updated_at: 2026-09-24T05:38:44Z
+updated_at: 2026-09-24T05:55:34Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -98,6 +91,10 @@ Evidence for the criteria. 1: both new browser tests drop onto the cycle-closing
 **agent:claude/t3code** at 2026-09-24T05:38:44Z
 
 Opened with its two wave 1 siblings as PR 33, https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/33, from t3code/mobile-wave-1. On the merged head: web-test 552 passed, browser-test 127 passed / 7 skipped / 0 failed, dist-verify byte-identical, ticket check clean. A Terva review is requested next; its result is recorded here when it lands.
+
+**agent:claude/t3code** at 2026-09-24T05:55:34Z
+
+Merged to main through PR 33 (https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/33) at 9a1d66b on 2026-09-24, under the maintainer's direction to carry the batch through to completion. The Terva review on d8e2d90 was clean (run 4616fcaf-2e07-4ba4-82e8-64b2029426d2). CI failed once (run 226, a flake whose log was unreadable) and passed on rerun (run 228, c7a4da4). Closed with the merge recorded; the summary above stands as written by the implementing agent.
 
 ## Summary
 
