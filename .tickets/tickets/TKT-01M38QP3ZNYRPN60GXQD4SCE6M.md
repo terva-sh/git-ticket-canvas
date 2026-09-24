@@ -28,7 +28,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T13:18:01Z
+updated_at: 2026-09-24T13:20:53Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -54,3 +54,41 @@ See `docs/mobile-design-v1.md`, "The list".
 - [ ] Live updates reach the list as they reach the board
 - [ ] A phone baseline screenshot of the list is added
 - [ ] A touch drag scrolls the list on the emulated phone and tablet, carried from TKT-01M38QP2CZEJ120PFDKMK3WTP1's first criterion
+
+## Implementation plan
+
+### Where the list lives
+
+The list is one more child of `Canvas`, rendered by `App` beside `#formsRoot` only while the view is `list`. It covers the stage with an opaque, scrolling panel (`#ticketList`, `position: absolute; inset: 0`) that sits under the inspector (z-index 15) and over the board's hint and tip (10). The board stays mounted underneath, so its view, its measurements and its live state carry on, and switching back is instant. `Canvas.canvasTarget` already treats any child it does not know as an overlay, and its wheel handler asks the same function, so a finger, a mouse or a wheel on the list starts no board gesture and needs no change to `Canvas.tsx`. The inspector, the phone's sheet, the composer and the toast are already children of the stage, so a row opens exactly the inspector or sheet a card does, through the same `select`.
+
+The list is a scroll container. `#stage` sets `touch-action: none`, and Chromium stops intersecting ancestors' touch-action at the nearest scroll container, which is why the inspector body already scrolls under a finger (pinch.spec.ts holds that). The list relies on the same rule, and a browser test on the emulated phone and tablet holds it.
+
+### What it shows
+
+`web/src/platform/tickets/list.ts` holds one pure function, `listGroups(tickets, filters, statuses, priorities)`. It keeps the tickets `matchesTicket` accepts, the same predicate the board dims with and the toolbar counts with, groups them by status in the store's status order, and sorts each group the way a pen sorts its cards: more urgent first, then by ID. A status the configuration does not name goes after the configured ones rather than disappearing. Empty groups are left out. It gets a table test.
+
+`web/src/ui/TicketList.tsx` renders a heading per group with its count, and a row per ticket. A row is a `<button>` carrying the title, short ID, priority, labels and criterion progress (the content of a compact card in a line), with `aria-current` on the selected ticket. Pressing it calls `onSelect`, which is App's `select`, the path a card tap takes.
+
+### The switch and the preference
+
+`StoredDisplay` gains `view?: 'list'`. Board is the absence of a record, like the default toolbar size, so a phone opens on the board the first time and nobody who never switched has anything stored. `recall` rebuilds it from its own allowlist. `useDisplay` exposes `view` and `chooseView`, and `reset` leaves it alone: it is a preference, not something the window asked for.
+
+The switch is a two-button group, `#viewBoard` and `#viewList` with `aria-pressed`, in `ViewSwitch` inside Toolbar.tsx so the desk and phone headers share it. On the desk and tablet header it opens the working row, beside the search box, where the design says somebody will find it. On the phone it sits in the row between the search and the read-only badge. The phone-header one-row tests at all three toolbar sizes decide whether two buttons fit; if they do not, the phone shows only the button for the other view.
+
+### App.tsx, kept small
+
+Three places, all in the render, none near the keyboard handler: an import, `view`/`onView` passed to `Toolbar`, and `{display.view === 'list' && <TicketList .../>}` as a child of `Canvas` before `#formsRoot`. Live updates need nothing: the list reads `snapshot.tickets`, which `publish` replaces.
+
+### Tests
+
+- Unit: `listGroups` order, filtering and unknown statuses; `recall` keeps `view: 'list'` and drops anything else; the phone and desk headers carry the switch.
+- Browser (`tests/browser/list.spec.ts`): the choice survives a reload; under a table of status, label (include, exclude, any) and search filters the list's rows are exactly the board's undimmed cards and the count agrees; tapping a row on the phone opens the sheet and clicking one on the desk opens the inspector; an external change reaches a row; a touch drag scrolls the list on the phone and tablet and moves no board view.
+- A phone list baseline, opt-in under `CANVAS_VISUAL` like `phone-header.png`, beside it in the artifacts directory. The phone header baseline is regenerated, because the switch is new in that row.
+
+### Alternatives
+
+- Replacing the canvas with the list (unmounting `Canvas`). Rejected: the inspector and every other panel are the canvas's children, so the list would need its own copy of that tree or App would need restructuring, and the board would lose its view on every switch.
+- Rendering the list outside `Canvas` and hiding the stage with CSS. Rejected for the same reason: hiding the stage hides the inspector with it.
+- Filtering in the list with its own predicate. Rejected by the ticket: the list and the count must not be able to disagree.
+- Storing the view under its own localStorage key. Rejected: the display record is the one allowlist and the design puts it there, as it did `tipClosed`.
+- A single toggle button everywhere. Cheaper in width, but the two-button group says which view is showing without having to read the screen behind it; kept as the phone fallback only.
