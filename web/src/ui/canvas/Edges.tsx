@@ -32,7 +32,9 @@ interface EdgesProps {
   positions: ReadonlyMap<string, Placement>
   heights: ReadonlyMap<string, number>
   matching: ReadonlySet<string>
-  ghost: { from: string; point: Point } | null
+  /** The link being dragged. `refused` when it is over a card it may not
+   * link to, which draws it in the danger colour. */
+  ghost: { from: string; point: Point; refused?: boolean } | null
   mode?: RelationshipMode
   selection?: ReadonlySet<string>
   /** The active density's card width. Defaults to the full width. */
@@ -97,6 +99,6 @@ export function Edges({ tickets, positions, heights, matching, ghost, mode = 'se
     {[...tickets.values()].map(t => t.parent && tickets.has(t.parent) ? edge(t.parent, t.id, true, `parent:${t.id}`) : null)}
     {[...tickets.values()].flatMap(t => (t.dependencies || []).map(dep => tickets.has(dep) ? edge(t.id, dep, false, `dep:${dep}:${t.id}`) : null))}
     {ghost && source && <path id="ghost" d={`M${source.x + cardWidth},${source.y + source.height / 2} L${ghost.point.x},${ghost.point.y}`}
-      stroke="var(--accent)" stroke-width="1.6" stroke-dasharray="4 4" fill="none" />}
+      class={ghost.refused ? 'refused' : undefined} stroke={ghost.refused ? 'var(--danger)' : 'var(--accent)'} stroke-width="1.6" stroke-dasharray="4 4" fill="none" />}
   </g></svg>
 }

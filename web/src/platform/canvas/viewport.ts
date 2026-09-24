@@ -43,8 +43,9 @@ export const DEFAULT_TOOLBAR_SCALE: ToolbarScale = 'standard'
  *
  * It decides what is offered rather than how big anything is: the other three
  * choices already size a phone's cards, panel and targets on their own rules.
- * Nothing reads it yet beyond the Display panel and the `data-layout` attribute
- * on the document; later work keys on it.
+ * It reaches the stylesheet as the `data-layout` attribute on the document,
+ * where the phone layout turns the inspector into a sheet along the bottom
+ * whatever the inspector placement says.
  */
 export type Layout = 'phone' | 'tablet' | 'desk'
 

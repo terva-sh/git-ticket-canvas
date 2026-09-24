@@ -248,6 +248,8 @@ test('toolbar labels the server build and its details match /api/version', async
   // label that survives both survives the default layout too.
   await page.setViewportSize({ width: 390, height: 700 })
   await page.goto(await app.readOnlyURL())
+  // 390 wide is a phone, whose header keeps the build in the store sheet.
+  await page.locator('#phoneStore').click()
   const version = page.locator('#version'), summary = version.locator('> summary')
   await expect(summary).toBeVisible()
   const label = expected.modified ? `${expected.version}+dirty` : expected.version

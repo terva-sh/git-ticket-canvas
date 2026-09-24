@@ -9,6 +9,7 @@ import type { View } from '../platform/canvas/geometry'
 import { OPENING_ZOOM } from './canvas/viewMemory'
 import { recall, remember } from './canvas/viewMemory'
 import { sameJSON } from '../platform/tickets/reconcile'
+import { closingCycle } from '../platform/tickets/relations'
 import { cycleLabel, emptyBoardHelp, labelUniverse, matchesTicket, type LabelFilters, type LabelMatch, type Relaxation } from '../platform/tickets/filters'
 import { FramePanel, FrameMembership } from './FramesPanel'
 import { Canvas, type CanvasHandle } from './Canvas'
@@ -357,10 +358,27 @@ export function App() {
       return result
     } catch (error) { report(error); throw error }
   }
+  // Why dropping `from` onto `to` must not write, or null when it may. The
+  // store refuses only a self-reference, so a longer loop would be accepted and
+  // leave every ticket in it unready until somebody ran `git ticket check`.
+  // This asks the predicate the inspector's picker uses, so the drag and the
+  // picker cannot disagree about what closes a cycle. The drop makes `to` wait
+  // on `from`, and the answer lists the loop from `to`, each waiting on the next.
+  function linkRefusal(from: string, to: string): string | null {
+    const cycle = closingCycle(store.state.tickets, 'dependency', to, from)
+    if (!cycle) return null
+    const name = (id: string) => store.state.tickets.get(id)?.short || id
+    const steps = cycle.map((id, i) => `${name(id)} waits on ${name(cycle[(i + 1) % cycle.length])}`)
+    return `Not linked: that would close a cycle, ${steps.join(', ')}.`
+  }
   async function link(from: string, to: string) {
     if (store.state.readOnly) { toast('read-only', true); return }
     const ticket = store.state.tickets.get(to)
     if (!ticket) return
+    // The canvas refuses a cycle while the link is dragged. This covers a drop
+    // it judged against a board the store has refreshed since.
+    const refused = linkRefusal(from, to)
+    if (refused) { toast(refused, true); return }
     const version = generation.current
     await patch(ticket, [{ op: 'addDependency', id: from }])
     // Relationships default to Selected, which draws an edge only around a
@@ -569,8 +587,10 @@ export function App() {
     root.dataset.targets = display.settings.targets
     root.dataset.inspector = display.settings.inspector
     root.dataset.toolbar = display.toolbar
-    // Nothing in the stylesheet reads this yet. It is here so the phone and
-    // tablet work can key on `html[data-layout="phone"]` without touching this.
+    // Stylesheets key on this: the phone header, the phone's ticket sheet, and
+    // the tablet and desk inspector placements, which exclude the phone.
+    // Toolbar also takes the same value as a prop to choose which header to
+    // render, because nothing re-renders it when only this attribute changes.
     root.dataset.layout = display.settings.layout
   }, [display.settings.targets, display.settings.inspector, display.toolbar, display.settings.layout])
 
@@ -660,7 +680,7 @@ export function App() {
         <button key={offer.kind} type="button" class="tool" data-relax={offer.kind}
           onClick={() => relax(offer.kind)}>{offer.label} <span class="badge">{offer.count}</span></button>)}</div>}
     </div>}
-    <div id="toolbarRoot" data-store-publications={publications.current}><Toolbar storePath={snapshot.storePath} readOnly={snapshot.readOnly} version={version}
+    <div id="toolbarRoot" data-store-publications={publications.current}><Toolbar layout={display.settings.layout} storePath={snapshot.storePath} readOnly={snapshot.readOnly} version={version}
       boards={snapshot.boards} board={snapshot.board} config={snapshot.config} query={ui.query} filters={ui.filters}
       counts={`${[...snapshot.tickets.values()].filter(matches).length} of ${snapshot.tickets.size}`}
       relationships={relationships} onRelationships={setRelationships}
@@ -704,7 +724,7 @@ export function App() {
       statuses={snapshot.config?.statuses || []} priorities={snapshot.config?.priorities || []}
       pens={shownRouting.pens} ruleOrder={shownRouting.ruleOrder} inbox={shownRouting.inbox} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters} labelMatch={ui.labelMatch}
       onView={viewChanged}
-      relationships={relationships} density={density} fitFloor={display.floor} inspector={display.settings.inspector} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} onCompose={compose}
+      relationships={relationships} density={density} fitFloor={display.floor} inspector={display.settings.inspector} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} linkRefusal={linkRefusal} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>
       <div id="formsRoot">
         <div id="frameHistory" role="status" hidden={!framePreview && !history.undoEntry?.blockedReason && !history.redoEntry?.blockedReason}>

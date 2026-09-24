@@ -1,9 +1,11 @@
 import type { Schema, VersionInfo } from '../platform/tickets/types'
 import type { LabelFilters, LabelMatch, LabelState } from '../platform/tickets/filters'
 import type { Density } from '../platform/canvas/geometry'
+import type { Layout } from '../platform/canvas/viewport'
 import { MAX_ZOOM, MIN_ZOOM } from '../platform/canvas/geometry'
 import type { RelationshipMode } from './canvas/Edges'
 import { StorePicker, type StorePickerProps } from './StorePicker'
+import { PhoneToolbar } from './PhoneToolbar'
 
 export interface ToolbarProps {
   storePath: string; readOnly: boolean; boards: string[]; board: string; query: string
@@ -37,6 +39,10 @@ export interface ToolbarProps {
   /** The magnification, as a scale where 1 is 1:1. */
   zoom?: number
   onZoomIn?(): void; onZoomOut?(): void; onZoomReset?(): void
+  /** The layout in force, the same value App writes to `html[data-layout]`,
+   * so an override in the Display panel changes the header as well. Absent
+   * reads as a desk. */
+  layout?: Layout
 }
 
 const stateWords: Record<LabelState | 'off', string> = {
@@ -64,7 +70,7 @@ export function labelSummary(filters: LabelFilters | undefined, match: LabelMatc
  * carries many labels, so this is three-state where a status chip is a
  * checkbox. The state rides in the accessible name rather than aria-pressed,
  * which is binary and would report an exclusion as simply not pressed. */
-function LabelFilter(p: ToolbarProps) {
+export function LabelFilter(p: ToolbarProps) {
   const filters = p.labelFilters
   const active = !!filters?.size
   const match = p.labelMatch || 'all'
@@ -112,7 +118,7 @@ export function versionLabel(v: VersionInfo | null): string {
   return v.modified ? `${v.version}+dirty` : v.version
 }
 
-function Version({ version }: { version: VersionInfo | null | undefined }) {
+export function Version({ version }: { version: VersionInfo | null | undefined }) {
   // Never render a blank label. While the fetch is in flight there is no
   // element at all; afterwards there is always a version or `unknown`.
   if (version === undefined) return null
@@ -129,7 +135,17 @@ function Version({ version }: { version: VersionInfo | null | undefined }) {
   </details>
 }
 
+/** One chip per status, each a checkbox. Shared by the desk row and the
+ * phone's filter sheet so the two cannot drift apart. */
+export function StatusFilters(p: ToolbarProps) {
+  return <div class="chip-row" id="statusFilters">{p.config?.statuses.map(status =>
+    <button key={status} class="chip" style={{ color: `var(--s-${status})` }} aria-pressed={p.filters.has(status)} onClick={() => p.onFilter(status)}><i class="dot" />{status}</button>)}</div>
+}
+
 export function Toolbar(p: ToolbarProps) {
+  // A phone gets a different header rather than this one squeezed: the two
+  // rows below wrap into six on a 390px screen. See PhoneToolbar.
+  if (p.layout === 'phone') return <PhoneToolbar {...p} />
   // Two rows on purpose. One wrapping row let the browser decide which control
   // fell off the end, and that answer changed with the length of the store path
   // and the number of statuses a store defines. Placement now follows what a
@@ -163,8 +179,7 @@ export function Toolbar(p: ToolbarProps) {
     <div class="toolbar-row" data-row="working">
       <div class="toolbar-side">
         <input id="search" class="tool" type="search" placeholder="Filter  /" autoComplete="off" value={p.query} onInput={e => p.onQuery(e.currentTarget.value)} />
-        <div class="chip-row" id="statusFilters">{p.config?.statuses.map(status =>
-          <button key={status} class="chip" style={{ color: `var(--s-${status})` }} aria-pressed={p.filters.has(status)} onClick={() => p.onFilter(status)}><i class="dot" />{status}</button>)}</div>
+        <StatusFilters {...p} />
         <LabelFilter {...p} />
         {/* What the filters to its left left behind, so it reads as their
             result rather than as a fact about the store. */}

@@ -180,6 +180,8 @@ test('frame panel preserves ticket drafts and fits the narrow-screen layout', as
   const id = await createFrame(page, 'Delivery', 40, 60, 500, 500)
   expect(await node!.evaluate(el => el.isConnected)).toBe(true)
   await page.setViewportSize({ width: 390, height: 844 })
+  // 390 wide is a phone, whose header keeps Fit in the menu.
+  await page.locator('#phoneMenu').click()
   await page.locator('#btnFit').click()
   const panel = await page.locator('#framePanel').boundingBox()
   const stage = await page.locator('#stage').boundingBox()

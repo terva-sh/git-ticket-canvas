@@ -34,7 +34,7 @@ const CHOICES: [Choice<'layout'>, Choice<'density'>, Choice<'inspector'>, Choice
   {
     key: 'inspector',
     title: 'Ticket panel',
-    hint: 'Beside the board needs a board left over to sit beside. On a taller-than-wide window a side panel leaves a sliver.',
+    hint: 'Beside the board needs a board left over to sit beside. On a taller-than-wide window a side panel leaves a sliver. The phone layout always shows a sheet you drag up from the bottom.',
     options: [{ value: 'beside', label: 'Beside the board' }, { value: 'bottom', label: 'Along the bottom' },
       { value: 'over', label: 'Over the board' }],
   },

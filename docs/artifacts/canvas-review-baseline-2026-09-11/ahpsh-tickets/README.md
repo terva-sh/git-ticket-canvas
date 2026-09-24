@@ -74,6 +74,23 @@ the picture and what made it intentional. The same test requires a ticket, a
 date and a reason of at least 80 characters, so a baseline cannot change without
 somebody writing down why.
 
+## The phone header
+
+`phone-header.png` is the header alone on an emulated 390 by 844 phone, light,
+standard toolbar size, on a fresh store with board `default`. It is not built
+from the fixture above. It lives here only because `snapshotPathTemplate` sends
+every Playwright snapshot to this directory. Added for
+`TKT-01M38QP2WYRK9A18P473KTM9BV` (Fit the header into one row on a phone).
+
+```sh
+CANVAS_VISUAL=1 npx playwright test tests/browser/phone-header.spec.ts -g baseline
+```
+
+compares against it, and adding `--update-snapshots` regenerates it. It has no
+metadata or history file, so that flag is safe here, unlike for
+`canvas-baseline.png`. Nothing in the row varies between runs: the store path,
+the version and the store name are in the sheets.
+
 ## What is not here
 
 A second `.tickets` directory used to sit one level up, beside this one, at
