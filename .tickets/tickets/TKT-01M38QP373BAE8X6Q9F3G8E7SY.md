@@ -29,7 +29,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:57Z
-updated_at: 2026-09-24T06:34:30Z
+updated_at: 2026-09-24T06:42:06Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -144,6 +144,20 @@ The new test "a frame draft left open when the layout turns to phone is not redr
 An alternative was to close the draft when the layout changes. It lost for two reasons. The frame panel's other fields are still usable on a phone. And discarding typed work because a display setting changed would be a worse surprise than the board declining to draw.
 
 Checks run: `just browser-test` passed 134 with 7 skipped, and `just web-test` passed 554.
+
+**agent:claude/mobile-lead** at 2026-09-24T06:42:06Z
+
+Terva reviewed ac36afe on PR 34 in run 622e72f0, Actions run 233. It marked the frame-draw finding from review 356 as resolved and raised two new findings.
+
+### Medium: "clear the remembered view after the old page unloads" (declined)
+The unload handler in App.tsx (`leaving`) calls `flushView`, and `flushView` writes only `pendingView`. The 300 ms debounce timer runs the same `flushView` and clears `pendingView`.
+
+`store()` first waits for `viewSettled`: three matching reads of the scene transform, 150 ms apart, so at least 450 ms of stillness. By then the owed write has already landed and been cleared, so the navigation writes nothing back.
+
+The hazard the reviewer describes is the one the wait already closes. Before that wait existed it did occur, as a card placed for the compact fit. Since then, phone-board has passed 48/48 and 35/35 on repeat runs. The helper's comment now states the unload behaviour explicitly.
+
+### Low: "do not offer frame drawing after switching a draft to phone" (accepted)
+`#frameDrawHint` said "Draw on empty canvas…" on a board that now refuses to draw. On the phone layout it now reads "Enter bounds in the frame panel. Escape cancels." The frame-draft test in phone-board.spec.ts asserts that text.
 
 ## Summary
 
