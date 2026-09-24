@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38QP373BAE8X6Q9F3G8E7SY
 title: Keep a phone's board to panning, zooming and opening cards
 type: task
-status: in-progress
+status: review
 status_reason: null
 priority: normal
 due_on: null
@@ -29,7 +29,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:57Z
-updated_at: 2026-09-24T05:42:23Z
+updated_at: 2026-09-24T05:49:13Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -49,12 +49,12 @@ See `docs/mobile-design-v1.md`, "The board".
 
 ## Acceptance criteria
 
-- [ ] On the emulated phone a drag from a card pans and saves nothing, with a test
-- [ ] A tap on a card opens it
-- [ ] No link or frame handle is drawn on a phone
-- [ ] The first-visit tip shows once, closes when tapped, and stays closed after a reload
-- [ ] Setting the layout to tablet by hand brings card drags, handles and the hint back
-- [ ] The Manual placement control on a card does not hand the card back on a phone
+- [x] On the emulated phone a drag from a card pans and saves nothing, with a test
+- [x] A tap on a card opens it
+- [x] No link or frame handle is drawn on a phone
+- [x] The first-visit tip shows once, closes when tapped, and stays closed after a reload
+- [x] Setting the layout to tablet by hand brings card drags, handles and the hint back
+- [x] The Manual placement control on a card does not hand the card back on a phone
 
 ## Implementation plan
 
@@ -97,3 +97,31 @@ Groomed 2026-09-24 against main at 79b233f.
 - The link handle is `.handle` in CardView. The frame handles are `.canvas-frame-title` and `.canvas-frame-resize` in Canvas.tsx; the title is also a button that selects the frame. On a phone, should tapping a frame title still open the frame panel? The panel offers only edits, so this ticket should decide and say.
 - The hint is `#hint` in Canvas.tsx. Store the first-visit tip beside the display settings (`displayPreferences.ts`), as a key that `recall()` allowlists.
 - Pinch is done (TKT-01M38QP2CZEJ120PFDKMK3WTP1), so two fingers already work on a phone. This ticket only changes what one finger does.
+
+**agent:claude/mobile-board** at 2026-09-24T05:49:01Z
+
+Evidence for the criteria, from `tests/browser/phone-board.spec.ts` on the emulated phone (390x844), with the build of e5b7320:
+
+1. "a drag that starts on a card pans the board, opens nothing and saves nothing": the view moves by the finger's travel, the card's style is unchanged, no non-GET request is sent, and the store's files are byte-identical before and after.
+2. "a tap on a card opens it": the sheet opens with that ticket.
+3. "no link or frame handle is drawn, and a finger on the frame title pans": no `.handle`, `.canvas-frame-title`, `.canvas-frame-resize` or `[data-frame-gesture]`, also with the card selected. The frame's title is `.canvas-frame-label`, and a drag on it pans and writes nothing.
+4. "the first-visit tip replaces the hint ...": shown with no `#hint`, above New ticket, hidden under an open sheet and back when it closes, closed by a tap that neither pans nor selects, stored as `{"tipClosed":true}`, and absent after a reload.
+5. "a phone set to tablet gets card drags, the handles and the hint back": hint, handle, frame title and resize button all present, and a drag from the card saves a new position with a PUT.
+6. "the Manual placement label does not hand the card back": with full density the card head says Manual, there is no `button.card-placement` or `[data-release]`, and a tap on it opens the card, keeps it pinned and writes nothing.
+
+Built against d8e2d90's web source, tests 1, 3, 4 and 6 fail and tests 2 and 5 pass: those two guard behaviour the base already had. The two new unit tests (`display-preferences.test.ts`, `display-dialog.test.tsx`) fail against d8e2d90's source too.
+
+Filed TKT-01M38ZB4QPZXM05BHHT72F81MM (Stop the phone's ticket sheet and keyboard from writing layout) for the sheet's Return to automatic, its frame membership controls, and the `u` key, which still write layout on the phone layout.
+
+## Summary
+
+On the phone layout the board writes no layout. Everything below keys on `layout === 'phone'`, which `App.tsx` now passes to `Canvas`, so a phone set to `tablet` by hand gets the tablet board back.
+
+- A press on a card starts a pan, which carries the card it landed on (`startGesture` in `web/src/ui/Canvas.tsx`). If the pointer stays within 8 CSS pixels, the lift selects the card and the sheet opens. A pan that moved selects nothing. Pinch, and the pan a finger left after a pinch starts, are unchanged, and so is the link-refusal path.
+- `CardView` takes `linkable`. On a phone the link handle is not rendered, and the card gets no `onRelease`, so Manual is a label, as it already was on a read-only board.
+- A frame's title is a `span.canvas-frame-label` with `pointer-events: none`, so a finger on it pans. The resize button is not rendered. A tap on it does not open the frame panel, because that panel offers only edits and the label already shows the name and member count (see the plan).
+- `#hint` is gone on the phone. On the first visit `button#boardTip` reads "drag to move around · pinch to zoom · tap a card to open it", across the board above New ticket, and hidden while the ticket sheet is open. A tap closes it and stores `tipClosed: true` in `git-ticket-canvas.display`, allowlisted in `recall()`. `useDisplay` keeps it out of the overrides, so the Display panel neither counts nor resets it.
+
+Tests: `tests/browser/phone-board.spec.ts` (6 cases), one new unit test each in `display-preferences.test.ts` and `display-dialog.test.tsx`. On the final tree: web-test 554 passed, browser-test 133 passed / 7 skipped / 0 failed, typecheck, strict tsc on the new spec, dist-verify and the ticket check all pass.
+
+Not done here: the sheet's Return to automatic, its frame membership controls and the `u` key still write layout on a phone. They are filed as TKT-01M38ZB4QPZXM05BHHT72F81MM (Stop the phone's ticket sheet and keyboard from writing layout).
