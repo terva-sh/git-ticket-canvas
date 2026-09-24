@@ -10,8 +10,8 @@ afterEach(() => { act(() => render(null, root)); root.remove(); vi.restoreAllMoc
 
 /** Everything on, so the layout is pinned at its fullest rather than at the
  * subset a desk canvas happens to render. */
-function show() {
-  const props: ToolbarProps = {
+function everything(): ToolbarProps {
+  return {
     storePath: '/home/someone/workspace/ledger/.tickets', readOnly: false,
     boards: ['default', 'planning'], board: 'default', query: '',
     version: { schemaVersion: 1, kind: 'version', version: 'devel', commit: 'abc1234', modified: false, go: 'go1.25' },
@@ -28,7 +28,9 @@ function show() {
     account: { name: 'Drew Short', onOpen: () => {} },
     stores: { stores: [], current: 'ledger', recent: [], onOpen: () => {}, onBrowse: () => {} },
   }
-  act(() => render(<Toolbar {...props} />, root))
+}
+function show(extra: Partial<ToolbarProps> = {}) {
+  act(() => render(<Toolbar {...everything()} {...extra} />, root))
 }
 
 function group(row: string, side: 'left' | 'right') {
@@ -102,4 +104,17 @@ it('keeps the shape when a desk canvas renders half of it', () => {
   expect(ids('context', 'right')).toEqual(['roBadge'])
   // Relationships is not optional, so it is here even on the smallest canvas.
   expect(ids('working', 'right')).toEqual(['relationshipMode', 'btnArrange', 'btnFit', 'btnNew'])
+})
+
+// The phone header is a separate component. Tablet and desk must not notice it:
+// the same markup as a toolbar that was never told a layout.
+it('renders the same header on a tablet and a desk as with no layout', () => {
+  show()
+  const unset = root.innerHTML
+  show({ layout: 'desk' })
+  expect(root.innerHTML).toBe(unset)
+  show({ layout: 'tablet' })
+  expect(root.innerHTML).toBe(unset)
+  show({ layout: 'phone' })
+  expect(root.innerHTML).not.toBe(unset)
 })

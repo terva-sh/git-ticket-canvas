@@ -569,8 +569,8 @@ export function App() {
     root.dataset.targets = display.settings.targets
     root.dataset.inspector = display.settings.inspector
     root.dataset.toolbar = display.toolbar
-    // Nothing in the stylesheet reads this yet. It is here so the phone and
-    // tablet work can key on `html[data-layout="phone"]` without touching this.
+    // The phone header keys its stylesheet on this, and Toolbar takes the same
+    // value as a prop to choose which header to render.
     root.dataset.layout = display.settings.layout
   }, [display.settings.targets, display.settings.inspector, display.toolbar, display.settings.layout])
 
@@ -660,7 +660,7 @@ export function App() {
         <button key={offer.kind} type="button" class="tool" data-relax={offer.kind}
           onClick={() => relax(offer.kind)}>{offer.label} <span class="badge">{offer.count}</span></button>)}</div>}
     </div>}
-    <div id="toolbarRoot" data-store-publications={publications.current}><Toolbar storePath={snapshot.storePath} readOnly={snapshot.readOnly} version={version}
+    <div id="toolbarRoot" data-store-publications={publications.current}><Toolbar layout={display.settings.layout} storePath={snapshot.storePath} readOnly={snapshot.readOnly} version={version}
       boards={snapshot.boards} board={snapshot.board} config={snapshot.config} query={ui.query} filters={ui.filters}
       counts={`${[...snapshot.tickets.values()].filter(matches).length} of ${snapshot.tickets.size}`}
       relationships={relationships} onRelationships={setRelationships}
