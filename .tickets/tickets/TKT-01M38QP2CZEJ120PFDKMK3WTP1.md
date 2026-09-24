@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:56Z
-updated_at: 2026-09-24T04:46:52Z
+updated_at: 2026-09-24T04:55:03Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -125,6 +125,21 @@ Terva review of PR 31: request `ready-review`, run 2cba4185-2e10-4860-909c-ab487
 **Accepted and fixed: "Report failure to lift fingers after a successful touch sequence"** (tests/browser/touch.ts:101). It was real. On the success path, `touchSteps` left the final `touchEnd` to the `finally` block, which swallows errors. So a sequence whose last lift failed resolved as though the fingers were up. Lifting is now the sequence's own last step and its error propagates. The `finally` only lifts when a step failed partway, and only there is a cleanup error swallowed in favour of the one being reported.
 
 No new test. Making only the final `touchEnd` fail would need a fake CDP session, and the helper talks to a real one on purpose. The existing test for a failed move still covers the cleanup path, and touch.spec and pinch.spec pass (14 of 14) after the change. The canvas code was not touched, so web/dist is unchanged.
+
+**agent:claude/t3code** at 2026-09-24T04:55:03Z
+
+Terva re-review of PR 31: request `review-after-fixes-1`, run f2435058-d237-4b52-bfac-6a2bc5eb117d (Actions run 216), review 328, on head 2eb470a. It marked the finding from review 324 resolved and raised a new medium one. CI passed on the same head.
+
+**Accepted and fixed: "Keep both pinch pointers captured until they lift"** (web/src/ui/Canvas.tsx:454). It was real, and the new test reproduces it. `startPinch` dropped the first finger's gesture, which released that finger's capture, and captured nothing in its place. A first finger that slid off the board lifted where the stage never heard it, so it stayed in `local.touches`. The next single finger to land then made a pinch with a finger that was not there: in the test, a one-finger drag of 50,70 panned only 25,35.
+
+The review's framing, that the pinch stays active, is milder in practice, because the other finger's lift still ends it. The phantom finger left in `local.touches` is what breaks the next gesture. The test pins that: `a finger that lifts after leaving the board is not still counted`.
+
+Two changes:
+
+- `startPinch` captures both fingers to the stage for the pinch's lifetime. That alone makes the test pass, checked with the other change removed.
+- A primary touch pointer landing clears `local.touches`, because the primary pointer is by definition the first finger of a new touch. It is a backstop for any lift that never arrives, however it was lost.
+
+On the new head: `just browser-test` gave 99 passed, 6 skipped, 0 failed; `just web-test` gave 543 passed; typecheck and strict tsc on the spec files passed; touch.spec and pinch.spec passed 45 of 45 across three repeats. web/dist is rebuilt.
 
 ## Summary
 

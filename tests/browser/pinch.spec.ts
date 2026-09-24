@@ -245,3 +245,35 @@ test('a touch drag inside the open inspector scrolls it and leaves the board alo
   expect(await view(page)).toEqual(before)
   expect(sent).toEqual([])
 })
+
+// Starting a pinch drops the first finger's gesture, and with it the capture
+// that gesture held. A finger that then leaves the board would take its lift
+// somewhere the board never hears, and the board would go on counting it as
+// down. The next single finger would then be the "second" of a pinch with a
+// finger that is not there, so a plain one-finger drag would zoom.
+test('a finger that lifts after leaving the board is not still counted', async ({ page, app }) => {
+  const ticket = await app.create('Wandering finger', { x: 0, y: 0 })
+  await open(page, app.url, ticket.id)
+  const board = await empty(page)
+  const other = await empty(page, 160)
+  const header = (await page.locator('#toolbar').boundingBox())!
+  const outside = whole({ x: board.x, y: header.y + header.height / 2 })
+
+  await touchSteps(page, [
+    [board],
+    [board, other],
+    [outside, other],
+    [null, other],
+  ])
+  const before = await view(page)
+  await touchSteps(page, [
+    [board],
+    [{ x: board.x + 25, y: board.y + 35 }],
+    [{ x: board.x + 50, y: board.y + 70 }],
+  ])
+
+  const after = await view(page)
+  expect(after.k).toBeCloseTo(before.k, 5)
+  expect(after.x - before.x).toBeCloseTo(50, 0)
+  expect(after.y - before.y).toBeCloseTo(70, 0)
+})

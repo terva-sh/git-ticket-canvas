@@ -429,6 +429,10 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     // Only fingers are counted. A mouse is one pointer, and a stylus is one
     // too; a pinch is two fingers.
     if (event.pointerType === 'touch' && canvasTarget(event.target)) {
+      // The primary pointer is the first finger of a new touch, so any finger
+      // still recorded is one whose lift never arrived. Counting it would make
+      // this finger the second of a pinch with a finger that is not there.
+      if (event.isPrimary) local.touches.clear()
       local.touches.set(event.pointerId, { x: event.clientX, y: event.clientY })
       // A third finger is ignored rather than turning the pinch into
       // something else. It is still counted, so its lift is not a surprise.
@@ -449,6 +453,15 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   function startPinch() {
     const [[first, a], [second, b]] = [...local.touches]
     release()
+    // Both fingers are captured to the board for as long as the pinch lasts.
+    // Dropping the first finger's gesture released its capture, and a finger
+    // that then wandered off the board would lift somewhere the board never
+    // hears, leaving the pinch running after the fingers are gone.
+    const element = stage.current
+    for (const id of [first, second]) {
+      try { element?.setPointerCapture(id) }
+      catch { /* A finger already gone is lifted by its own event. */ }
+    }
     const p = latest.current
     local.pinch = { ids: [first, second], from: [a, b], view: { ...local.view }, endBusy: () => p.onBusy(false) }
     p.onBusy(true)
