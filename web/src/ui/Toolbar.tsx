@@ -53,13 +53,23 @@ export interface ToolbarProps {
   view?: View; onView?(view: View): void
 }
 
-/** Board or List. Two buttons rather than one toggle, so the header says which
- * one is showing without anybody having to read the stage behind it. The desk
- * and phone headers both render this one, beside the search box, which is
- * where the design says somebody who wants a list will look. */
-export function ViewSwitch(p: ToolbarProps) {
+/** Board or List, beside the search box, which is where the design says
+ * somebody who wants a list will look.
+ *
+ * Two buttons on a tablet and a desk, so the header says which one is showing
+ * without anybody having to read the stage behind it. A phone's row has no room
+ * for both: at the larger toolbar sizes the second word pushed the row past a
+ * 390px screen. There `List` alone is a toggle, pressed while the list shows,
+ * and pressing it again goes back to the board. `#viewList` means the same
+ * thing in both headers, so one test drives either. */
+export function ViewSwitch(p: ToolbarProps & { compact?: boolean }) {
   if (!p.onView) return null
   const view = p.view || 'board'
+  const list = view === 'list'
+  if (p.compact) return <div id="viewSwitch" class="view-switch" role="group" aria-label="View">
+    <button id="viewList" type="button" class="tool" aria-pressed={list}
+      onClick={() => p.onView?.(list ? 'board' : 'list')}>List</button>
+  </div>
   const option = (value: View, id: string, text: string) =>
     <button id={id} type="button" class="tool" aria-pressed={view === value}
       onClick={() => { if (view !== value) p.onView?.(value) }}>{text}</button>

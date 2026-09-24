@@ -83,7 +83,7 @@ export function PhoneToolbar(p: ToolbarProps) {
       {p.selecting ? <SelectionMode selecting={p.selecting} />
         : <input id="search" class="tool" type="search" placeholder="Search" autoComplete="off"
           value={p.query} onInput={e => p.onQuery(e.currentTarget.value)} />}
-      <ViewSwitch {...p} />
+      <ViewSwitch {...p} compact />
       {/* Stays in the row: somebody who cannot write needs to see that
           before they try, not after opening a sheet. */}
       <span class="badge warn" id="roBadge" hidden={!p.readOnly}>read-only</span>

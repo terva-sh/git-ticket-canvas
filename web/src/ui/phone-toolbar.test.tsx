@@ -171,10 +171,25 @@ it('adds selection mode to the tablet header and takes nothing away', () => {
   expect($('#selectionMode')).toBeNull()
 })
 
-// The switch says which view is showing, and pressing the other one asks for
-// it. Pressing the one already showing asks for nothing.
-it('switches between the board and the list, and marks the one showing', () => {
+// A phone has room for one word, so `List` is a toggle: pressed while the list
+// shows, and pressing it again asks for the board.
+it('toggles between the board and the list with one button, pressed while the list shows', () => {
   const p = props()
+  show(p)
+  expect($('#viewBoard')).toBeNull()
+  expect($('#viewList')!.getAttribute('aria-pressed')).toBe('false')
+  tap('#viewList')
+  expect(p.onView).toHaveBeenLastCalledWith('list')
+  show({ ...p, view: 'list' })
+  expect($('#viewList')!.getAttribute('aria-pressed')).toBe('true')
+  tap('#viewList')
+  expect(p.onView).toHaveBeenLastCalledWith('board')
+})
+
+// A tablet and a desk have the room to name both, so the header says which
+// one is showing. Pressing the one already showing asks for nothing.
+it('offers Board and List as two buttons on a tablet', () => {
+  const p = props({ layout: 'tablet' })
   show(p)
   expect($('#viewBoard')!.getAttribute('aria-pressed')).toBe('true')
   expect($('#viewList')!.getAttribute('aria-pressed')).toBe('false')
@@ -182,7 +197,7 @@ it('switches between the board and the list, and marks the one showing', () => {
   expect(p.onView).not.toHaveBeenCalled()
   tap('#viewList')
   expect(p.onView).toHaveBeenCalledWith('list')
-  show(props({ view: 'list' }))
+  show(props({ layout: 'tablet', view: 'list' }))
   expect($('#viewList')!.getAttribute('aria-pressed')).toBe('true')
   expect($('#viewBoard')!.getAttribute('aria-pressed')).toBe('false')
 })
