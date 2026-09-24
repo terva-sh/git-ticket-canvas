@@ -21,6 +21,17 @@ const empty: LabelFilters = new Map()
  * opened a sheet whenever it happened to start on a card would cover the board
  * it was trying to move. */
 const TAP_SLOP = 8
+/** A second tap within this long and this near the first is a double tap. The
+ * stage counts taps itself: whether a browser still synthesises `dblclick`
+ * from touch once `touch-action` is `none` varies, so it is not trusted for
+ * touch at all. */
+const DOUBLE_TAP_MS = 300
+const DOUBLE_TAP_SLOP = 24
+/** How long after a finger lifts a `dblclick` is taken to be the browser's
+ * echo of that touch rather than a mouse. Long enough to cover a slow second
+ * tap, and far shorter than anybody takes to put a finger down and pick up a
+ * mouse. */
+const TOUCH_ECHO_MS = 800
 
 export interface CanvasProps {
   /** Told whenever the view moves, because it is a ref and nothing outside this
@@ -65,6 +76,9 @@ export interface CanvasProps {
    * the phone shows it, in place of the hint. */
   tip?: boolean
   onTipClosed?: () => void
+  /** Whether the pointer is coarse. It chooses which hint describes the
+   * board, because the hint is about hands, not about the size of the window. */
+  coarse?: boolean
   query: string
   filters: ReadonlySet<string>
   labelFilters?: LabelFilters
@@ -125,7 +139,10 @@ interface GestureBase {
 type Gesture = GestureBase & (
   // `tap` is the card a phone's pan started on. If the pointer never travels
   // past TAP_SLOP, the lift was a tap and opens that card.
-  | { kind: 'pan'; tap?: string; moved?: boolean }
+  // `moved` is tracked for every pan: a touch pan that never passed TAP_SLOP
+  // was a tap, which names the edge it landed on (`edge`) or, on empty board
+  // (`empty`), may be half of a double tap.
+  | { kind: 'pan'; tap?: string; moved?: boolean; edge?: string; empty?: boolean }
   | { kind: 'card'; ids: string[]; moved: boolean; delta: Point; readOnly: boolean }
   // A refused card is never `to`: it gets no target highlight and the drop
   // writes nothing, as over empty board, and `refused` says why.
@@ -155,6 +172,14 @@ interface LocalState {
    * releases the first finger's capture on purpose. */
   touches: Map<number, Point>
   pinch: Pinch | null
+  /** The edge a tap named. It stays named until the next tap, because a
+   * finger cannot hover and a name that left with the finger would never be
+   * read. */
+  named: string | null
+  /** The last touch tap on empty board, waiting to see if a second follows. */
+  lastTap: { at: number; point: Point } | null
+  /** When a finger last lifted, so a `dblclick` echoing it can be ignored. */
+  touchLift: number
   motion: Point | null
   frame: number | null
   frameCount: number
@@ -173,7 +198,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   const activeWidth = () => cardWidthFor(latest.current.density ?? 'full')
   const local = useRef<LocalState>({
     view: { x: 120, y: 90, k: 1 }, previews: new Map<string, Card | null>(), gesture: null,
-    touches: new Map<number, Point>(), pinch: null, motion: null, frame: null, frameCount: 0, mounted: false,
+    touches: new Map<number, Point>(), pinch: null,
+    named: null, lastTap: null, touchLift: -Infinity, motion: null, frame: null, frameCount: 0, mounted: false,
   }).current
   const [, setRevision] = useState(0)
   const redraw = () => setRevision(n => n + 1)
@@ -526,8 +552,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     const p = latest.current
     try { element.setPointerCapture(pointerId) }
     catch { return } // The finger may already be gone.
+    // Moved from the start: a finger left down after a pinch is never a tap.
     local.gesture = { kind: 'pan', pointerId, capture: element, pointer, view: { ...local.view },
-      positions: positions(), endBusy: () => p.onBusy(false) }
+      positions: positions(), endBusy: () => p.onBusy(false), moved: true }
     p.onBusy(true)
   }
 
@@ -579,7 +606,12 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
         // Additive selection on an already selected card retains a multi-drag.
         p.onSelect(id, event.shiftKey || p.selection.has(id))
       }
-    } else gesture = { ...base, kind: 'pan' }
+    } else {
+      const edge = target.closest<SVGElement>('[data-edge]')?.dataset.edge
+      gesture = { ...base, kind: 'pan', moved: false, edge,
+        // Empty as a double-click reads it, so the two file in the same places.
+        empty: !edge && !target.closest('.card, .canvas-frame') }
+    }
     try { element.setPointerCapture(event.pointerId) }
     catch { return } // A detached stage cannot own a gesture.
     local.gesture = gesture
@@ -595,7 +627,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     if (gesture.kind === 'pan') {
       local.view = { ...gesture.view, x: gesture.view.x + point.x - gesture.pointer.x,
         y: gesture.view.y + point.y - gesture.pointer.y }
-      if (gesture.tap && Math.hypot(point.x - gesture.pointer.x, point.y - gesture.pointer.y) > TAP_SLOP) gesture.moved = true
+      if (Math.hypot(point.x - gesture.pointer.x, point.y - gesture.pointer.y) > TAP_SLOP) gesture.moved = true
       reportView()
     } else if (gesture.kind === 'card') {
       const dx = (point.x - gesture.pointer.x) / gesture.view.k
@@ -658,13 +690,34 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     })
   }
 
+  /** A finger lifted from a gesture. A tap names the edge it landed on and
+   * unnames any other, and two taps on empty board file a ticket, the way a
+   * double-click does. Anything else breaks a double tap in progress. */
+  function touchUp(gesture: Gesture, event: PointerEvent) {
+    const tapped = (gesture.kind === 'pan' || gesture.kind === 'card') && !gesture.moved
+    if (tapped) local.named = gesture.kind === 'pan' ? gesture.edge ?? null : null
+    const last = local.lastTap
+    local.lastTap = null
+    if (!tapped || gesture.kind !== 'pan' || !gesture.empty) return
+    const p = latest.current
+    // A phone's board is for reading, and its New ticket button is always
+    // there. A double tap on it is too easily a missed tap on a card.
+    if (p.layout === 'phone' || p.frameCreating) return
+    const point = { x: event.clientX, y: event.clientY }
+    if (last && event.timeStamp - last.at <= DOUBLE_TAP_MS
+      && Math.hypot(point.x - last.point.x, point.y - last.point.y) <= DOUBLE_TAP_SLOP) compose(point)
+    else local.lastTap = { at: event.timeStamp, point }
+  }
+
   function pointerUp(event: PointerEvent) {
     lift(event)
+    if (event.pointerType === 'touch') local.touchLift = event.timeStamp
     if (!local.gesture || event.pointerId !== local.gesture.pointerId || event.button !== 0) return
     // The final point can arrive before the queued RAF. Do not save the previous frame.
     applyMotion({ x: event.clientX, y: event.clientY })
     const current = positions()
     const gesture = release()
+    if (gesture && event.pointerType === 'touch') touchUp(gesture, event)
     redraw()
     if (!gesture) return
     const p = latest.current
@@ -792,6 +845,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     class={gesture?.kind === 'pan' || local.pinch ? 'panning' : gesture?.kind === 'link' ? `linking${gesture.refused ? ' link-refused' : ''}` : ''}
     style={{ touchAction: 'none' }}
     onDblClick={event => {
+      // A touch files through touchUp. This is a mouse, or the browser echoing
+      // a double tap that touchUp has already seen.
+      if (event.timeStamp - local.touchLift < TOUCH_ECHO_MS) return
       const target = canvasTarget(event.target)
       if (event.button === 0 && target && !target.closest('.card, .canvas-frame') && !local.gesture && !props.frameCreating) compose({ x: event.clientX, y: event.clientY })
     }}>
@@ -833,7 +889,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       {gesture?.kind === 'frame-draw' && <div class="canvas-frame-draft" style={{ left: gesture.bounds.x, top: gesture.bounds.y,
         width: gesture.bounds.w, height: gesture.bounds.h }} />}
       <Edges tickets={props.tickets} positions={placed} heights={measurements.heights} matching={matching} ghost={ghost}
-        mode={props.relationships} selection={props.selection} cardWidth={cardWidth} />
+        mode={props.relationships} selection={props.selection} cardWidth={cardWidth} named={local.named} />
       <div id="cards">{[...props.tickets.values()].map(ticket => {
         const point = placed.get(ticket.id)!
         return <CardView key={ticket.id} ticket={ticket} x={point.x} y={point.y} z={point.z} pinned={point.pinned} unhoused={!!point.unhoused}
@@ -846,14 +902,23 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       })}</div>
     </div>
     {props.frameCreating && <div id="frameDrawHint" role="status">Draw on empty canvas to capture card centers, or enter bounds in the frame panel. Escape cancels.</div>}
-    {/* The hint describes a mouse and a desk. A phone gets one line, once. */}
+    {/* A phone gets one line, once. Anywhere else the hint describes the
+      * pointer in hand: a finger cannot hover, and a mouse cannot pinch. On a
+      * coarse pointer it also carries what a title would have said, because
+      * nothing shows a title to a finger. */}
     {phone
       ? props.tip && <button id="boardTip" type="button" title="Tap to close" onClick={() => props.onTipClosed?.()}>
         drag to move around · pinch to zoom · tap a card to open it</button>
-      : <div id="hint">drag canvas to pan · scroll to zoom · double-click to file a ticket · drag the right handle to link
-        {!props.readOnly && ' · u hands the selection back to automatic placement'}
-        {props.relationships !== 'none' && <div>Solid arrow: ticket → dependency · Dashed warm arrow: parent → child · hover or select to name one edge</div>}
-      </div>}
+      : props.coarse
+        ? <div id="hint" data-pointer="coarse">drag to pan · pinch to zoom · double-tap to file a ticket · hold a card to select several
+          <div>drag a card's round handle onto another card to make that one depend on it
+            {!props.readOnly && ' · tap Manual to hand a card back to automatic placement'} · tap the zoom level for 1:1</div>
+          {props.relationships !== 'none' && <div>Solid arrow: ticket → dependency · Dashed warm arrow: parent → child · tap an edge or select a card to name one edge</div>}
+        </div>
+        : <div id="hint">drag canvas to pan · scroll to zoom · double-click to file a ticket · drag the right handle to link
+          {!props.readOnly && ' · u hands the selection back to automatic placement'}
+          {props.relationships !== 'none' && <div>Solid arrow: ticket → dependency · Dashed warm arrow: parent → child · hover or select to name one edge</div>}
+        </div>}
     {props.children}
   </div>
 })

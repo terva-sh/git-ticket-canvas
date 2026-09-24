@@ -218,15 +218,16 @@ export function Toolbar(p: ToolbarProps) {
           {/* The level is the reset. A separate button for something you press
               rarely costs a slot in a row that is already the longer of the two. */}
           <button id="btnZoomReset" class="tool zoom-level" onClick={p.onZoomReset}
-            title="Reset to 1:1. Fit is the other one — it frames every card instead.">
+            title="Reset to 1:1. Fit is the other one — it frames every card instead."
+            aria-label={`${Math.round(p.zoom * 100)}%, reset to 1:1`}>
             {Math.round(p.zoom * 100)}%</button>
           <button id="btnZoomIn" class="tool" title="Zoom in" aria-label="Zoom in"
             disabled={p.zoom >= MAX_ZOOM - 0.001} onClick={p.onZoomIn}>+</button>
         </div>}
-        <button id="btnFit" class="tool" title="Fit all cards in view" onClick={p.onFit}>Fit</button>
+        <button id="btnFit" class="tool" title="Fit all cards in view" aria-label="Fit all cards in view" onClick={p.onFit}>Fit</button>
         {/* Last, where a primary action belongs. The wrapping row used to leave
             it alone on a line of its own at the far left. */}
-        <button id="btnNew" class="tool primary" title="New ticket (double-click the canvas)" disabled={p.readOnly} onClick={p.onNew}>New ticket</button>
+        <button id="btnNew" class="tool primary" title="New ticket, or double-click the board (double-tap on a touch screen) to file one there" disabled={p.readOnly} onClick={p.onNew}>New ticket</button>
       </div>
     </div>
   </div>

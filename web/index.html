@@ -387,6 +387,10 @@ input.tool, select.tool { color: var(--ink); }
   font-family: var(--mono); font-size: 10px; color: var(--s-in-progress);
   overflow-wrap: anywhere;
 }
+/* A bare actor name says what it is only through its title, which a finger
+   never sees. Chosen by the pointer itself rather than by the targets setting,
+   the same fact the board's hint is chosen by. */
+@media (pointer: coarse) { .card-alerts .held::before { content: 'held by '; } }
 .card-head { display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--line-soft); padding-top: 10px; margin-top: 12px; }
 .card-id { font-family: var(--mono); font-size: 10px; color: var(--ink-dim); overflow-wrap: anywhere; }
 .card-type { font-size: 10px; color: var(--ink-dim); }

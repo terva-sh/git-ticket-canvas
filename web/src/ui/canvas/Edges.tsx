@@ -39,22 +39,36 @@ interface EdgesProps {
   selection?: ReadonlySet<string>
   /** The active density's card width. Defaults to the full width. */
   cardWidth?: number
+  /** The edge a tap named, by key. Canvas owns it, because only the stage
+   * sees the tap: it captures the finger, so the edge never gets the lift. */
+  named?: string | null
 }
 
 export function Edges({ tickets, positions, heights, matching, ghost, mode = 'selected',
-  selection = new Set<string>(), cardWidth = CARD_WIDTH }: EdgesProps) {
+  selection = new Set<string>(), cardWidth = CARD_WIDTH, named = null }: EdgesProps) {
   // Hover lives here rather than in Canvas, so pointing at an edge repaints the
   // edge layer and not the cards.
   const [hovered, setHovered] = useState<string | null>(null)
-  // One rule decides emphasis. A hovered edge wins outright; otherwise the
-  // selection's edges are the emphasised ones. In `selected` mode every rendered
-  // edge touches the selection, so nothing fades and the mode keeps its meaning.
-  const focused = hovered && positions.size ? hovered : null
+  const shown = (from: string, to: string) => positions.has(from) && positions.has(to) && mode !== 'none'
+    && (mode !== 'selected' || selection.has(from) || selection.has(to))
+  // A named edge can stop being drawn under the name: its ticket gone, the
+  // mode changed, the selection moved. It then names nothing rather than
+  // fading every edge that is left in favour of one that is not there.
+  const drawn = (key: string) => {
+    const [kind, a, b] = key.split(':')
+    // Keys are `parent:CHILD` and `dep:DEPENDENCY:DEPENDENT`, as drawn below.
+    if (kind === 'parent') { const parent = a && tickets.get(a)?.parent; return !!parent && shown(parent, a!) }
+    return !!a && !!b && !!tickets.get(b)?.dependencies?.includes(a) && shown(b, a)
+  }
+  // One rule decides emphasis. A hovered edge wins outright, then one a tap
+  // named; otherwise the selection's edges are the emphasised ones. In
+  // `selected` mode every rendered edge touches the selection, so nothing
+  // fades and the mode keeps its meaning.
+  const focused = hovered && positions.size ? hovered : named && drawn(named) ? named : null
   const emphasisActive = !!focused || selection.size > 0
   const box = (id: string): Box => ({ ...positions.get(id)!, height: heights.get(id) ?? 110 })
   const edge = (from: string, to: string, parent: boolean, key: string) => {
-    if (!positions.has(from) || !positions.has(to) || mode === 'none'
-      || (mode === 'selected' && !selection.has(from) && !selection.has(to))) return null
+    if (!shown(from, to)) return null
     const dim = !matching.has(from) || !matching.has(to)
     const emphasised = focused ? key === focused : selection.has(from) || selection.has(to)
     // Filtered out stays faint. Not-this-one stays legible, because the point is
@@ -66,14 +80,17 @@ export function Edges({ tickets, positions, heights, matching, ghost, mode = 'se
     const labelX = (a.x + b.x + cardWidth) / 2 + (vertical ? 12 : 0)
     const path = curve(a, b, cardWidth)
     const classes = ['relationship', emphasisActive && (emphasised ? 'emphasised' : 'faded')].filter(Boolean).join(' ')
-    return <g key={key} class={classes} data-from={from} data-to={to} data-kind={parent ? 'parent' : 'dependency'}
+    return <g key={key} class={classes} data-edge={key} data-from={from} data-to={to} data-kind={parent ? 'parent' : 'dependency'}
       data-emphasised={emphasisActive && emphasised ? 'true' : undefined} opacity={opacity}>
       {/* The accessible name stays on every edge, emphasised or not. */}
       <title>{tickets.get(from)?.title} {label} {tickets.get(to)?.title}</title>
-      {/* A wide transparent path is the hover target. The visible stroke is too
-          thin to point at, especially at fit-to-view scale. */}
+      {/* A wide transparent path is the hover and tap target. The visible
+          stroke is too thin to point at, especially at fit-to-view scale. A
+          finger's enter and leave only bracket a tap, so they would flash a
+          name and take it away; a tap names an edge through Canvas instead. */}
       <path class="edge-hit" d={path} fill="none" stroke="transparent" stroke-width="14"
-        onPointerEnter={() => setHovered(key)} onPointerLeave={() => setHovered(current => current === key ? null : current)} />
+        onPointerEnter={event => { if (event.pointerType !== 'touch') setHovered(key) }}
+        onPointerLeave={() => setHovered(current => current === key ? null : current)} />
       <path d={path} fill="none" stroke={parent ? 'var(--edge-parent)' : 'var(--edge)'}
         stroke-width={emphasised ? 2.4 : 1.5}
         stroke-dasharray={parent ? '5 5' : undefined}

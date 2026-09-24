@@ -725,7 +725,7 @@ export function App() {
       pens={shownRouting.pens} ruleOrder={shownRouting.ruleOrder} inbox={shownRouting.inbox} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters} labelMatch={ui.labelMatch}
       onView={viewChanged}
       relationships={relationships} density={density} fitFloor={display.floor} inspector={display.settings.inspector}
-      layout={display.settings.layout} tip={!display.tipClosed} onTipClosed={display.closeTip} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} linkRefusal={linkRefusal} onCompose={compose}
+      layout={display.settings.layout} tip={!display.tipClosed} onTipClosed={display.closeTip} coarse={display.facts.coarse} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} linkRefusal={linkRefusal} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>
       <div id="formsRoot">
         <div id="frameHistory" role="status" hidden={!framePreview && !history.undoEntry?.blockedReason && !history.redoEntry?.blockedReason}>
