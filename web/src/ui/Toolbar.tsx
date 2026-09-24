@@ -162,7 +162,7 @@ export function Toolbar(p: ToolbarProps) {
         <select id="boardSelect" class="tool" title="Board" value={p.board} onChange={e => p.onBoard(e.currentTarget.value)}>
           {[...new Set([...p.boards, p.board])].map(board => <option key={board} value={board}>{board}</option>)}
         </select>
-        <button id="newBoard" class="tool" title="New board" disabled={p.readOnly} onClick={p.onNewBoard}>+</button>
+        <button id="newBoard" class="tool" title="New board" aria-label="New board" disabled={p.readOnly} onClick={p.onNewBoard}>+</button>
       </div>
       <div class="toolbar-side right">
         {/* A property of the store rather than of the filters, so it sits with
