@@ -23,12 +23,12 @@ references:
 claim: null
 archive: null
 created_at: 2026-09-24T03:34:06Z
-updated_at: 2026-09-24T05:55:34Z
+updated_at: 2026-09-24T08:01:54Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/t3code
+  id: agent:claude/mobile-lead
   name: ""
 extensions: {}
 ---
@@ -63,3 +63,24 @@ PR 33 (wave 1): the Terva review on d8e2d90 was clean (run 4616fcaf-2e07-4ba4-82
 **agent:claude/t3code** at 2026-09-24T05:55:34Z
 
 PR 33 CI: the rerun, run 228 on c7a4da4, passed in 4m20s on code identical to the failed run 226 (the only commit between them is a ticket note). So run 226 was a flake. Its log was never readable from here, so which test is not known. The two known candidates are TKT-01M38YCD9ZAZSTAHM4FJGQ1TQ9 (Wait for the board before measuring it in the touch spec's lift test) and the refresh-regressions draft flake. PR 33 was merged at 9a1d66b.
+
+**agent:claude/mobile-lead** at 2026-09-24T08:01:54Z
+
+Progress on 2026-09-24:
+- PR 34 merged at 72d3c31. It holds TKT-01M38QP373BAE8X6Q9F3G8E7SY (Keep a phone's board to panning, zooming and opening cards).
+- PR 35 merged at a0f56d8. It holds TKT-01M38QP47G7VBHRBVYR8MMKN8K (Select several cards on a touch screen by holding one) and TKT-01M38QP4FNAKCBX7KDX4WPS934 (Replace hover-only help and edge names on a touch screen).
+
+That makes ten children done. Nothing is left in ready, in-progress or review. Five children are drafts:
+- TKT-01M38QP3ZNYRPN60GXQD4SCE6M (List tickets by status as well as on the board). Its prerequisite, the phone header, is done, so it is startable once promoted.
+- TKT-01M38RXAS80BEW03WCGBYYRBDC (Open a ticket's inspector without a pointer).
+- TKT-01M38WN9EE8QVNR0E7B3B4QTZM (Hide the inspector's side resize handle when it is not beside the board).
+- TKT-01M38YCD9ZAZSTAHM4FJGQ1TQ9 (Wait for the board before measuring it in the touch spec's lift test). tests/browser/touch.ts now exports `viewSettled`, which is the wait that ticket asks for.
+- TKT-01M38ZB4QPZXM05BHHT72F81MM (Stop the phone's ticket sheet and keyboard from writing layout).
+
+Test harness lessons from these waves:
+- Settle the view by comparing reads taken apart in time (`viewSettled`).
+- Clear a remembered view only after its 300 ms write has landed.
+- Take touch points that are on screen and uncovered.
+- Use `betweenFrames` to show that a gesture decision does not depend on animation frames.
+
+CI failed several times with unreadable logs while other sessions held load average between 9 and 18. Each time, a re-run on identical code passed.

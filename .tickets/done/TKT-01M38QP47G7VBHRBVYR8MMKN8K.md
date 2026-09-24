@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38QP47G7VBHRBVYR8MMKN8K
 title: Select several cards on a touch screen by holding one
 type: task
-status: review
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -17,17 +17,10 @@ dependencies:
   - TKT-01M38QP2CZEJ120PFDKMK3WTP1
 blocks_on: none
 references: []
-claim:
-  actor: agent:claude/mobile-select
-  branch: worktree-agent-ab839db94abcf6f58
-  worktree: /home/sothr/workspace/git.local.sothr.com/terva-sh/git-ticket-canvas/.claude/worktrees/agent-ab839db94abcf6f58
-  commit: 9f82beef2699e71d85fe065e56900926170f62eb
-  session: null
-  claimed_at: 2026-09-24T05:51:11Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T07:52:33Z
+updated_at: 2026-09-24T08:01:23Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -197,6 +190,23 @@ CI run on 0a00685: failed. Its log cannot be read from here. The full local suit
 **agent:claude/mobile-lead** at 2026-09-24T07:52:33Z
 
 Terva reviewed dcd089c on PR 35 in run b3891be2 and found nothing at the failure threshold. CI failed on 0a00685 in run 244, after 8m1s, and on dcd089c in run 246, after 2m21s. Neither log can be read from here. Locally, just drift-check followed by just parity-check, the CI job's own sequence, passed on dcd089c: the embedded browser suite passed 163 with 7 skipped, and the Go-only check passed. During both failed runs other sessions' go and glab processes held load average between 9 and 18. This bookkeeping-only commit re-runs CI.
+
+**agent:claude/mobile-lead** at 2026-09-24T08:01:23Z
+
+Merged to main through PR 35 (https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/35) at a0f56d8 on 2026-09-24, together with TKT-01M38QP4FNAKCBX7KDX4WPS934 (Replace hover-only help and edge names on a touch screen).
+
+Terva reviewed four rounds:
+- 63ef448: two findings, both fixed.
+- f2efd4d: two findings, both fixed.
+- 0a00685: one finding, fixed.
+- dcd089c: clean.
+
+Every fix came with a test that failed without it. They were:
+- A tap is latched on every move rather than once a frame.
+- An edge tap keeps selection mode.
+- A ticket removed elsewhere leaves the selection.
+
+CI failed in runs 244 and 246 with unreadable logs while the machine was heavily loaded. The CI sequence passed locally on dcd089c, and run 248 passed on the bookkeeping head 97605f2. The summary above stands as the implementing agent wrote it.
 
 ## Summary
 

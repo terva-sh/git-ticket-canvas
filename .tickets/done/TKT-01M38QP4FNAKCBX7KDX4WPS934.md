@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38QP4FNAKCBX7KDX4WPS934
 title: Replace hover-only help and edge names on a touch screen
 type: task
-status: review
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -18,17 +18,10 @@ dependencies:
   - TKT-01M38QP2CZEJ120PFDKMK3WTP1
 blocks_on: none
 references: []
-claim:
-  actor: agent:claude/mobile-hover
-  branch: worktree-agent-a2f851a4b2b6d5342
-  worktree: /home/sothr/workspace/git.local.sothr.com/terva-sh/git-ticket-canvas/.claude/worktrees/agent-a2f851a4b2b6d5342
-  commit: 9f82beef2699e71d85fe065e56900926170f62eb
-  session: null
-  claimed_at: 2026-09-24T05:52:41Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T07:20:55Z
+updated_at: 2026-09-24T08:01:24Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -136,6 +129,16 @@ Terva's low finding on PR 35 (review of 63ef448) is recorded in full on TKT-01M3
 This supersedes the previous note, the one on Terva's low finding from the review of 63ef448. The shell swallowed a code span in it. The phrase "when the finger never passed TAP_SLOP on screen ()" should read "when the finger never passed TAP_SLOP on screen (the card gesture's `wandered` flag)".
 
 Since then, the review of f2efd4d on PR 35 found that an edge tap in selection mode left the mode. An edge tap now names the edge and keeps the mode. The details are on TKT-01M38QP47G7VBHRBVYR8MMKN8K.
+
+**agent:claude/mobile-lead** at 2026-09-24T08:01:23Z
+
+Merged to main through PR 35 (https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/35) at a0f56d8 on 2026-09-24, together with TKT-01M38QP47G7VBHRBVYR8MMKN8K (Select several cards on a touch screen by holding one). The review rounds and the CI history are recorded there.
+
+The merge changed two things here:
+- A double tap on empty board files nothing in selection mode.
+- A card tap that wobbles within 8px unnames the edge.
+
+The summary above stands as the implementing agent wrote it.
 
 ## Summary
 
