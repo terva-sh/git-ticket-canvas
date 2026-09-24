@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38QP3ZNYRPN60GXQD4SCE6M
 title: List tickets by status as well as on the board
 type: task
-status: draft
+status: in-progress
 status_reason: null
 priority: normal
 due_on: null
@@ -18,15 +18,22 @@ dependencies:
   - TKT-01M38QP2WYRK9A18P473KTM9BV
 blocks_on: none
 references: []
-claim: null
+claim:
+  actor: agent:claude/mobile-list
+  branch: worktree-agent-a752f78af0b9e1231
+  worktree: /home/sothr/workspace/git.local.sothr.com/terva-sh/git-ticket-canvas/.claude/worktrees/agent-a752f78af0b9e1231
+  commit: 5389071f510222a6008ff7deb307c6f2074d7043
+  session: null
+  claimed_at: 2026-09-24T13:18:00Z
+  expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T05:00:46Z
+updated_at: 2026-09-24T13:18:01Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/t3code
+  id: agent:claude/mobile-list
   name: ""
 extensions: {}
 ---
