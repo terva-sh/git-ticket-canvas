@@ -153,3 +153,20 @@ it('holds relationships, density, Fit, Display, account and New board in the men
   tap('#phoneMenu')
   expect(($('#newBoard') as HTMLButtonElement).disabled).toBe(true)
 })
+
+it('shows selection mode where the search was, and Done ends it', () => {
+  const onDone = vi.fn()
+  show(props({ query: 'ledger', selecting: { count: 3, onDone } }))
+  expect(row()).toEqual(['phoneStore', 'selectionMode', 'roBadge', 'phoneFilter', 'phoneMenu'])
+  expect($('#selectionCount')!.textContent).toBe('3')
+  tap('#selectionDone')
+  expect(onDone).toHaveBeenCalledOnce()
+})
+
+it('adds selection mode to the tablet header and takes nothing away', () => {
+  show(props({ layout: 'tablet', selecting: { count: 2, onDone: vi.fn() } }))
+  expect($('#selectionMode')!.getAttribute('aria-label')).toBe('Selecting, 2 selected')
+  expect($('#search')).not.toBeNull()
+  show(props({ layout: 'tablet' }))
+  expect($('#selectionMode')).toBeNull()
+})

@@ -52,6 +52,14 @@ export type Frame = readonly [Point, Point]
 export type Touches = readonly (Point | null)[]
 
 /**
+ * One step of `touchSteps`: the fingers down at one moment, or a number, which
+ * waits that many milliseconds with every finger where the last step left it.
+ * A pause is how a test holds a finger still: each step is one CDP event, so
+ * repeating a step sends a move of zero rather than letting time pass.
+ */
+export type Step = Touches | number
+
+/**
  * Drive the touchscreen through a sequence of moments, one CDP event each, and
  * lift every finger at the end.
  *
@@ -64,7 +72,8 @@ export type Touches = readonly (Point | null)[]
  * Chromium only, which is the only browser the harness runs.
  *
  * Each step lists every finger that is down, not only the one that moved,
- * and becomes one or two CDP events. Fingers that were down and are now up are
+ * and becomes one or two CDP events. A step that is a number is a pause; see
+ * `Step`. Fingers that were down and are now up are
  * lifted first, by a `touchEnd` that names them. Then a finger that is new
  * makes the step a `touchStart` listing everything down, and otherwise a
  * `touchMove` does. Measured against Chromium on 2026-09-24: a `touchMove`
@@ -72,7 +81,7 @@ export type Touches = readonly (Point | null)[]
  * lifts that finger and no other, so lifting one of two has to be a
  * `touchEnd`, whatever CDP's documentation says about it carrying no points.
  */
-export async function touchSteps(page: Page, steps: readonly Touches[]) {
+export async function touchSteps(page: Page, steps: readonly Step[]) {
   const session = await page.context().newCDPSession(page)
   // Each finger keeps its id for the whole sequence. That is what lets the
   // page tell two moving fingers apart from one finger lifting and another
@@ -84,6 +93,7 @@ export async function touchSteps(page: Page, steps: readonly Touches[]) {
   let down: { x: number; y: number; id: number }[] = []
   try {
     for (const step of steps) {
+      if (typeof step === 'number') { await page.waitForTimeout(step); continue }
       const now = points(step)
       const lifted = down.filter(finger => !now.some(point => point.id === finger.id))
       if (lifted.length) await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: lifted })

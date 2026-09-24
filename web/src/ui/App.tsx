@@ -35,6 +35,10 @@ function storeInAddress() {
 
 interface InterfaceState {
   selected: string | null; selection: Set<string>; query: string; filters: Set<string>
+  /** Selection mode, entered by holding a card on a touch screen. While it is
+   * on, a tap on a card adds or removes it rather than replacing the
+   * selection, which is what shift does with a mouse. */
+  selecting: boolean
   labelFilters: LabelFilters
   /** How the required labels combine. `all` is what the board has always done. */
   labelMatch: LabelMatch
@@ -68,7 +72,7 @@ export function App() {
   // The label never renders blank: it waits, then shows a version or unknown.
   const [version, setVersion] = useState<VersionInfo | null | undefined>(undefined)
   const published = useRef(store.state), publications = useRef(0)
-  const [ui, setUI] = useState<InterfaceState>({ selected: null, selection: new Set(), query: '', filters: new Set(),
+  const [ui, setUI] = useState<InterfaceState>({ selected: null, selection: new Set(), selecting: false, query: '', filters: new Set(),
     labelFilters: new Map(), labelMatch: 'all', composer: null, composerKey: 0, generation: 0 })
   const [frameUI, setFrameUI] = useState<{ selected: string | null; draft: Frame | null; key: number }>({ selected: null, draft: null, key: 0 })
   const frameLatest = useRef(frameUI); frameLatest.current = frameUI
@@ -114,7 +118,7 @@ export function App() {
     publications.current++
     setSnapshot(store.state)
     setUI(current => current.selected && !store.state.tickets.has(current.selected)
-      ? { ...current, selected: null, selection: new Set() } : current)
+      ? { ...current, selected: null, selection: new Set(), selecting: false } : current)
   }
   const toast = (message: string, error = false) => {
     if (mounted.current) setFeedback({ id: ++feedbackId.current, message, error })
@@ -175,8 +179,29 @@ export function App() {
   }
   function select(id: string, additive = false) {
     setFrameUI(current => ({ ...current, selected: null, draft: null }))
+    // Additive keeps selection mode as it was, so a shift-click on a desk
+    // neither enters it nor ends it; anything else starts a new selection.
     setUI(current => ({ ...current, selected: id,
-      selection: new Set(additive ? [...current.selection, id] : [id]) }))
+      selection: new Set(additive ? [...current.selection, id] : [id]), selecting: additive && current.selecting }))
+  }
+  /** A card held on a touch screen: added to the selection, and the mode on. */
+  function hold(id: string) {
+    select(id, true)
+    setUI(current => ({ ...current, selecting: true }))
+  }
+  /** A tap in selection mode. `select` can only add, and this is the one
+   * place that takes a card back out. The inspector keeps showing a card that
+   * is still selected, and the mode ends with the last card, because a count
+   * of none has nothing left to act on. */
+  function toggle(id: string) {
+    setFrameUI(current => ({ ...current, selected: null, draft: null }))
+    setUI(current => {
+      const selection = new Set(current.selection)
+      if (!selection.delete(id)) selection.add(id)
+      const selected = selection.has(id) ? id
+        : current.selected && selection.has(current.selected) ? current.selected : [...selection].pop() ?? null
+      return { ...current, selected, selection, selecting: selection.size > 0 }
+    })
   }
   function closeFrames() {
     canvas.current?.cancel()
@@ -321,7 +346,7 @@ export function App() {
       void refresh(version !== generation.current).catch(report)
     }
   }
-  function closeInspector() { setUI(current => ({ ...current, selected: null, selection: new Set() })) }
+  function closeInspector() { setUI(current => ({ ...current, selected: null, selection: new Set(), selecting: false })) }
   async function remove(ticket: Ticket) {
     if (store.state.readOnly) { toast('read-only', true); return }
     const version = generation.current
@@ -392,7 +417,7 @@ export function App() {
     canvas.current?.cancel()
     store.selectBoard(name)
     const version = ++generation.current
-    setUI(current => ({ ...current, generation: version, selected: null, selection: new Set(), composer: null }))
+    setUI(current => ({ ...current, generation: version, selected: null, selection: new Set(), selecting: false, composer: null }))
     publish()
   }
   async function changeBoard(name: string) { switchBoard(name); await refresh(true).catch(report) }
@@ -424,7 +449,7 @@ export function App() {
     recent.current = [name, ...recent.current.filter(had => had !== name)].slice(0, 8)
     setBrowsing(false)
     histories.current.clear()
-    setUI(current => ({ ...current, selected: null, selection: new Set(), composer: null, generation: current.generation + 1 }))
+    setUI(current => ({ ...current, selected: null, selection: new Set(), selecting: false, composer: null, generation: current.generation + 1 }))
     setFrameUI({ selected: null, draft: null, key: 0 })
     setPensUI(noPens)
     setSnapshot(store.state)
@@ -710,6 +735,7 @@ export function App() {
         onOpen: openStore, onBrowse: () => setBrowsing(true) } : undefined}
       account={session?.authenticated ? { name: session.name || session.email || session.subject || 'Account',
         onOpen: () => setAccount(true) } : undefined}
+      selecting={ui.selecting ? { count: ui.selection.size, onDone: () => setUI(current => ({ ...current, selecting: false })) } : undefined}
       onNew={() => canvas.current?.composeCentre()} onFit={() => canvas.current?.fit()} onArrange={arrange} /></div>
     {account && session?.authenticated && <SessionDialog session={session} store={storeId || ''}
       actor={actor} actorError={actorError} busy={actorBusy} people={peopleList}
@@ -725,7 +751,8 @@ export function App() {
       pens={shownRouting.pens} ruleOrder={shownRouting.ruleOrder} inbox={shownRouting.inbox} selection={ui.selection} query={ui.query} filters={ui.filters} labelFilters={ui.labelFilters} labelMatch={ui.labelMatch}
       onView={viewChanged}
       relationships={relationships} density={density} fitFloor={display.floor} inspector={display.settings.inspector}
-      layout={display.settings.layout} tip={!display.tipClosed} onTipClosed={display.closeTip} readOnly={snapshot.readOnly} onSelect={select} onLayout={saveLayout} onLink={link} linkRefusal={linkRefusal} onCompose={compose}
+      layout={display.settings.layout} tip={!display.tipClosed} onTipClosed={display.closeTip} readOnly={snapshot.readOnly} onSelect={select} selecting={ui.selecting} onHold={hold} onToggle={toggle}
+      onSelectionDone={() => setUI(current => ({ ...current, selecting: false }))} onLayout={saveLayout} onLink={link} linkRefusal={linkRefusal} onCompose={compose}
       onError={message => toast(message, true)} onBusy={onBusy}>
       <div id="formsRoot">
         <div id="frameHistory" role="status" hidden={!framePreview && !history.undoEntry?.blockedReason && !history.redoEntry?.blockedReason}>
