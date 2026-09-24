@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38QP47G7VBHRBVYR8MMKN8K
 title: Select several cards on a touch screen by holding one
 type: task
-status: in-progress
+status: review
 status_reason: null
 priority: normal
 due_on: null
@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T05:53:04Z
+updated_at: 2026-09-24T06:04:21Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -47,11 +47,11 @@ See `docs/mobile-design-v1.md`, "Tablet".
 
 ## Acceptance criteria
 
-- [ ] A long press enters selection mode and selects the card, with a test on the emulated tablet
-- [ ] In selection mode a tap toggles and a drag moves every selected card
-- [ ] Done and a tap on empty board both leave selection mode
-- [ ] Shift-click on a desk is unchanged
-- [ ] Moving more than 8 px before the press completes enters no mode: a phone pans, and a tablet drags the card as it does now
+- [x] A long press enters selection mode and selects the card, with a test on the emulated tablet
+- [x] In selection mode a tap toggles and a drag moves every selected card
+- [x] Done and a tap on empty board both leave selection mode
+- [x] Shift-click on a desk is unchanged
+- [x] Moving more than 8 px before the press completes enters no mode: a phone pans, and a tablet drags the card as it does now
 
 ## Implementation plan
 
@@ -109,3 +109,28 @@ Groomed 2026-09-24 against main at 79b233f.
 **agent:claude/mobile-select** at 2026-09-24T05:53:04Z
 
 Reworded criterion 2, which said a move of more than 8 px "pans rather than selecting". That holds on a phone, where a press on a card is a pan since wave 2. On a tablet a finger on a card drags the card, and the design's Tablet section keeps card drags working from touch ("Card, link and frame drags that survive touch"), so a tablet cannot pan there without breaking that. The new wording keeps the point of the criterion, that moving before 450 ms cancels the hold, and says what each device does instead.
+
+**agent:claude/mobile-select** at 2026-09-24T06:04:16Z
+
+Built on 9f82bee (wave 2). What a reviewer should know that the plan does not say:
+
+- Outside the mode, a finger on a card on a tablet still selects that card on `pointerdown`, as a touch has since the card drag learned touch. A long press there therefore starts the mode with that one card, or with the whole selection when the card was already in it. It does not add to an older selection that did not include the card. Deferring the tablet's selection to the lift would change how every tablet card drag starts, which this ticket does not own.
+- Out of the mode, a tap on a card that is already selected keeps the whole selection. That is the desk's existing rule (a click on a selected card is additive, so a multi-drag can follow) and was not changed. The Done test relies on it: after Done, a tap on a selected card leaves both selected rather than toggling one off.
+- Toggling off the last selected card also ends the mode, since a count of none has nothing to act on. Escape and closing the inspector clear the selection and end the mode.
+- A long press is only looked for on a touch pointer. A mouse held on a card on a desk does nothing new; the desk spec checks that.
+- Phone header screenshot in the mode, taken by a throwaway spec: the row reads `default ▾ | Selecting · 1 | Done | Filter | ☰` and stays one row at 390 px. The committed phone header baseline is local-only and was not regenerated, because the header without the mode is unchanged.
+- Not checked on a real device. The design asks for that once the phone layout lands, on the brokkr ledger canvas.
+
+## Summary
+
+Holding a card on a touch screen for 450 ms, within 8 px, selects it and enters selection mode. Built on the wave 2 branch at 9f82bee.
+
+- `web/src/ui/Canvas.tsx`: the long press is a timer (`local.hold`, `HOLD_MS`) started by a one-finger touch press on a card when the mode is off. More than 8 px of travel (checked on every pointermove), the lift, or anything that releases the gesture (a second finger starting a pinch, a cancel, a blur) cancels it. On a tablet the card drag is re-based when the hold fires, so a hold that wobbled saves nothing. On a phone the pan's tap is cleared, so the lift does not also open the card. In the mode nothing selects on press: a card press within 8 px is a tap that toggles; past that, a tablet drag moves the selection plus the pressed card. A press on empty board within 8 px leaves the mode. Pinch is unchanged.
+- `web/src/ui/App.tsx`: `selecting` in the interface state, cleared wherever the selection is. New `hold(id)` and `toggle(id)`; `select` ends the mode unless additive, so shift-click on a desk is unchanged.
+- `web/src/ui/Toolbar.tsx`: `SelectionMode` (`#selectionMode`, `#selectionCount`, `#selectionDone`) at the right of the tablet's context row. `PhoneToolbar.tsx` shows it in place of the search box while the mode lasts. Styles in `web/index.html` and `PhoneToolbar.css`.
+- `tests/browser/touch.ts`: a number as a `touchSteps` step pauses that many milliseconds, documented in the helper and in `docs/browser-testing.md`.
+- `tests/browser/select-hold.spec.ts`: 12 tests across tablet, phone and desk. The two 8 px tests were checked to fail when the slop cancel is disabled. Two unit tests in `phone-toolbar.test.tsx` cover both headers.
+
+Verification: `just web-typecheck` clean; `just web-test` 556 passed; `just browser-test` 145 passed, 7 skipped (the local-only baselines and measurements); new spec 36/36 over `--repeat-each 3`; strict tsc on the new spec and touch.ts clean; `just dist-verify` matches HEAD.
+
+Not done: a check on a real device.
