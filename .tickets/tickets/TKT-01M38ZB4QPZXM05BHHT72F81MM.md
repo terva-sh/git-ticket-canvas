@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38ZB4QPZXM05BHHT72F81MM
 title: Stop the phone's ticket sheet and keyboard from writing layout
 type: task
-status: draft
+status: in-progress
 status_reason: null
 priority: normal
 due_on: null
@@ -16,15 +16,22 @@ origin: null
 dependencies: []
 blocks_on: none
 references: []
-claim: null
+claim:
+  actor: agent:claude/mobile-lead
+  branch: t3code/mobile-wave-4
+  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-fd003818
+  commit: 5389071f510222a6008ff7deb307c6f2074d7043
+  session: null
+  claimed_at: 2026-09-24T13:17:45Z
+  expires_at: null
 archive: null
 created_at: 2026-09-24T05:48:47Z
-updated_at: 2026-09-24T05:48:47Z
+updated_at: 2026-09-24T13:17:45Z
 created_by:
   id: agent:claude/mobile-board
   name: ""
 updated_by:
-  id: agent:claude/mobile-board
+  id: agent:claude/mobile-lead
   name: ""
 extensions: {}
 ---

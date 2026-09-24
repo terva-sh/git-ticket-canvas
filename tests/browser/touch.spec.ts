@@ -46,8 +46,17 @@ function lastMove(seen: Seen[], id: number) {
   return seen.filter(event => event.type === 'pointermove' && event.id === id).at(-1)!
 }
 
+/** The middle of the board, from the first read that finds it laid out.
+ * `boundingBox` waits for `#stage` to be attached but answers null for one
+ * that is attached and not laid out, which is what the board is for a moment
+ * after a navigation and while it remounts as a store opens. Checking
+ * visibility first and then reading again leaves that moment between the two,
+ * so the read that is polled is the one that is used. */
 async function stageCenter(page: Page) {
-  const box = (await page.locator('#stage').boundingBox())!
+  const stage = page.locator('#stage')
+  let box: { x: number; y: number; width: number; height: number } | null = null
+  await expect.poll(async () => (box = await stage.boundingBox())).not.toBeNull()
+  box = box!
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
 
