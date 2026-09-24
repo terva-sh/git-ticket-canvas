@@ -53,12 +53,12 @@ async function dragHandle(page: Page, dy: number, steps = 8) {
 /**
  * Hide the header before the page lays itself out.
  *
- * The phone header is two wrapping rows until TKT-01M38QP2WYRK9A18P473KTM9BV
- * (Fit the header into one row on a phone) lands, and on the emulated phone it
- * takes about 580 of the 844 pixels. That leaves a stage too short for half of
- * it to be taller than the peek, so three heights cannot be told apart. With
- * the header hidden the stage is the size the sheet is designed for. Nothing
- * in these tests uses the header.
+ * Only the landscape phone uses this now. TKT-01M38QP2WYRK9A18P473KTM9BV
+ * (Fit the header into one row on a phone) made the portrait header one row,
+ * which leaves the stage the size the sheet is designed for. A landscape phone
+ * is 390 CSS pixels tall before its header, so with the header shown half and
+ * the peek would be the same height and the test below could not tell them
+ * apart. Nothing in these tests uses the header.
  */
 async function withoutHeader(page: Page) {
   await page.addInitScript(() => {
@@ -72,7 +72,6 @@ async function withoutHeader(page: Page) {
 
 test.describe('phone', () => {
   test.use(phone)
-  test.beforeEach(async ({ page }) => { await withoutHeader(page) })
 
   /** Open the board with two cards side by side, and let the fit settle. */
   async function board(page: Page, app: { url: string; create: (title: string, card?: Point) => Promise<{ id: string; title: string }> }) {

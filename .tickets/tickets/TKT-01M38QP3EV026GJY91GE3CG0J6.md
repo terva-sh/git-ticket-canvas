@@ -28,12 +28,12 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:34:57Z
-updated_at: 2026-09-24T05:33:09Z
+updated_at: 2026-09-24T05:38:13Z
 created_by:
   id: agent:claude/t3code
   name: ""
 updated_by:
-  id: agent:claude/mobile-sheet
+  id: agent:claude/t3code
   name: ""
 extensions: {}
 ---
@@ -115,6 +115,10 @@ For the merge with the parallel phone work:
 Found while testing: a quick drag on the handle ended in a fling, and Chromium then dropped the click from the next tap anywhere on the page, for example a tap on the "Edit status..." disclosure. It gave pointerdown and pointerup with no click. Slow drags in 20px steps did not trigger it; 100px steps did, even with a 1.5s wait before the tap. The handle now calls `preventDefault` on `touchstart`, and it handles a tap on pointerup instead of on click. The editing test drags fast to full and then taps fields, and before the fix it failed exactly this way.
 
 In one full `just browser-test` run, `touch.spec.ts` "a gesture whose move fails still lifts both fingers" failed because the board had not rendered when the test measured it. That code is unrelated to this change. It passed 20 of 20 runs alone, and the next full run passed. Filed as TKT-01M38YCD9ZAZSTAHM4FJGQ1TQ9 (Wait for the board before measuring it in the touch spec's lift test).
+
+**agent:claude/t3code** at 2026-09-24T05:38:13Z
+
+Merged with the phone header (TKT-01M38QP2WYRK9A18P473KTM9BV) and the cycle refusal (TKT-01M38R4GRCRG7PYT72MV47PKAJ) on t3code/mobile-wave-1. As this ticket's report asked, the portrait phone tests in sheet.spec.ts no longer hide the header: they pass with the real one-row header. The landscape test still hides it, with the comment updated to say why. The New ticket button does not collide with the sheet, because the header hides it while the inspector is open, and phone-header.spec's test for that passes on the merged tree. On the merged tree: web-test 552 passed, browser-test 127 passed / 7 skipped / 0 failed, typecheck and strict tsc on the new specs pass.
 
 ## Summary
 
