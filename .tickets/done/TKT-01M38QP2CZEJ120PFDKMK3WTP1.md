@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38QP2CZEJ120PFDKMK3WTP1
 title: Pinch to zoom and pan with two fingers on the board
 type: task
-status: review
+status: done
 status_reason: null
 priority: normal
 due_on: null
@@ -17,17 +17,10 @@ dependencies:
   - TKT-01M38QP27PJBQQDFK8RNBATJE2
 blocks_on: none
 references: []
-claim:
-  actor: agent:claude/t3code
-  branch: t3code/pinch-two-finger
-  worktree: /home/sothr/.t3/worktrees/git-ticket-canvas/t3code-fd003818
-  commit: 5cb0e0fab340c0f19925aa340c4290f5114f5486
-  session: null
-  claimed_at: 2026-09-24T04:20:07Z
-  expires_at: null
+claim: null
 archive: null
 created_at: 2026-09-24T03:34:56Z
-updated_at: 2026-09-24T04:59:23Z
+updated_at: 2026-09-24T05:00:46Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -144,6 +137,10 @@ On the new head: `just browser-test` gave 99 passed, 6 skipped, 0 failed; `just 
 **agent:claude/t3code** at 2026-09-24T04:59:23Z
 
 Terva review clean on PR 31: request review-after-fixes-2, run 1b7cac2b-8cb1-4e8f-a5c6-66eedf3bf9b3 (Actions run 217), head 1c9cb18 against base c5526d2. No findings at the failure threshold. It marked the capture finding from review 328 resolved. CI (Embedded frontend and Go parity) passed on the same head, and Forgejo reports the PR mergeable. Ready to merge; merging is the maintainer's call.
+
+**agent:claude/t3code** at 2026-09-24T05:00:46Z
+
+Merged to main through PR 31 (https://git.local.sothr.com/terva-sh/git-ticket-canvas/pulls/31) at 79b233f on 2026-09-24, with the maintainer's authorization, after a clean Terva review (run 1b7cac2b-8cb1-4e8f-a5c6-66eedf3bf9b3 on 1c9cb18) and green CI. Criterion 1 stays unticked: its 'the list still scrolls natively' part is now a criterion on TKT-01M38QP3ZNYRPN60GXQD4SCE6M (List tickets by status as well as on the board), which is where it can be met.
 
 ## Summary
 

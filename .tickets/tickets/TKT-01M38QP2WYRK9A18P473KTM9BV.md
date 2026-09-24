@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38QP2WYRK9A18P473KTM9BV
 title: Fit the header into one row on a phone
 type: task
-status: draft
+status: ready
 status_reason: null
 priority: normal
 due_on: null
@@ -21,7 +21,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-24T03:34:57Z
-updated_at: 2026-09-24T03:34:59Z
+updated_at: 2026-09-24T05:01:54Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -47,3 +47,18 @@ See `docs/mobile-design-v1.md`, "The header is one row".
 - [ ] New ticket sits at the bottom right within thumb reach and is disabled when read-only
 - [ ] A phone baseline screenshot of the header is added
 - [ ] Tablet and desk headers are unchanged
+- [ ] Pens, the label filter, the store picker and the version details each have a place on a phone: Pens is not offered, the rest move to the filter sheet or the store picker
+- [ ] The header stays one row at every toolbar size on the emulated phone, and the page does not widen (expectFitsDevice)
+
+## Notes
+
+**agent:claude/t3code** at 2026-09-24T05:01:53Z
+
+Groomed 2026-09-24 against main at 79b233f. The layout this reads is `html[data-layout]`, set in `App.tsx` beside `data-targets` and `data-inspector`. Toolbar.tsx has four controls the design's table did not place:
+
+- **The store picker** (`StorePicker`, shown when the canvas serves several stores). It goes into the store-and-board picker with the board select.
+- **Pens** (`#btnPens`). It authors the board's rules, a layout write, so it belongs with frames and Arrange: not offered on a phone.
+- **The label filter** (`details#labelFilter`, with its match-mode chips). It goes into the filter sheet with the status chips.
+- **The version details** (`details#version`). They go into the store picker with the brand and path, as the design says.
+
+The toolbar-size preference (`data-toolbar`, TKT-01M2NRBYGQSMBZF1C4RQ2W1498) still applies on a phone, and a larger size must not break the one row. There is a criterion for that. The phone spec should use `test.use(phone)` and `expectFitsDevice` from `tests/browser/touch.ts`.

@@ -21,7 +21,7 @@ references: []
 claim: null
 archive: null
 created_at: 2026-09-24T03:34:58Z
-updated_at: 2026-09-24T03:34:59Z
+updated_at: 2026-09-24T05:00:46Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -46,3 +46,4 @@ See `docs/mobile-design-v1.md`, "The list".
 - [ ] Tapping a row opens the ticket in the inspector or sheet
 - [ ] Live updates reach the list as they reach the board
 - [ ] A phone baseline screenshot of the list is added
+- [ ] A touch drag scrolls the list on the emulated phone and tablet, carried from TKT-01M38QP2CZEJ120PFDKMK3WTP1's first criterion
