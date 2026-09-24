@@ -25,6 +25,10 @@ const KEY = 'git-ticket-canvas.display'
  * the window asked for. */
 export interface StoredDisplay extends DisplayOverrides {
   toolbar?: ToolbarScale
+  /** The phone's first-visit tip has been tapped closed. Kept here rather than
+   * under a key of its own so that it is one more line in the one allowlist,
+   * and absent rather than false until somebody closes it. */
+  tipClosed?: true
 }
 
 const DENSITIES = ['full', 'compact']
@@ -68,6 +72,7 @@ export function recall(): StoredDisplay {
     if (targets) overrides.targets = targets
     const toolbar = pick<ToolbarScale>(record.toolbar, TOOLBAR_SCALES)
     if (toolbar) overrides.toolbar = toolbar
+    if (record.tipClosed === true) overrides.tipClosed = true
     return overrides
   } catch {
     return {}

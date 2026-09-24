@@ -1,7 +1,10 @@
 #frameLayer { position: absolute; inset: 0; pointer-events: none; }
 .canvas-frame { position: absolute; top: 0; left: 0; border: 2px solid var(--frame-color); border-radius: 10px; background: color-mix(in srgb, var(--frame-color) 7%, transparent); pointer-events: none; }
 .canvas-frame.selected { outline: 2px solid var(--accent); outline-offset: 4px; }
-.canvas-frame-title { position: absolute; top: -18px; left: 10px; max-width: calc(100% - 20px); background: var(--panel); color: var(--ink); border: 1px solid var(--frame-color); border-radius: 5px; padding: 5px 9px; pointer-events: auto; cursor: grab; font: 12px/1.4 var(--sans); overflow-wrap: anywhere; text-align: left; }
+.canvas-frame-title, .canvas-frame-label { position: absolute; top: -18px; left: 10px; max-width: calc(100% - 20px); background: var(--panel); color: var(--ink); border: 1px solid var(--frame-color); border-radius: 5px; padding: 5px 9px; pointer-events: auto; cursor: grab; font: 12px/1.4 var(--sans); overflow-wrap: anywhere; text-align: left; }
+/* A phone's frame title reads the same and is not a handle: a finger on it
+   reaches the board underneath and pans. */
+.canvas-frame-label { pointer-events: none; cursor: inherit; }
 .canvas-frame-resize { position: absolute; bottom: -9px; right: -9px; width: 26px; height: 26px; border: 1px solid var(--frame-color); border-radius: 4px; background: var(--panel); color: var(--ink); pointer-events: auto; cursor: nwse-resize; }
 .canvas-frame-title:focus-visible, .canvas-frame-resize:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 /* A fingertip covers about this much, and the handle is the smallest thing on

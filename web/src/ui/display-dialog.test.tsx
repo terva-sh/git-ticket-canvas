@@ -4,7 +4,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { DisplayDialog } from './DisplayDialog'
 import { useDisplay } from './useDisplay'
-import { recall } from './displayPreferences'
+import { recall, remember } from './displayPreferences'
 import { Toolbar, type ToolbarProps } from './Toolbar'
 
 let root: HTMLDivElement
@@ -203,4 +203,19 @@ it('does not count or clear the toolbar size with the automatic settings', () =>
   expect(reset().textContent).toContain('1 set by hand')
   act(() => reset().click())
   expect(recall()).toEqual({ toolbar: 'large' })
+})
+
+// A closed tip lives in the same record and is not a display choice either.
+// Counting it would make the reset button offer to undo something nobody set
+// in this panel, and clearing it would bring the tip back.
+it('does not count or clear a closed phone tip with the automatic settings', () => {
+  remember({ tipClosed: true })
+  sizeWindow(390, 844, true)
+  show()
+  const reset = () => root.querySelector<HTMLButtonElement>('#displayReset')!
+  expect(reset().disabled).toBe(true)
+  choose('density', 'full')
+  expect(reset().textContent).toContain('1 set by hand')
+  act(() => reset().click())
+  expect(recall()).toEqual({ tipClosed: true })
 })

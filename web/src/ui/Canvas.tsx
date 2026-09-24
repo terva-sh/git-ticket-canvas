@@ -16,6 +16,11 @@ import { drawGrid } from './canvas/grid'
 import { useMeasurements } from './canvas/useMeasurements'
 
 const empty: LabelFilters = new Map()
+/** How far, in CSS pixels, a phone's press on a card may wander and still be a
+ * tap that opens it. A fingertip is never perfectly still, and a pan that
+ * opened a sheet whenever it happened to start on a card would cover the board
+ * it was trying to move. */
+const TAP_SLOP = 8
 
 export interface CanvasProps {
   /** Told whenever the view moves, because it is a ref and nothing outside this
@@ -52,6 +57,14 @@ export interface CanvasProps {
    * beside the board; a sheet that covers the board is transient and reserving
    * for it would frame every board into a corner. */
   inspector?: import('../platform/canvas/viewport').InspectorPlacement
+  /** What the board offers. A phone views and triages, so on `phone` nothing
+   * here writes layout: a drag from a card pans, a tap opens it, and the link
+   * handle, the frame handles and the Manual control are not drawn. */
+  layout?: import('../platform/canvas/viewport').Layout
+  /** Whether the phone's first-visit tip is still waiting to be closed. Only
+   * the phone shows it, in place of the hint. */
+  tip?: boolean
+  onTipClosed?: () => void
   query: string
   filters: ReadonlySet<string>
   labelFilters?: LabelFilters
@@ -110,7 +123,9 @@ interface GestureBase {
   endBusy: () => void
 }
 type Gesture = GestureBase & (
-  | { kind: 'pan' }
+  // `tap` is the card a phone's pan started on. If the pointer never travels
+  // past TAP_SLOP, the lift was a tap and opens that card.
+  | { kind: 'pan'; tap?: string; moved?: boolean }
   | { kind: 'card'; ids: string[]; moved: boolean; delta: Point; readOnly: boolean }
   // A refused card is never `to`: it gets no target highlight and the drop
   // writes nothing, as over empty board, and `refused` says why.
@@ -523,10 +538,13 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     if (!target || !element) return
     cancelFrame()
     const p = latest.current
+    // A phone's board writes no layout. The frame handles and the link handle
+    // are not drawn there, and a press on a card is a pan rather than a drag.
+    const phone = p.layout === 'phone'
     const frameHandle = target.closest<HTMLElement>('[data-frame-gesture]')
     const frameID = frameHandle?.dataset.frameId
     const frame = frameID ? p.frames?.[frameID] : undefined
-    if (p.layoutBusy && (frame || target.closest('#cards .card') || p.frameCreating)) return
+    if (p.layoutBusy && (frame || (!phone && target.closest('#cards .card')) || p.frameCreating)) return
     const card = target.closest<HTMLDivElement>('#cards .card')
     const id = card?.dataset.id
     const handle = target.closest('.handle')
@@ -544,6 +562,11 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       const start = toScene(pointer, local.view, element.getBoundingClientRect())
       gesture = { ...base, kind: 'frame-draw', start,
         bounds: { title: 'New frame', ...start, w: 0, h: 0, color: '#759bcc', members: [] } }
+    } else if (id && p.tickets.has(id) && phone) {
+      // Selected on the lift, and only if the finger stayed put. A finger that
+      // lands on a card is almost always starting a pan, and a card moved by
+      // accident is a layout write somebody has to find and undo.
+      gesture = { ...base, kind: 'pan', tap: id, moved: false }
     } else if (id && p.tickets.has(id)) {
       if (handle && !p.readOnly) {
         gesture = { ...base, kind: 'link', from: id, to: null, refused: null,
@@ -572,6 +595,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     if (gesture.kind === 'pan') {
       local.view = { ...gesture.view, x: gesture.view.x + point.x - gesture.pointer.x,
         y: gesture.view.y + point.y - gesture.pointer.y }
+      if (gesture.tap && Math.hypot(point.x - gesture.pointer.x, point.y - gesture.pointer.y) > TAP_SLOP) gesture.moved = true
       reportView()
     } else if (gesture.kind === 'card') {
       const dx = (point.x - gesture.pointer.x) / gesture.view.k
@@ -644,7 +668,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     redraw()
     if (!gesture) return
     const p = latest.current
-    if (gesture.kind === 'frame-draw') {
+    if (gesture.kind === 'pan') {
+      if (gesture.tap && !gesture.moved && p.tickets.has(gesture.tap)) p.onSelect(gesture.tap, event.shiftKey)
+    } else if (gesture.kind === 'frame-draw') {
       if (!p.readOnly && !p.layoutBusy && gesture.bounds.w >= 80 && gesture.bounds.h >= 80) p.onNewFrame?.(gesture.bounds)
     } else if (gesture.kind === 'frame-move' || gesture.kind === 'frame-resize') {
       if (!gesture.moved || p.readOnly || p.layoutBusy) return
@@ -760,6 +786,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   // One width for this render. The stylesheet, the edge anchors and the fit
   // bounds all take it from here rather than choosing a constant themselves.
   const cardWidth = activeWidth()
+  const phone = props.layout === 'phone'
   return <div id="stage" ref={stage} data-canvas-frame={local.frameCount}
     data-placement-calculations={placementCalculations.current}
     class={gesture?.kind === 'pan' || local.pinch ? 'panning' : gesture?.kind === 'link' ? `linking${gesture.refused ? ' link-refused' : ''}` : ''}
@@ -792,9 +819,14 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
         const dimmed = frame.members.filter(member => props.tickets.has(member) && !matching.has(member)).length
         return <div key={id} class={`canvas-frame ${props.selectedFrame === id ? 'selected' : ''}`} data-frame-id={id}
           style={{ transform: `translate(${frame.x}px, ${frame.y}px)`, width: `${frame.w}px`, height: `${frame.h}px`, '--frame-color': frame.color }}>
-          <button class="canvas-frame-title" data-frame-id={id} data-frame-gesture="move"
-            onClick={() => props.onSelectFrame?.(id)}>{frame.title} · {frame.members.length} members{dimmed > 0 && ` · ${dimmed} filtered`}</button>
-          {!props.readOnly && <button class="canvas-frame-resize" data-frame-id={id} data-frame-gesture="resize"
+          {/* On a phone the title is a label: the frame panel offers only
+            * edits, which a phone does not make, and everything it would show a
+            * reader is already written here. A finger on it pans the board. */}
+          {phone
+            ? <span class="canvas-frame-label" data-frame-id={id}>{frame.title} · {frame.members.length} members{dimmed > 0 && ` · ${dimmed} filtered`}</span>
+            : <button class="canvas-frame-title" data-frame-id={id} data-frame-gesture="move"
+              onClick={() => props.onSelectFrame?.(id)}>{frame.title} · {frame.members.length} members{dimmed > 0 && ` · ${dimmed} filtered`}</button>}
+          {!props.readOnly && !phone && <button class="canvas-frame-resize" data-frame-id={id} data-frame-gesture="resize"
             disabled={props.layoutBusy} aria-label={`Resize ${frame.title} boundary only`} onClick={() => props.onSelectFrame?.(id)}>↘</button>}
         </div>
       })}</div>
@@ -810,14 +842,18 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
           frameMember={!!props.selectedFrame && !!props.frames?.[props.selectedFrame]?.members.includes(ticket.id)}
           target={gesture?.kind === 'link' && gesture.to === ticket.id}
           refused={gesture?.kind === 'link' && gesture.refused?.id === ticket.id} register={measurements.register}
-          density={props.density} onRelease={props.readOnly ? undefined : releaseCard} />
+          density={props.density} linkable={!phone} onRelease={props.readOnly || phone ? undefined : releaseCard} />
       })}</div>
     </div>
     {props.frameCreating && <div id="frameDrawHint" role="status">Draw on empty canvas to capture card centers, or enter bounds in the frame panel. Escape cancels.</div>}
-    <div id="hint">drag canvas to pan · scroll to zoom · double-click to file a ticket · drag the right handle to link
-      {!props.readOnly && ' · u hands the selection back to automatic placement'}
-      {props.relationships !== 'none' && <div>Solid arrow: ticket → dependency · Dashed warm arrow: parent → child · hover or select to name one edge</div>}
-    </div>
+    {/* The hint describes a mouse and a desk. A phone gets one line, once. */}
+    {phone
+      ? props.tip && <button id="boardTip" type="button" title="Tap to close" onClick={() => props.onTipClosed?.()}>
+        drag to move around · pinch to zoom · tap a card to open it</button>
+      : <div id="hint">drag canvas to pan · scroll to zoom · double-click to file a ticket · drag the right handle to link
+        {!props.readOnly && ' · u hands the selection back to automatic placement'}
+        {props.relationships !== 'none' && <div>Solid arrow: ticket → dependency · Dashed warm arrow: parent → child · hover or select to name one edge</div>}
+      </div>}
     {props.children}
   </div>
 })
