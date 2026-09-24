@@ -23,7 +23,7 @@ function everything(): ToolbarProps {
     onArrange: () => {}, onFit: () => {}, onNew: () => {},
     onNewFrame: () => {}, onUndoFrame: () => {}, onRedoFrame: () => {},
     zoom: 1, onZoomIn: () => {}, onZoomOut: () => {}, onZoomReset: () => {},
-    onDisplay: () => {},
+    onDisplay: () => {}, view: 'board', onView: () => {},
     labels: ['infrastructure', 'ui'], labelFilters: new Map(), onLabelFilter: () => {}, onClearLabelFilters: () => {},
     account: { name: 'Drew Short', onOpen: () => {} },
     stores: { stores: [], current: 'ledger', recent: [], onOpen: () => {}, onBrowse: () => {} },
@@ -73,8 +73,9 @@ it('puts each control in the row and the group its purpose asks for', () => {
   // What you are looking at, and what it is being shown in.
   expect(ids('context', 'left')).toEqual(['storePath', 'version', 'storePicker', 'boardSelect', 'newBoard'])
   expect(ids('context', 'right')).toEqual(['roBadge', 'btnDisplay', 'btnAccount'])
-  // Finding things, and the count of what the finding left.
-  expect(ids('working', 'left')).toEqual(['search', 'statusFilters', 'labelFilter', 'counts'])
+  // Finding things, and the count of what the finding left. The Board/List
+  // switch opens the row, beside the search box.
+  expect(ids('working', 'left')).toEqual(['viewSwitch', 'search', 'statusFilters', 'labelFilter', 'counts'])
   // Changing the view, then making something.
   expect(ids('working', 'right')).toEqual(['relationshipMode', 'cardDensity',
     'btnFrame', 'btnFrameUndo', 'btnFrameRedo', 'btnArrange',

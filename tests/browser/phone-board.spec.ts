@@ -214,6 +214,36 @@ test.describe('phone', () => {
     expect(await app.snapshot()).toEqual(files)
   })
 
+  test('the ticket sheet shows placement and frame membership without the controls that write layout', async ({ page, app }) => {
+    const ticket = await app.create('Placed and framed', { x: 0, y: 0 })
+    await frameAround(page, app.url)
+    await store(page, { tipClosed: true })
+    await open(page, app.url)
+    const card = page.locator(`.card[data-id="${ticket.id}"]`)
+    const files = await app.snapshot()
+    const sent = writes(page)
+
+    await tap(page, card.locator('.card-title'))
+    await expect(page.locator('#inspector.open')).toBeVisible()
+
+    const placement = page.locator('#inspector .placement')
+    await expect(placement).toContainText('Arranged on the tablet or desk layout')
+    await expect(placement.locator('[data-return-automatic]')).toHaveCount(0)
+    const membership = page.locator('#inspector .frame-membership')
+    await expect(membership).toContainText('Member of Held')
+    // Nothing in it opens the frame panel or changes the frame.
+    await expect(membership.locator('button, select')).toHaveCount(0)
+
+    // A keyboard attached to a phone does not hand the card back either.
+    // Out of every field first: a key typed into one is text, not a command.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+    await page.keyboard.press('u')
+    await page.waitForTimeout(400)
+    await expect(card).not.toHaveClass(/unpinned/)
+    expect(sent).toEqual([])
+    expect(await app.snapshot()).toEqual(files)
+  })
+
   test('the first-visit tip replaces the hint, stays clear of New ticket and the sheet, and stays closed', async ({ page, app }) => {
     const ticket = await app.create('Under the tip', { x: 0, y: 0 })
     await open(page, app.url)

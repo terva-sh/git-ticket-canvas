@@ -234,8 +234,8 @@ test('a touch drag inside the open inspector scrolls it and leaves the board alo
   }).toBe(true)
   const before = await view(page)
   const area = (await body.boundingBox())!
-  // In the body's right-hand padding. The left edge is the resize handle,
-  // which claims its touches on purpose, and this is about the container.
+  // In the body's right-hand padding, away from the edge the next test is
+  // about, since this one is about the container.
   const x = Math.round(area.x + area.width - 6), from = Math.round(area.y + area.height - 40)
   const sent = writes(page)
 
@@ -244,6 +244,35 @@ test('a touch drag inside the open inspector scrolls it and leaves the board alo
   await expect.poll(() => body.evaluate(node => node.scrollTop)).toBeGreaterThan(100)
   expect(await view(page)).toEqual(before)
   expect(sent).toEqual([])
+})
+
+// A portrait tablet puts the inspector along the bottom, full width. The side
+// resize handle widens a panel beside the board, so here it has nothing to
+// resize, and while it was drawn it took every touch that started along the
+// sheet's left edge, scrolls included.
+test('a touch drag from the left edge of the bottom sheet scrolls it', async ({ page, app }) => {
+  const ticket = await app.patch(await app.create('Scrolled from the edge', { x: 0, y: 0 }),
+    [{ op: 'setDescription', text: Array.from({ length: 80 }, (_, i) => `Line ${i + 1} of a description long enough to scroll.`).join('\n\n') }])
+  await open(page, app.url, ticket.id)
+  await expect(page.locator('html')).toHaveAttribute('data-inspector', 'bottom')
+  const card = (await page.locator(`.card[data-id="${ticket.id}"]`).boundingBox())!
+  await touchSteps(page, [[whole({ x: card.x + 60, y: card.y + 20 })]])
+  const inspector = page.locator('#inspector'), body = page.locator('#inspBody')
+  await expect(inspector).toHaveClass(/open/)
+  await expect.poll(() => body.evaluate(node => node.scrollHeight > node.clientHeight)).toBe(true)
+  let settled = ''
+  await expect.poll(async () => {
+    const was = settled
+    settled = JSON.stringify(await inspector.boundingBox())
+    return settled === was
+  }).toBe(true)
+  await expect(page.locator('.insp-resize')).toBeHidden()
+  const sheet = (await inspector.boundingBox())!, area = (await body.boundingBox())!
+  const x = Math.round(sheet.x + 4), from = Math.round(area.y + area.height - 40)
+
+  await touchSteps(page, Array.from({ length: 9 }, (_, i) => [{ x, y: from - i * 30 }]))
+
+  await expect.poll(() => body.evaluate(node => node.scrollTop)).toBeGreaterThan(100)
 })
 
 // Starting a pinch drops the first finger's gesture, and with it the capture
