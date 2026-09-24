@@ -3,7 +3,7 @@ schema: 3
 id: TKT-01M38R4GRCRG7PYT72MV47PKAJ
 title: Refuse a dependency drag that would close a cycle
 type: task
-status: in-progress
+status: review
 status_reason: null
 priority: normal
 due_on: null
@@ -27,7 +27,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:42:50Z
-updated_at: 2026-09-24T05:16:38Z
+updated_at: 2026-09-24T05:17:19Z
 created_by:
   id: agent:claude/t3code
   name: ""
@@ -47,10 +47,10 @@ This changes behaviour for desk users. The maintainer accepted that on 2026-09-2
 
 ## Acceptance criteria
 
-- [ ] Dropping a link that would close a cycle writes nothing and says which tickets form the cycle, with a browser test
-- [ ] The drag and the inspector picker use the same predicate
-- [ ] While dragging, a cycle-closing target is shown as refused before the drop
-- [ ] A link that closes no cycle behaves exactly as it does today
+- [x] Dropping a link that would close a cycle writes nothing and says which tickets form the cycle, with a browser test
+- [x] The drag and the inspector picker use the same predicate
+- [x] While dragging, a cycle-closing target is shown as refused before the drop
+- [x] A link that closes no cycle behaves exactly as it does today
 
 ## Implementation plan
 
@@ -88,3 +88,17 @@ Direction checked against `relations.test.ts` before relying on it: `store('A:',
 The tests needed the short IDs read from the board after every ticket was filed. A short ID is the shortest prefix unique in the store, so the one returned when a ticket is created gets longer as later tickets land. The first run failed on exactly that: the toast was right and the expected text was stale.
 
 Checked that the new browser tests catch the missing behaviour: with the `linkRefusal` prop and the guard in `link()` removed and the bundle rebuilt, both fail (desk: `link-refused` never appears on the hovered card; tablet: the observer never saw it). Restored and rebuilt, both pass.
+
+**agent:claude/mobile-cycle** at 2026-09-24T05:17:10Z
+
+Verification on 5fa0278, in this worktree: `just web-typecheck` passes; `just web-test` 42 files, 543 tests passed; `just browser-test` (whole suite, rebuilt bundle) 101 passed, 6 skipped (the opt-in skips), 0 failed, including the unchanged link tests in `canvas.spec.ts` and `baseline.spec.ts` and the two new tests in `link-cycle.spec.ts`; strict tsc on `tests/browser/link-cycle.spec.ts` passes; `just dist-verify` matches HEAD byte for byte; `just tickets-check` finds no problems. No Go was touched.
+
+Evidence for the criteria. 1: both new browser tests drop onto the cycle-closing card, see only GET requests, find A's dependencies still empty, and read the loop from the error toast by short ID. 2: `link()` and `linkRefusal()` in `App.tsx` call `closingCycle`, which is `cycleFinder(tickets)(...)`, the function the picker in `RelationPicker.tsx` uses. 3: the desk test asserts `link-refused` on the hovered card, on `#stage` and on `#ghost` before the mouse is released; the tablet test records the card class while the finger is down. 4: a card that closes nothing takes the unchanged path (`to` set, `link-target`, `onLink`), which the desk test checks on an unrelated card and the existing link tests check unchanged.
+
+## Summary
+
+A link dragged over a card that would close a dependency cycle now shows as refused. The card gets a danger border (`link-refused`) and no target highlight, the cursor becomes not-allowed, and the ghost line turns the danger colour. Dropping there writes nothing, and the error toast names the loop by short ID, for example "Not linked: that would close a cycle, A waits on C, C waits on B, B waits on A." A link that closes no cycle takes the same path as before.
+
+The check is `linkRefusal(from, to)` in `web/src/ui/App.tsx`. It calls `closingCycle(store.state.tickets, 'dependency', to, from)` from `web/src/platform/tickets/relations.ts`, the predicate the inspector's picker uses through `cycleFinder`, and writes the message. `Canvas` receives it as one optional prop, `linkRefusal`. The link gesture asks it each time the pointer enters a card and keeps a refused card out of `to`, so the existing drop path writes nothing, as it does over empty board. `link()` asks the same question again before writing, which covers a drop judged against a board the store has refreshed since. The plan records the alternatives: Canvas walking its own tickets, a boolean callback, and keeping the refused card as `to`.
+
+Files: `App.tsx` (the import, `linkRefusal` beside `link()`, the guard in `link()`, and one Canvas prop), `Canvas.tsx` (the prop, the link gesture type, its move, its drop, and the stage, ghost and card rendering), `canvas/CardView.tsx` (a `refused` prop), `canvas/Edges.tsx` (the ghost's refused colour), and two rules in `web/index.html` beside `#stage.linking` and `.card.link-target`. Tests are in `tests/browser/link-cycle.spec.ts`: one desk test with the mouse and one tablet test with `touchSteps` from the card's handle. Both fail when the fix is removed. The results are in the notes. The ticket is waiting for review.
