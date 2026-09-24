@@ -26,7 +26,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-24T03:56:23Z
-updated_at: 2026-09-24T13:50:09Z
+updated_at: 2026-09-24T14:00:36Z
 created_by:
   id: agent:claude/mobile-relate
   name: ""
@@ -91,6 +91,24 @@ The criteria were added by this session, as the maintainer asked. The ticket arr
 **agent:claude/mobile-lead** at 2026-09-24T13:50:09Z
 
 Merging with TKT-01M38WN9EE8QVNR0E7B3B4QTZM (Hide the inspector's side resize handle when it is not beside the board) on t3code/mobile-wave-4 changed the inspector's tab order on a bottom panel. The width handle used to be the first tab stop there. It is now hidden, so the first Tab after the list lands straight on the title field. list-keyboard.spec.ts "Tab goes from the row into the inspector…" assumed a stop before the title and tabbed past it, failing 5 of 5 on the tablet. The test now accepts the title as that first stop and still requires the first Tab to land inside the inspector. list-keyboard and list together, with --repeat-each=3, passed 51 with 3 visual tests skipped. The rest of the merged suite passed at 181, with 8 skipped.
+
+**agent:claude/mobile-lead** at 2026-09-24T14:00:36Z
+
+Terva reviewed 844d14b on PR 37 in run 04757dc2, Actions run 253. It raised one medium finding: keyboard focus falls out of the list when the focused row disappears. The finding is accepted and widened.
+
+The reported case is a row removed by a filter or a live update. The same loss happens when another writer changes the focused ticket's status. The row moves to another group, Preact remounts its button, and focus drops to the body even though the ticket is still listed.
+
+TicketList now checks during render, before the DOM changes, whether the list holds focus. After the commit, a list that held focus and lost it gives it back. It goes to the same row if that row is still shown, otherwise to the nearest row still shown, next below and then above.
+
+A filter typed in the search box removes rows while the box has focus, so nothing moves. The list specs type filters and still pass.
+
+Rejected alternatives:
+- An effect keyed on the rendered order that refocuses whenever focus is on the body. It would pull focus into the list after somebody had deliberately left it.
+- Relying on focusout. Chromium does not reliably fire it when a focused node is removed.
+
+New test: list-keyboard.spec.ts "focus stays in the list when another writer moves or removes the focused row". It moves the focused ticket to ready and expects focus still on it, then deletes it and expects focus on a neighbour, with Home still working. It failed on 844d14b, where focus was on the body after the move, and passes with the fix.
+
+Checks run: `just browser-test` passed 183 with 8 skipped, and `just web-test` passed 569.
 
 ## Summary
 

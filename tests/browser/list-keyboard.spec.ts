@@ -143,3 +143,34 @@ for (const [name, device] of [['desk', null], ['tablet', tablet], ['phone', phon
     })
   })
 }
+
+// Another writer's change arrives as a live update, and the row that had focus
+// is moved to another status group (which remounts it) or removed. Focus stays
+// in the list either way, so the arrow keys keep working.
+test('focus stays in the list when another writer moves or removes the focused row', async ({ page, app }) => {
+  const order = await seed(app)
+  await page.goto(app.url)
+  await expect(page.locator(`.card[data-id="${order[0]}"]`)).toBeAttached()
+  await tabUntil(page, at => at.id === 'viewList')
+  await page.keyboard.press('Enter')
+  await tabUntil(page, at => !!at.row)
+  await page.keyboard.press('ArrowDown')
+  const moved = order[1]
+  expect((await focused(page)).row).toBe(moved)
+
+  // To ready, a group further down: the same row, somewhere else.
+  const ticket = (await app.board()).tickets.find(t => t.id === moved)!
+  const after = await app.patch(ticket, [{ op: 'setStatus', status: 'ready' }])
+  await expect(page.locator(`#ticketList [data-status="ready"] .list-row[data-id="${moved}"]`)).toBeAttached()
+  await expect.poll(async () => (await focused(page)).row).toBe(moved)
+
+  // Gone: its neighbour in the ready group takes the focus.
+  const query = new URLSearchParams({ board: 'default', ifRevision: after.revision, force: 'false' })
+  expect((await page.request.delete(`${app.url}/api/tickets/${moved}?${query}`)).status()).toBe(200)
+  await expect(page.locator(`#ticketList .list-row[data-id="${moved}"]`)).toHaveCount(0)
+  await expect.poll(async () => (await focused(page)).row).not.toBe('')
+  const now = (await focused(page)).row
+  await page.keyboard.press('Home')
+  expect((await focused(page)).row, 'the arrow keys still work').toBe(order[0])
+  expect(now).not.toBe(moved)
+})

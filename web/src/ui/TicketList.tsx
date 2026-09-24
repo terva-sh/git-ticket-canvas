@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { Ticket } from '../platform/tickets/types'
 import type { TicketFilters } from '../platform/tickets/filters'
 import { listGroups } from '../platform/tickets/list'
@@ -44,7 +44,9 @@ export interface TicketListProps {
  *   leaves the list for the inspector, which comes after it in the document.
  *   With a stop per row, the inspector was as many Tabs away as there were
  *   rows below the one just opened.
- * - Focus comes back. Closing the inspector hides the panel focus was in, and
+ * - Focus stays in the list. A row removed or moved to another group while it
+  has focus keeps it, or hands it to its nearest neighbour.
+- Focus comes back. Closing the inspector hides the panel focus was in, and
  *   the next Tab would start from the top of the page. When the selection
  *   clears with focus nowhere, or still inside the inspector, the row takes
  *   it back.
@@ -71,6 +73,29 @@ export function TicketList(p: TicketListProps) {
     if (focused && focused !== document.body && !focused.closest('#inspector')) return
     container.current?.querySelector<HTMLElement>('.list-row[tabindex="0"]')?.focus()
   }, [p.selected])
+
+  // An update that removes the focused row, or moves it to another status
+  // group, which remounts its button, drops the focus to the body, and a
+  // keyboard user is left outside the list with the arrows doing nothing. A
+  // live update or another writer's change does that. Whether the list held
+  // focus is read here, during the render and so before the DOM changes; after
+  // the commit, a list that held it and lost it gives it back: to the same row
+  // if it is still shown, otherwise to its nearest neighbour, next below and
+  // then above. A filter typed in the search box also removes rows, and there
+  // the box has the focus, so nothing moves.
+  const shown = useRef(order)
+  const held = !!container.current && container.current.contains(document.activeElement)
+  useLayoutEffect(() => {
+    const before = shown.current
+    shown.current = order
+    if (!held || !active || container.current?.contains(document.activeElement)) return
+    const at = before.indexOf(active)
+    const next = order.includes(active) ? active
+      : [...before.slice(at + 1), ...before.slice(0, Math.max(0, at)).reverse()].find(id => order.includes(id))
+    if (!next) return
+    if (next !== active) setActive(next)
+    container.current?.querySelector<HTMLElement>(`.list-row[data-id="${CSS.escape(next)}"]`)?.focus()
+  })
 
   const move = (event: KeyboardEvent) => {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key) || !container.current) return
