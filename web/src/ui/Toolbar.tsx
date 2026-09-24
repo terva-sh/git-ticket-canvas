@@ -43,6 +43,18 @@ export interface ToolbarProps {
    * so an override in the Display panel changes the header as well. Absent
    * reads as a desk. */
   layout?: Layout
+  /** Selection mode, entered by holding a card on a touch screen, and how many
+   * cards it has selected. Absent while the mode is off. */
+  selecting?: { count: number; onDone(): void }
+}
+
+/** Which mode the board is in, how many cards it holds, and the way out. A
+ * tap means something different while this shows, so it has to be seen. */
+export function SelectionMode({ selecting }: { selecting: NonNullable<ToolbarProps['selecting']> }) {
+  return <div class="selection-mode" id="selectionMode" role="status" aria-label={`Selecting, ${selecting.count} selected`}>
+    <span class="badge">Selecting · <span id="selectionCount">{selecting.count}</span></span>
+    <button id="selectionDone" type="button" class="tool" onClick={selecting.onDone}>Done</button>
+  </div>
 }
 
 const stateWords: Record<LabelState | 'off', string> = {
@@ -165,6 +177,7 @@ export function Toolbar(p: ToolbarProps) {
         <button id="newBoard" class="tool" title="New board" disabled={p.readOnly} onClick={p.onNewBoard}>+</button>
       </div>
       <div class="toolbar-side right">
+        {p.selecting && <SelectionMode selecting={p.selecting} />}
         {/* A property of the store rather than of the filters, so it sits with
             the store rather than with the counts. */}
         <span class="badge warn" id="roBadge" hidden={!p.readOnly}>read-only</span>

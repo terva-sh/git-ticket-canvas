@@ -21,6 +21,9 @@ const empty: LabelFilters = new Map()
  * opened a sheet whenever it happened to start on a card would cover the board
  * it was trying to move. */
 const TAP_SLOP = 8
+/** How long a finger has to stay on a card, within TAP_SLOP, to select it and
+ * enter selection mode. A touch screen has no shift key. */
+const HOLD_MS = 450
 
 export interface CanvasProps {
   /** Told whenever the view moves, because it is a ref and nothing outside this
@@ -74,6 +77,15 @@ export interface CanvasProps {
   labelMatch?: LabelMatch
   readOnly: boolean
   onSelect: (id: string, additive: boolean) => void
+  /** Whether selection mode is on. While it is, nothing selects on a press: a
+   * tap on a card toggles it, and a tap on empty board leaves the mode. */
+  selecting?: boolean
+  /** A finger held still on a card for HOLD_MS: select it and enter the mode. */
+  onHold?: (id: string) => void
+  /** A tap on a card in selection mode. */
+  onToggle?: (id: string) => void
+  /** A tap on empty board in selection mode. */
+  onSelectionDone?: () => void
   onLayout: (board: string, cards: CardChanges) => Promise<unknown>
   /** The drop target waits on the source: onLink(prerequisite, dependent). */
   onLink: (from: string, to: string) => Promise<unknown>
@@ -125,8 +137,12 @@ interface GestureBase {
 type Gesture = GestureBase & (
   // `tap` is the card a phone's pan started on. If the pointer never travels
   // past TAP_SLOP, the lift was a tap and opens that card.
-  | { kind: 'pan'; tap?: string; moved?: boolean }
-  | { kind: 'card'; ids: string[]; moved: boolean; delta: Point; readOnly: boolean }
+  // `leave` is a press on empty board in selection mode: if it stays a tap,
+  // the lift leaves the mode.
+  | { kind: 'pan'; tap?: string; moved?: boolean; leave?: boolean }
+  // `tap` is set in selection mode: a lift within TAP_SLOP toggles that card
+  // and saves nothing.
+  | { kind: 'card'; ids: string[]; moved: boolean; delta: Point; readOnly: boolean; tap?: string }
   // A refused card is never `to`: it gets no target highlight and the drop
   // writes nothing, as over empty board, and `refused` says why.
   | { kind: 'link'; from: string; to: string | null; refused: { id: string; message: string } | null; point: Point }
@@ -144,6 +160,14 @@ interface Pinch {
   view: View
   endBusy: () => void
 }
+/** A finger that has landed on a card and may yet be a long press. */
+interface Hold {
+  pointerId: number
+  id: string
+  /** Where the finger landed. More than TAP_SLOP from here is not a hold. */
+  start: Point
+  timer: ReturnType<typeof setTimeout>
+}
 interface LocalState {
   view: View
   /** A null is a removal in flight: the card is going back to the rules. */
@@ -155,6 +179,7 @@ interface LocalState {
    * releases the first finger's capture on purpose. */
   touches: Map<number, Point>
   pinch: Pinch | null
+  hold: Hold | null
   motion: Point | null
   frame: number | null
   frameCount: number
@@ -173,7 +198,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
   const activeWidth = () => cardWidthFor(latest.current.density ?? 'full')
   const local = useRef<LocalState>({
     view: { x: 120, y: 90, k: 1 }, previews: new Map<string, Card | null>(), gesture: null,
-    touches: new Map<number, Point>(), pinch: null, motion: null, frame: null, frameCount: 0, mounted: false,
+    touches: new Map<number, Point>(), pinch: null, hold: null, motion: null, frame: null, frameCount: 0, mounted: false,
   }).current
   const [, setRevision] = useState(0)
   const redraw = () => setRevision(n => n + 1)
@@ -228,7 +253,15 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     local.motion = null
   }
 
+  function endHold() {
+    if (local.hold) clearTimeout(local.hold.timer)
+    local.hold = null
+  }
+
   function release(): Gesture | null {
+    // Whatever ends the gesture ends the hold with it: a lift, a cancel, and
+    // a second finger, which starts a pinch by releasing this gesture.
+    endHold()
     cancelFrame()
     const gesture = local.gesture
     local.gesture = null
@@ -526,7 +559,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     const p = latest.current
     try { element.setPointerCapture(pointerId) }
     catch { return } // The finger may already be gone.
-    local.gesture = { kind: 'pan', pointerId, capture: element, pointer, view: { ...local.view },
+    // Moved from the start: a finger left behind by a pinch is never a tap.
+    local.gesture = { kind: 'pan', moved: true, pointerId, capture: element, pointer, view: { ...local.view },
       positions: positions(), endBusy: () => p.onBusy(false) }
     p.onBusy(true)
   }
@@ -571,6 +605,11 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       if (handle && !p.readOnly) {
         gesture = { ...base, kind: 'link', from: id, to: null, refused: null,
           point: toScene(pointer, local.view, element.getBoundingClientRect()) }
+      } else if (p.selecting) {
+        // Nothing is selected yet: whether this press adds the card, takes it
+        // out, or drags the lot is only known once it lifts or travels.
+        gesture = { ...base, kind: 'card', ids: [...new Set([...p.selection, id])].filter(key => p.tickets.has(key)),
+          moved: false, delta: { x: 0, y: 0 }, readOnly: p.readOnly, tap: id }
       } else {
         const ids = p.selection.has(id) || event.shiftKey ? new Set(p.selection) : new Set<string>()
         ids.add(id)
@@ -579,13 +618,46 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
         // Additive selection on an already selected card retains a multi-drag.
         p.onSelect(id, event.shiftKey || p.selection.has(id))
       }
-    } else gesture = { ...base, kind: 'pan' }
+    } else gesture = { ...base, kind: 'pan', moved: false, leave: !!p.selecting && !card }
     try { element.setPointerCapture(event.pointerId) }
     catch { return } // A detached stage cannot own a gesture.
     local.gesture = gesture
     p.onBusy(true)
+    // A long press is only looked for where a card press started something of
+    // its own, and never in the mode, where holding a card is just a slow tap.
+    if (event.pointerType === 'touch' && id && !p.selecting && p.onHold
+      && ((gesture.kind === 'pan' && gesture.tap) || (gesture.kind === 'card' && !gesture.tap))) {
+      startHold(event.pointerId, id, pointer)
+    }
     event.preventDefault()
     redraw()
+  }
+
+  function startHold(pointerId: number, id: string, start: Point) {
+    endHold()
+    local.hold = { pointerId, id, start, timer: setTimeout(() => {
+      const hold = local.hold
+      const gesture = local.gesture
+      local.hold = null
+      if (!local.mounted || !hold || gesture?.pointerId !== hold.pointerId) return
+      const p = latest.current
+      if (!p.tickets.has(hold.id)) return
+      if (gesture.kind === 'pan') {
+        // The lift must not open the card as well. The finger can still pan;
+        // a phone moves no cards, so there is nothing to drag.
+        gesture.tap = undefined
+      } else if (gesture.kind === 'card') {
+        // Start the drag again from where the finger is now. A hold that
+        // wandered a few pixels and lifted would otherwise save them.
+        const now = local.touches.get(hold.pointerId) ?? hold.start
+        gesture.pointer = now
+        gesture.delta = { x: 0, y: 0 }
+        gesture.moved = false
+        cancelFrame()
+      }
+      p.onHold?.(hold.id)
+      redraw()
+    }, HOLD_MS) }
   }
 
   function applyMotion(point: Point) {
@@ -595,7 +667,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     if (gesture.kind === 'pan') {
       local.view = { ...gesture.view, x: gesture.view.x + point.x - gesture.pointer.x,
         y: gesture.view.y + point.y - gesture.pointer.y }
-      if (gesture.tap && Math.hypot(point.x - gesture.pointer.x, point.y - gesture.pointer.y) > TAP_SLOP) gesture.moved = true
+      if (Math.hypot(point.x - gesture.pointer.x, point.y - gesture.pointer.y) > TAP_SLOP) gesture.moved = true
       reportView()
     } else if (gesture.kind === 'card') {
       const dx = (point.x - gesture.pointer.x) / gesture.view.k
@@ -630,6 +702,11 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
 
   function pointerMove(event: PointerEvent) {
     if (local.touches.has(event.pointerId)) local.touches.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    // Checked on every move rather than once a frame: a finger that travels
+    // past the slop and back within one frame has still moved.
+    const hold = local.hold
+    if (hold?.pointerId === event.pointerId
+      && Math.hypot(event.clientX - hold.start.x, event.clientY - hold.start.y) > TAP_SLOP) endHold()
     if (local.pinch) {
       if (!local.pinch.ids.includes(event.pointerId) || local.frame !== null) return
       // Batched to a frame the way the wheel is: every move updates where the
@@ -669,7 +746,14 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
     if (!gesture) return
     const p = latest.current
     if (gesture.kind === 'pan') {
-      if (gesture.tap && !gesture.moved && p.tickets.has(gesture.tap)) p.onSelect(gesture.tap, event.shiftKey)
+      if (gesture.moved) return
+      if (gesture.tap && p.tickets.has(gesture.tap)) {
+        if (p.selecting) p.onToggle?.(gesture.tap)
+        else p.onSelect(gesture.tap, event.shiftKey)
+      } else if (gesture.leave && p.selecting) p.onSelectionDone?.()
+    } else if (gesture.kind === 'card' && gesture.tap
+      && Math.hypot(gesture.delta.x, gesture.delta.y) * gesture.view.k <= TAP_SLOP) {
+      if (p.tickets.has(gesture.tap)) p.onToggle?.(gesture.tap)
     } else if (gesture.kind === 'frame-draw') {
       if (!p.readOnly && !p.layoutBusy && gesture.bounds.w >= 80 && gesture.bounds.h >= 80) p.onNewFrame?.(gesture.bounds)
     } else if (gesture.kind === 'frame-move' || gesture.kind === 'frame-resize') {
@@ -680,6 +764,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(prop
       void result?.catch(error => p.onError(error instanceof Error ? error.message : String(error)))
     } else if (gesture.kind === 'card' && gesture.moved) {
       if (gesture.readOnly || p.readOnly) { p.onError('read-only'); return }
+      // Dragging a card that was not selected brings it into the selection,
+      // as a shift-drag on a desk does.
+      if (gesture.tap && !p.selection.has(gesture.tap)) p.onSelect(gesture.tap, true)
       const changes: Cards = {}
       for (const id of gesture.ids) {
         const point = current.get(id)

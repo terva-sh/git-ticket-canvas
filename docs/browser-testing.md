@@ -86,6 +86,7 @@ Two-finger gestures go through CDP `Input.dispatchTouchEvent`, not `page.touchsc
 - `pinch(page, center, from, to)` puts two fingers on a horizontal line `from` pixels apart and moves them until they are `to` pixels apart. A `to` greater than `from` spreads the fingers.
 - `twoFingerPan(page, start, delta)` moves both fingers by the same delta.
 - `twoFingers(page, frames)` sends any sequence of two-point frames, for a gesture the other two do not cover.
+- `touchSteps(page, steps)` drives any number of fingers, one CDP event per step. A step that is a number waits that many milliseconds with every finger where it is, which is how a spec holds a finger still for a long press: `[[on], 600]` lands, holds for 600 ms and lifts. Repeating a step does not pass time; it sends a move of zero.
 
 CDP is Chromium only, which is the only browser this harness runs. Emulation is not a device: it does not reproduce a phone browser's own toolbars, its on-screen keyboard or its gesture handling outside the page. Check those by hand on a real device, as `docs/mobile-design-v1.md` says.
 
