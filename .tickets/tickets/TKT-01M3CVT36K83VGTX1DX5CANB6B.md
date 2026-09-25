@@ -26,7 +26,7 @@ claim:
   expires_at: null
 archive: null
 created_at: 2026-09-25T18:04:00Z
-updated_at: 2026-09-25T18:04:00Z
+updated_at: 2026-09-25T18:07:44Z
 created_by:
   id: agent:claude/t3code-1e9656fe
   name: ""
@@ -43,9 +43,9 @@ Release from 580b9a9, the merge of PR 38, which makes the canvas usable from a p
 ## Acceptance criteria
 
 - [x] The source state is clean, and every release-scope ticket is finished or explicitly deferred with evidence
-- [ ] just parity-check passes at the release commit
-- [ ] just release-check and just release-snapshot pass
-- [ ] just release-rehearse passes against a clean tagged clone
+- [x] just parity-check passes at the release commit
+- [x] just release-check and just release-snapshot pass
+- [x] just release-rehearse passes against a clean tagged clone
 - [ ] origin main carries the release commit and its CI result was read, not assumed
 - [ ] github main carries the same commit and the Windows lane passed
 - [ ] An annotated v0.8.0 tag is on that exact commit on both forges
@@ -54,3 +54,9 @@ Release from 580b9a9, the merge of PR 38, which makes the canvas usable from a p
 - [ ] The published module resolves through the Go proxy for a clean Go-only install
 - [ ] The GHCR image pulls anonymously and reports the right version
 - [ ] Forgejo tag-verify passed on the tag
+
+## Notes
+
+**agent:claude/t3code-1e9656fe** at 2026-09-25T18:07:43Z
+
+Local checks on 2026-09-25 ran at 580b9a9, plus this ticket's commit 545b36c, which only adds the ticket file, so the code tree is identical. npm ci exit 0. just parity-check exit 0: 183 browser tests passed and 8 were skipped, and the Go-only build and install of both commands passed at clean HEAD 545b36c. just release-check exit 0. just release-snapshot exit 0, and verify-release checked five archives with both commands, the checksums, licenses and provenance, the unauthenticated-bind refusals, and the embedded HTTP assets. just release-rehearse exit 0 for 0.0.0-rehearsal, with the clone and the temporary tag removed. No release-scope ticket is open: none is in-progress, ready or blocked, and git ticket check is clean. The release commit will be the merge of the PR that carries this ticket.
